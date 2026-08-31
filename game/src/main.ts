@@ -104,7 +104,7 @@ retreatBtn.addEventListener("click", () => {
     carried.hp = engine.playerHp;
     saveCarried(carried);
   }
-  endCombat("你退出了戰鬥。", "explore.html", 1200);
+  endCombat("你退出了戰鬥。", "village.html?view=expedition", 1200);
 });
 
 document.querySelector<HTMLButtonElement>("#theme-toggle")!.addEventListener("click", () => {
@@ -405,7 +405,7 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
         saveCarried(carried);
       }
       if (!carried || Object.keys(gains).length === 0) {
-        endCombat(`${message}。`, "explore.html", delay);
+        endCombat(`${message}。`, "village.html?view=expedition", delay);
       } else if (isAutoPickup()) {
         // 自動拾取開啟:照舊直接入包(與探索頁的開關一致)
         const { added, overflow } = addLoot(carried, gains);
@@ -414,10 +414,10 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
           .map(([id, n]) => `${RESOURCE_LABEL[id as ResourceId]} +${n}`)
           .join("、");
         if (overflow) lootText += "(背包塞不下,部分只能放棄)";
-        endCombat(lootText ? `${message} 拾獲:${lootText}` : `${message}。`, "explore.html", delay);
+        endCombat(lootText ? `${message} 拾獲:${lootText}` : `${message}。`, "village.html?view=expedition", delay);
       } else {
         // 手動拾取(預設):敵人的掉落一件件由玩家決定撿不撿——和探索拾獲同一套規則
-        showLootPanel(message, gains, "explore.html");
+        showLootPanel(message, gains, "village.html?view=expedition");
       }
     }
   },

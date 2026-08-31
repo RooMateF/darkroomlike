@@ -5,10 +5,16 @@ import { PERK_LABEL } from "./village/events-data";
 import { clearedSiteCount } from "./explore/sites";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
 import { INTRO_LINES, MILESTONES } from "./village/narrative";
-import { returnCarriedToVillage } from "./carried";
+import { returnCarriedToVillage, loadCarried } from "./carried";
+import { mountPrep } from "./prep-main";
+import { mountExplore } from "./explore-main";
 
-// 從探索走回村莊時,行囊裡的東西自動歸還入庫(不管從哪條路回村都正確結算)
-returnCarriedToVillage();
+// 行囊歸還:只有「真的回村」才結算——戰鬥打完跳回(?view=expedition)或
+// 遠征進行中重新整理(village-tab 停在 expedition)時,行囊要留著接續遠征
+const resumingExpedition =
+  new URLSearchParams(location.search).get("view") === "expedition" ||
+  localStorage.getItem("village-tab") === "expedition";
+if (!resumingExpedition) returnCarriedToVillage();
 
 const TICK_SECONDS = TICK_MS / 1000;
 
@@ -66,54 +72,62 @@ function startVillage() {
     <div class="hp-line" style="margin-bottom:10px;">人口 <b id="pop-text"></b>(閒置 <b id="idle-text"></b>)</div>
 
     <div class="page-content">
-    <div class="dashboard">
-      <div class="section full-width" id="affairs-resources">
-        <div class="section-title">資源</div>
-        <div id="resource-grid" class="resource-grid"></div>
-        <div id="resource-empty" class="hint-line">火堆旁還沒有任何存料。</div>
-        <div id="manual" class="button-row" style="margin-top:8px;"></div>
-        <div id="gather-slot"></div>
-        <div id="depart" class="status-line" style="margin-top:10px;"></div>
-      </div>
-
-      <div class="section full-width" id="affairs-jobs" style="display:none;">
-        <div class="section-title">工作</div>
-        <div id="jobs"></div>
-      </div>
-
-      <div class="section full-width" id="affairs-buildings" style="display:none;">
-        <div class="section-title">建築</div>
-        <div id="buildings"></div>
-      </div>
-
-      <div class="section" id="armory-section" style="display:none;">
-        <div class="section-title">裝備庫</div>
-        <div id="armory"></div>
-      </div>
-
-      <div class="section" id="craft-section" style="display:none;">
-        <div class="section-title">打造</div>
-        <div id="craft-tabs" class="button-row" style="margin-bottom:8px;"></div>
-        <div id="weapons"></div>
-      </div>
-
-      <div class="section full-width" id="market-section" style="display:none;">
-        <div class="section-title">交易所</div>
-        <div class="hint-line" id="market-shards" style="margin-bottom:8px;"></div>
-        <div id="trades"></div>
-      </div>
-
-      <div class="section full-width" id="system-section" style="display:none;">
-        <div class="section-title">系統</div>
-        <div class="button-row">
-          <button id="export-btn" class="btn ready">匯出存檔</button>
-          <button id="import-btn" class="btn ready">匯入存檔</button>
-          <button id="reset-btn" class="btn ready">重置遊戲</button>
-          <input type="file" id="import-file" accept=".json" style="display:none;" />
+    <div class="main-split" id="main-split">
+      <div class="col-fixed">
+        <div class="section" id="affairs-resources">
+          <div class="section-title">資源</div>
+          <div id="resource-grid" class="resource-grid"></div>
+          <div id="resource-empty" class="hint-line">火堆旁還沒有任何存料。</div>
+          <div id="manual" class="button-row" style="margin-top:6px;"></div>
+          <div id="gather-slot"></div>
+          <div id="depart" class="status-line" style="margin-top:8px;"></div>
         </div>
-        <div class="hint-line" style="margin-top:6px;">進度會自動保存在這個瀏覽器裡;匯出可備份或搬到其他裝置。</div>
+      </div>
+
+      <div class="col-project">
+        <div class="section" id="affairs-jobs" style="display:none;">
+          <div class="section-title">工作</div>
+          <div id="jobs"></div>
+        </div>
+
+        <div class="section" id="affairs-buildings" style="display:none;">
+          <div class="section-title">建築</div>
+          <div id="buildings"></div>
+        </div>
+
+        <div class="section" id="armory-section" style="display:none;">
+          <div class="section-title">裝備庫</div>
+          <div id="armory"></div>
+        </div>
+
+        <div class="section" id="craft-section" style="display:none;">
+          <div class="section-title">打造</div>
+          <div id="craft-tabs" class="button-row" style="margin-bottom:6px;"></div>
+          <div id="weapons"></div>
+        </div>
+
+        <div class="section" id="market-section" style="display:none;">
+          <div class="section-title">交易所</div>
+          <div class="hint-line" id="market-shards" style="margin-bottom:6px;"></div>
+          <div id="trades"></div>
+        </div>
+
+        <div class="section" id="prep-section" style="display:none;"></div>
+
+        <div class="section" id="system-section" style="display:none;">
+          <div class="section-title">系統</div>
+          <div class="button-row">
+            <button id="export-btn" class="btn ready">匯出存檔</button>
+            <button id="import-btn" class="btn ready">匯入存檔</button>
+            <button id="reset-btn" class="btn ready">重置遊戲</button>
+            <input type="file" id="import-file" accept=".json" style="display:none;" />
+          </div>
+          <div class="hint-line" style="margin-top:6px;">進度會自動保存在這個瀏覽器裡;匯出可備份或搬到其他裝置。</div>
+        </div>
       </div>
     </div>
+
+    <div id="expedition-section" style="display:none;"></div>
     </div>
 
     <div class="log-dock">
@@ -488,18 +502,20 @@ function startVillage() {
   const weaponsEl = document.querySelector<HTMLDivElement>("#weapons")!;
 
   // 頁面主分頁:村務(生產+建造)/工房(裝備庫+打造)/交易所——紀錄常駐上方(玩家反饋:紀錄太低看不到)
-  // 一個畫面一個功能(玩家反饋:不想捲動,選單直達)——村況是首頁,出門按鈕在這裡
-  type VillageTab = "status" | "jobs" | "build" | "workshop" | "market" | "system";
+  // 投射式版面(玩家反饋):左欄資源常駐(所有功能都要對照它),右側面板由選單投射內容;
+  // 整備/遠征併入本頁(不再是獨立網頁),遠征佔滿整個內容區
+  type VillageTab = "jobs" | "build" | "workshop" | "market" | "prep" | "expedition" | "system";
   const VILLAGE_TABS: { id: VillageTab; label: string }[] = [
-    { id: "status", label: "村況" },
     { id: "jobs", label: "工作" },
     { id: "build", label: "建築" },
     { id: "workshop", label: "工房" },
     { id: "market", label: "交易所" },
+    { id: "prep", label: "整備" },
+    { id: "expedition", label: "遠征" },
     { id: "system", label: "系統" },
   ];
   const storedTab = localStorage.getItem("village-tab");
-  let villageTab = (VILLAGE_TABS.some((t) => t.id === storedTab) ? storedTab : "status") as VillageTab;
+  let villageTab = (VILLAGE_TABS.some((t) => t.id === storedTab) ? storedTab : "build") as VillageTab;
   const villageTabsEl = document.querySelector<HTMLSpanElement>("#village-tabs")!;
   const villageTabBtns = VILLAGE_TABS.map((t) => {
     const b = document.createElement("button");
@@ -513,10 +529,68 @@ function startVillage() {
     villageTabsEl.appendChild(b);
     return { t, b };
   });
-  const statusSectionEl = document.querySelector<HTMLDivElement>("#affairs-resources")!;
   const jobsSectionEl = document.querySelector<HTMLDivElement>("#affairs-jobs")!;
   const buildSectionEl = document.querySelector<HTMLDivElement>("#affairs-buildings")!;
   const systemSectionEl = document.querySelector<HTMLDivElement>("#system-section")!;
+  const prepSectionEl = document.querySelector<HTMLDivElement>("#prep-section")!;
+  const expeditionSectionEl = document.querySelector<HTMLDivElement>("#expedition-section")!;
+  const mainSplitEl = document.querySelector<HTMLDivElement>("#main-split")!;
+  const logDockEl = document.querySelector<HTMLDivElement>(".log-dock")!;
+
+  function switchVillageTab(t: VillageTab) {
+    villageTab = t;
+    localStorage.setItem("village-tab", t);
+    render();
+  }
+
+  // ---- 整備/遠征視圖的掛載管理:離開村莊視圖時暫停生產(遠征期間村莊凍結,維持原有平衡),
+  // 回村後重讀存檔再恢復(整備扣裝/遠征歸還都直接動 localStorage) ----
+  let mountedView: "" | "prep" | "expedition" = "";
+  let exploreCleanup: (() => void) | null = null;
+
+  function mountExpeditionView() {
+    exploreCleanup = mountExplore(expeditionSectionEl, {
+      onReturnVillage: () => {
+        handleReturnHome();
+        switchVillageTab("build");
+      },
+      onRemount: () => {
+        // 跨圖:卸掉重掛(取代整頁 reload)
+        exploreCleanup?.();
+        expeditionSectionEl.innerHTML = "";
+        mountExpeditionView();
+      },
+    });
+  }
+
+  function syncMountedView(target: VillageTab) {
+    const want: "" | "prep" | "expedition" = target === "prep" ? "prep" : target === "expedition" ? "expedition" : "";
+    if (want === mountedView) return;
+    if (mountedView === "expedition") {
+      exploreCleanup?.();
+      exploreCleanup = null;
+      expeditionSectionEl.innerHTML = "";
+    }
+    if (mountedView === "prep") prepSectionEl.innerHTML = "";
+    const wasAway = mountedView !== "";
+    mountedView = want;
+    if (want && !wasAway) {
+      engine.saveState();
+      engine.stop();
+    } else if (!want && wasAway) {
+      engine.reloadState();
+      // 行囊還在身上=人還在外面(例如遠征中切去看系統分頁):村莊維持凍結,不能邊探險邊生產
+      if (loadCarried() === null) engine.start();
+    }
+    if (want === "prep") {
+      mountPrep(prepSectionEl, {
+        onDepart: () => switchVillageTab("expedition"),
+        onBack: () => switchVillageTab("build"),
+      });
+    } else if (want === "expedition") {
+      mountExpeditionView();
+    }
+  }
   const marketSectionEl = document.querySelector<HTMLDivElement>("#market-section")!;
   const marketShardsEl = document.querySelector<HTMLDivElement>("#market-shards")!;
   const tradesEl = document.querySelector<HTMLDivElement>("#trades")!;
@@ -985,29 +1059,49 @@ function startVillage() {
       row.btn.classList.toggle("ready", affordable);
     }
 
-    // 主分頁顯示:分頁鈕常駐標題列;各分頁「有無內容」+ 當前選擇決定區塊開關
+    // 投射面板:分頁鈕常駐標題列;遠征佔滿內容區(左欄與投射面板整組隱藏)
+    const onExpedition = loadCarried() !== null; // 遠征中=身上有行囊;回村結算後自然解除
+    const readyToGo = engine.populationCap >= 20 && engine.hasBuilding("farm");
     const workshopHas = armoryEl.childElementCount > 0 || anyCraftVisible;
-    const tabHas: Record<VillageTab, boolean> = { status: true, jobs: true, build: true, workshop: workshopHas, market: tradeOpen, system: true };
-    const activeVillageTab: VillageTab = tabHas[villageTab] ? villageTab : "status";
+    const tabHas: Record<VillageTab, boolean> = {
+      jobs: !onExpedition,
+      build: !onExpedition,
+      workshop: !onExpedition && workshopHas,
+      market: !onExpedition && tradeOpen,
+      prep: !onExpedition && readyToGo,
+      expedition: onExpedition,
+      system: true,
+    };
+    const activeVillageTab: VillageTab = tabHas[villageTab] ? villageTab : onExpedition ? "expedition" : "build";
+    syncMountedView(activeVillageTab);
     for (const { t, b } of villageTabBtns) {
       b.style.display = tabHas[t.id] ? "" : "none";
       b.classList.toggle("ready", t.id === activeVillageTab);
     }
-    statusSectionEl.style.display = activeVillageTab === "status" ? "" : "none";
+    const isExp = activeVillageTab === "expedition";
+    mainSplitEl.style.display = isExp ? "none" : "";
+    expeditionSectionEl.style.display = isExp ? "" : "none";
+    logDockEl.style.display = isExp ? "none" : ""; // 遠征有自己的紀錄,村莊的先收起來
+    app.style.maxWidth = isExp ? "1040px" : "";
     jobsSectionEl.style.display = activeVillageTab === "jobs" ? "" : "none";
     buildSectionEl.style.display = activeVillageTab === "build" ? "" : "none";
     armorySection.style.display = activeVillageTab === "workshop" && armoryEl.childElementCount > 0 ? "" : "none";
     craftSectionEl.style.display = activeVillageTab === "workshop" && anyCraftVisible ? "" : "none";
     marketSectionEl.style.display = activeVillageTab === "market" && tradeOpen ? "" : "none";
+    prepSectionEl.style.display = activeVillageTab === "prep" ? "" : "none";
     systemSectionEl.style.display = activeVillageTab === "system" ? "" : "none";
     marketShardsEl.textContent = `異晶存量:${Math.floor(engine.resources.shard ?? 0)}`;
 
     // 外出探索:人口上限達 20(靠不斷擴建小木屋)且蓋出田才開放——
     // 沒有田就沒有穀物、沒有乾糧,空著肚子出門是送死;條件不寫提示,讓玩家自行摸索
-    const readyToExplore = engine.populationCap >= 20 && engine.hasBuilding("farm");
-    departEl.innerHTML = readyToExplore
-      ? `<a href="prep.html" class="btn btn-primary">整備出門 →</a>`
-      : "";
+    departEl.innerHTML = "";
+    if (readyToGo && !onExpedition) {
+      const goPrep = document.createElement("button");
+      goPrep.className = "btn btn-primary";
+      goPrep.textContent = "整備出門 →";
+      goPrep.addEventListener("click", () => switchVillageTab("prep"));
+      departEl.appendChild(goPrep);
+    }
 
     checkMilestones();
   }
@@ -1028,8 +1122,9 @@ function startVillage() {
       "「多帶一把備用的武器。武器壞了的話就沒辦法作戰了。」",
     ],
   };
-  const deathCause = localStorage.getItem("death-cause");
-  if (deathCause) {
+  function processDeathCause() {
+    const deathCause = localStorage.getItem("death-cause");
+    if (!deathCause) return;
     localStorage.removeItem("death-cause");
     localStorage.setItem("died-once", "1"); // 她看過你被抬回來的樣子——之後的道別會不一樣
     const tips = REVIVAL_TIPS[deathCause] ?? REVIVAL_TIPS.combat;
@@ -1039,8 +1134,20 @@ function startVillage() {
     appendLog(tips[idx % tips.length]);
     localStorage.setItem(idxKey, String((idx + 1) % tips.length));
   }
+  processDeathCause();
+
+  /** 遠征歸來(走回村口/倒下):行囊歸還入庫、活引擎重讀存檔、死因叮囑 */
+  function handleReturnHome() {
+    returnCarriedToVillage();
+    engine.reloadState();
+    processDeathCause();
+  }
 
   engine.start();
+  // 戰鬥頁打完回來(?view=expedition),或遠征進行中重新整理:直接接回遠征視圖
+  if (loadCarried() !== null && (new URLSearchParams(location.search).get("view") === "expedition" || localStorage.getItem("village-tab") === "expedition")) {
+    villageTab = "expedition";
+  }
   render();
   // 冷卻倒數需要每秒更新顯示,不能只靠 10 秒一次的生產週期
   setInterval(render, 500);

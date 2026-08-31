@@ -7,22 +7,27 @@ import { playerMaxHp, packUsed, saveCarried } from "./carried";
 import { WEAPONS, ARROWS_PER_SLOT, RATIONS_PER_SLOT, BULLETS_PER_SLOT, RAILS_PER_SLOT } from "./village/data";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
 
-const savedTheme = localStorage.getItem("theme") ?? "dark";
-document.documentElement.dataset.theme = savedTheme;
+// 2026-08 併入村莊單頁:改為可掛載的視圖(mountExplore),殼層負責分頁、寬版切換與引擎暫停
+export interface ExploreMountOpts {
+  /** 結束遠征回村(走回村口/倒下):由殼層做歸還結算、死因叮囑與分頁切換 */
+  onReturnVillage: () => void;
+  /** 跨圖之後把整個視圖卸掉重掛(取代整頁 reload) */
+  onRemount: () => void;
+}
 
+/** 把遠征視圖掛進容器;回傳卸載函式(移除全域鍵盤/縮放監聽) */
+export function mountExplore(container: HTMLDivElement, opts: ExploreMountOpts): () => void {
 // 記錄「玩家至少外出探索過一次」——村莊那邊的部分建築(如製革場)以此浮現
 localStorage.setItem("hasExplored", "1");
 
-const app = document.querySelector<HTMLDivElement>("#app")!;
-app.style.maxWidth = "1040px"; // 整張地圖完整呈現需要比其他頁面寬的版面
+const app = container;
 app.innerHTML = `
   <div class="top-row">
-    <h1>探索</h1>
+    <h1 id="explore-title">探索</h1>
     <span>
       <button id="auto-pickup-toggle"></button>
       <button id="pack-toggle">背包</button>
       <button id="view-toggle">全圖</button>
-      <button id="theme-toggle">切換底色</button>
     </span>
   </div>
   <div class="section">
@@ -36,29 +41,23 @@ app.innerHTML = `
   <div id="map" class="map-grid map-grid-full"></div>
   <div id="pack-panel" class="section" style="display:none"></div>
   <hr />
-  <div class="log-panel scrollable" id="log"></div>
+  <div class="log-panel scrollable" id="explore-log"></div>
 `;
 
-const mapEl = document.querySelector<HTMLDivElement>("#map")!;
-const hpText = document.querySelector<HTMLElement>("#hp-text")!;
-const waterText = document.querySelector<HTMLElement>("#water-text")!;
-const rationText = document.querySelector<HTMLElement>("#ration-text")!;
-const posText = document.querySelector<HTMLElement>("#pos-text")!;
-const statusEl = document.querySelector<HTMLElement>("#status-line")!;
-const pickupPanelEl = document.querySelector<HTMLElement>("#pickup-panel")!;
-const autoPickupToggle = document.querySelector<HTMLButtonElement>("#auto-pickup-toggle")!;
+const mapEl = app.querySelector<HTMLDivElement>("#map")!;
+const hpText = app.querySelector<HTMLElement>("#hp-text")!;
+const waterText = app.querySelector<HTMLElement>("#water-text")!;
+const rationText = app.querySelector<HTMLElement>("#ration-text")!;
+const posText = app.querySelector<HTMLElement>("#pos-text")!;
+const statusEl = app.querySelector<HTMLElement>("#status-line")!;
+const pickupPanelEl = app.querySelector<HTMLElement>("#pickup-panel")!;
+const autoPickupToggle = app.querySelector<HTMLButtonElement>("#auto-pickup-toggle")!;
 autoPickupToggle.addEventListener("click", () => {
   setAutoPickup(!isAutoPickup());
   render();
 });
-const siteActionEl = document.querySelector<HTMLElement>("#site-action")!;
-const logEl = document.querySelector<HTMLDivElement>("#log")!;
-
-document.querySelector<HTMLButtonElement>("#theme-toggle")!.addEventListener("click", () => {
-  const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
-  document.documentElement.dataset.theme = next;
-  localStorage.setItem("theme", next);
-});
+const siteActionEl = app.querySelector<HTMLElement>("#site-action")!;
+const logEl = app.querySelector<HTMLDivElement>("#explore-log")!;
 
 function appendLog(text: string) {
   const line = document.createElement("div");
@@ -75,9 +74,7 @@ const engine = new ExploreEngine({
   onDeath: () => {
     // 死亡:帶出門的東西已消失(§3.9),自動送回村莊,不需要按鈕
     statusEl.textContent = "▍正在返回村莊……";
-    window.setTimeout(() => {
-      window.location.href = "village.html";
-    }, 2200);
+    window.setTimeout(() => opts.onReturnVillage(), 2200);
   },
   onEncounter: () => {
     // 保存遠征進度,戰鬥勝利回來時從原地接續
@@ -98,7 +95,7 @@ let cells: HTMLSpanElement[][] = [];
 let viewCols = MAP_WIDTH;
 let viewRows = MAP_HEIGHT;
 
-const viewToggle = document.querySelector<HTMLButtonElement>("#view-toggle")!;
+const viewToggle = app.querySelector<HTMLButtonElement>("#view-toggle")!;
 viewToggle.addEventListener("click", () => {
   viewMode = viewMode === "camera" ? "full" : "camera";
   localStorage.setItem("explore-view", viewMode);
@@ -166,15 +163,16 @@ function buildGrid() {
 
 buildGrid();
 
-// 視窗大小改變時重算視野尺寸
+// 視窗大小改變時重算視野尺寸(卸載時移除)
 let resizeTimer = 0;
-window.addEventListener("resize", () => {
+const onResize = () => {
   clearTimeout(resizeTimer);
   resizeTimer = window.setTimeout(() => {
     buildGrid();
     render();
   }, 200);
-});
+};
+window.addEventListener("resize", onResize);
 
 // 事件委派:點在 @ 的哪一側就往那個方向走一步(格子上存的是世界座標)
 mapEl.addEventListener("click", (e) => {
@@ -190,13 +188,13 @@ const homePos = { x: Math.floor(MAP_WIDTH / 2), y: Math.floor(MAP_HEIGHT / 2) };
 // 標題帶上目前地圖的名字(中央地圖不加註)
 {
   const mapLabel = MAP_DEFS[engine.mapId].label;
-  document.querySelector("h1")!.textContent = mapLabel ? `探索——${mapLabel}` : "探索";
+  app.querySelector<HTMLElement>("#explore-title")!.textContent = mapLabel ? `探索——${mapLabel}` : "探索";
 }
 
 // ---- 背包管理面板:遠征中整理揹負空間(逐件/整疊丟棄) ----
 // 戰利品與補給共用背包,撿滿了乾糧就補不進去——把「丟什麼、留什麼」的決定權交給玩家
-const packPanel = document.querySelector<HTMLDivElement>("#pack-panel")!;
-const packToggle = document.querySelector<HTMLButtonElement>("#pack-toggle")!;
+const packPanel = app.querySelector<HTMLDivElement>("#pack-panel")!;
+const packToggle = app.querySelector<HTMLButtonElement>("#pack-toggle")!;
 let packOpen = false;
 packToggle.addEventListener("click", () => {
   packOpen = !packOpen;
@@ -434,7 +432,7 @@ function render() {
     goBtn.addEventListener("click", () => {
       if (engine.travelThroughExit()) {
         statusEl.textContent = "▍你越過了邊界……";
-        window.setTimeout(() => location.reload(), 700);
+        window.setTimeout(() => opts.onRemount(), 700);
       }
     });
     siteActionEl.appendChild(goBtn);
@@ -442,10 +440,10 @@ function render() {
 
   // 站在村莊出發點(中央地圖的中心)→ 可以結束遠征回村。回村沒有傳送——要自己走回來,水和糧的回程壓力才是真的
   if (engine.mapId === "A" && engine.playerX === homePos.x && engine.playerY === homePos.y) {
-    const homeBtn = document.createElement("a");
+    const homeBtn = document.createElement("button");
     homeBtn.className = "btn btn-primary";
     homeBtn.textContent = "返回村莊(結束遠征)";
-    homeBtn.href = "village.html";
+    homeBtn.addEventListener("click", () => opts.onReturnVillage());
     siteActionEl.appendChild(homeBtn);
   }
 
@@ -505,7 +503,7 @@ function render() {
   }
 }
 
-window.addEventListener("keydown", (e) => {
+const onKeydown = (e: KeyboardEvent) => {
   const map: Record<string, [number, number]> = {
     ArrowUp: [0, -1],
     ArrowDown: [0, 1],
@@ -521,8 +519,16 @@ window.addEventListener("keydown", (e) => {
   e.preventDefault();
   engine.move(dir[0], dir[1]);
   render();
-});
+};
+window.addEventListener("keydown", onKeydown);
 
 render();
 
 (window as unknown as { __explore: typeof engine }).__explore = engine;
+
+return () => {
+  window.removeEventListener("keydown", onKeydown);
+  window.removeEventListener("resize", onResize);
+  clearTimeout(resizeTimer);
+};
+}

@@ -4,11 +4,9 @@ import { RESOURCE_LABEL } from "./village/types";
 import { saveCarried, returnCarriedToVillage, playerMaxHp, type Carried } from "./carried";
 import { markFreshExpedition } from "./explore/engine";
 
-// 整備頁:出門前決定帶什麼——武器(占耐久)、乾糧、繃帶、弓矢。
+// 整備視圖:出門前決定帶什麼——武器(占耐久)、乾糧、繃帶、弓矢。
 // 直接操作 village-state 的庫存;出發時把選擇寫進 carried,探索/戰鬥都讀這一份。
-
-const savedTheme = localStorage.getItem("theme") ?? "dark";
-document.documentElement.dataset.theme = savedTheme;
+// 2026-08 併入村莊單頁:改為可掛載的視圖(mountPrep),殼層負責分頁與引擎暫停/重讀
 
 // ---- 讀村莊庫存 ----
 interface VillageState {
@@ -32,12 +30,21 @@ function saveVillage(state: VillageState) {
   localStorage.setItem("village-state", JSON.stringify(state));
 }
 
+export interface PrepMountOpts {
+  /** 按下「出發」之後(carried 已寫入、fresh 旗標已立):殼層切到遠征視圖 */
+  onDepart: () => void;
+  /** 「回村莊」:殼層切回村況 */
+  onBack: () => void;
+}
+
+/** 把整備視圖掛進容器(每次進入分頁重新掛載,讀當下庫存) */
+export function mountPrep(container: HTMLDivElement, opts: PrepMountOpts): void {
 const village = loadVillage();
-const app = document.querySelector<HTMLDivElement>("#app")!;
+const app = container;
 
 if (!village) {
-  app.innerHTML = `<p class="narrative-text">這裡什麼都沒有。<a href="village.html" style="color:inherit">回村莊</a></p>`;
-  throw new Error("no village state");
+  app.innerHTML = `<p class="narrative-text">這裡什麼都沒有。</p>`;
+  return;
 }
 
 // 上一趟帶出門、還沒用完的東西先歸還進庫存(死亡時 carried 已被清空,不會走到這)
@@ -61,12 +68,9 @@ const pick = {
 };
 
 app.innerHTML = `
-  <div class="top-row">
-    <h1>整備</h1>
-    <button id="theme-toggle">切換底色</button>
-  </div>
+  <div class="section-title">整備</div>
   <div class="nav-links">
-    <a href="village.html">← 回村莊</a>
+    <button id="prep-back" class="btn">← 回村莊</button>
   </div>
 
   <div class="section">
@@ -89,14 +93,10 @@ app.innerHTML = `
   </div>
 `;
 
-document.querySelector<HTMLButtonElement>("#theme-toggle")!.addEventListener("click", () => {
-  const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
-  document.documentElement.dataset.theme = next;
-  localStorage.setItem("theme", next);
-});
+app.querySelector<HTMLButtonElement>("#prep-back")!.addEventListener("click", () => opts.onBack());
 
-const weaponListEl = document.querySelector<HTMLDivElement>("#weapon-list")!;
-const supplyListEl = document.querySelector<HTMLDivElement>("#supply-list")!;
+const weaponListEl = app.querySelector<HTMLDivElement>("#weapon-list")!;
+const supplyListEl = app.querySelector<HTMLDivElement>("#supply-list")!;
 
 // ---- 揹負空間(統一容量):武器(各有占格)、補給、途中拾獲的戰利品全部共用 ----
 const upgrades = (village as { upgrades?: Record<string, boolean> }).upgrades ?? {};
@@ -128,7 +128,7 @@ function fitsAfterAdd(mutate: () => void, revert: () => void): boolean {
 // ---- 狀態:出發時的自身數值(HP 滿血、水袋容量看有沒有做大水袋升級) ----
 let capPackValue: HTMLElement;
 {
-  const statsEl = document.querySelector<HTMLDivElement>("#stats-list")!;
+  const statsEl = app.querySelector<HTMLDivElement>("#stats-list")!;
   const waterCap = upgrades["steel-flask"] ? 50 : upgrades["iron-flask"] ? 40 : upgrades.waterskin ? 32 : 20;
   const flaskTag = upgrades["steel-flask"] ? "(鋼水壺)" : upgrades["iron-flask"] ? "(鐵水壺)" : upgrades.waterskin ? "(大水袋)" : "";
   const stats: [string, string, string?][] = [
@@ -151,7 +151,7 @@ let capPackValue: HTMLElement;
     item.append(l, v);
     statsEl.appendChild(item);
   }
-  capPackValue = document.getElementById("cap-pack")!;
+  capPackValue = app.querySelector<HTMLElement>("#cap-pack")!;
 }
 
 /** 一列「名稱 [-] n/總量 [+]」的通用挑選列;canAdd 是容量上限的守門 */
@@ -294,7 +294,7 @@ try {
   /* 壞資料就從空配置開始 */
 }
 
-const departBtn = document.querySelector<HTMLButtonElement>("#depart-btn")!;
+const departBtn = app.querySelector<HTMLButtonElement>("#depart-btn")!;
 departBtn.addEventListener("click", () => {
   localStorage.setItem("last-loadout", JSON.stringify(pick));
   // 從村莊庫存扣掉帶走的份
@@ -338,7 +338,7 @@ departBtn.addEventListener("click", () => {
   saveCarried(carried);
   // 新遠征:地圖固定、迷霧保留,但人回到出發點、水補滿、檢查點重設
   markFreshExpedition();
-  window.location.href = "explore.html";
+  opts.onDepart();
 });
 
 function render() {
@@ -356,3 +356,4 @@ function render() {
 }
 
 render();
+}

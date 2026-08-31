@@ -563,6 +563,11 @@ export class VillageEngine {
     clearInterval(this.timer);
   }
 
+  /** 從 localStorage 重讀狀態:整備扣裝/遠征歸還直接改了存檔,活引擎要跟上 */
+  reloadState() {
+    this.loadState();
+  }
+
   /** 切換時間倍速並重排計時器 */
   setSpeed(mult: number) {
     this.speedMult = mult;
