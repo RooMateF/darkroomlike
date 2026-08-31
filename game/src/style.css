@@ -55,21 +55,42 @@ body {
 }
 
 .main-split .col-fixed {
-  flex: 0 0 300px;
+  flex: 0 0 280px;
   min-width: 0;
   overflow-y: auto;
+  overflow-x: hidden; /* 水平卷軸是大忌:欄內絕不左右捲 */
   scrollbar-width: thin;
   scrollbar-color: var(--fg-faint) transparent;
   border-right: 1px solid var(--fg-faint);
-  padding-right: 14px;
+  padding-right: 12px;
 }
 
 .main-split .col-project {
   flex: 1 1 auto;
   min-width: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: var(--fg-faint) transparent;
+}
+
+/* 視窗不夠寬時提早改上下堆疊——左右並排硬擠只會生出水平卷軸 */
+@media (max-width: 760px) {
+  .main-split {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .main-split .col-fixed {
+    flex: none;
+    border-right: none;
+    padding-right: 0;
+    overflow-y: visible;
+  }
+
+  .main-split .col-project {
+    overflow-y: visible;
+  }
 }
 
 #expedition-section {
@@ -126,22 +147,6 @@ body {
   .app-frame {
     height: calc(100vh - 26px);
     height: calc(100dvh - 26px);
-  }
-
-  .main-split {
-    flex-direction: column;
-    overflow-y: auto;
-  }
-
-  .main-split .col-fixed {
-    flex: none;
-    border-right: none;
-    padding-right: 0;
-    overflow-y: visible;
-  }
-
-  .main-split .col-project {
-    overflow-y: visible;
   }
 
   /* 小視窗(偷玩模式):縮小留白與字級,資訊密度優先 */
@@ -263,7 +268,8 @@ h1 {
 .resource-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 1px 16px;
+  gap: 1px 12px;
+  min-width: 0;
 }
 
 .resource-item {
