@@ -201,8 +201,8 @@ function subActionLabel(subActionId: string, baseLabel: string): string {
     if (count <= 0) return `${baseLabel}(損壞)`;
     const dur = carried.durability[subActionId] ?? weapon.durability;
     const spare = count > 1 ? ` ×${count}` : "";
-    const ammoText = weapon.ammo === "arrow" ? `・矢${carried.arrows}` : weapon.ammo === "bullet" ? `・彈${carried.bullets ?? 0}` : "";
-    return `${baseLabel}${spare}(耐${dur}${ammoText})`;
+    const ammoText = weapon.ammo === "arrow" ? `・弓矢 ${carried.arrows}` : weapon.ammo === "bullet" ? `・子彈 ${carried.bullets ?? 0}` : "";
+    return `${baseLabel}${spare}(耐久 ${dur}${ammoText})`;
   }
   if (subActionId === "bandage") return `${baseLabel} ×${carried.bandages}`;
   if (subActionId === "jerky") return `${baseLabel} ×${carried.jerky ?? 0}`;
