@@ -5,9 +5,11 @@ import { LANDMARKS } from "./types";
 import { MAP_WIDTH, MAP_HEIGHT } from "./map-gen";
 
 export interface SpecialSite {
-  key: string; // "x,y",地點的穩定識別
+  key: string; // "map:x,y" 或 "x,y"(中央地圖沿用舊格式,存檔相容)
   x: number;
   y: number;
+  /** 所在地圖(未填 = 中央地圖 A) */
+  mapId?: string;
   level: 1 | 2 | 3 | 4 | 5;
   /** 小地城總層數(最後一層是 Boss) */
   stages: number;
@@ -79,7 +81,7 @@ export function specialSites(): SpecialSite[] {
   // 通往四大地標的舊哨站(Lv1,一層):沿路線固定兩座,打通後升格補給點——
   // 沒有這條哨站鏈,地標外圍會出現超過水袋上限的無補給區,地標物理性不可達。
   // 玩家要先打通哨站、把水量網路一段段修出去,才推得到地標(ADR 式的前哨推進)
-  for (const lm of LANDMARKS.filter((l) => l.level >= 4)) {
+  for (const lm of LANDMARKS.filter((l) => l.level >= 4 && (l.mapId ?? "A") === "A")) {
     for (const f of [0.42, 0.75]) {
       let x = Math.round(cx + (lm.x - cx) * f);
       let y = Math.round(cy + (lm.y - cy) * f);
@@ -92,21 +94,30 @@ export function specialSites(): SpecialSite[] {
     }
   }
 
-  // Lv4:有名字的地方(鐵礦坑/觀測台/祭壇),三層
+  // Lv4:有名字的地方(鐵礦坑/觀測台/祭壇/煤礦坑),三層——非中央地圖的 key 帶地圖前綴
   for (const lm of LANDMARKS.filter((l) => l.level === 4)) {
-    sites.push({ key: `${lm.x},${lm.y}`, x: lm.x, y: lm.y, level: 4, stages: 3, landmarkId: lm.id });
+    const key = lm.mapId && lm.mapId !== "A" ? `${lm.mapId}:${lm.x},${lm.y}` : `${lm.x},${lm.y}`;
+    sites.push({ key, x: lm.x, y: lm.y, mapId: lm.mapId ?? "A", level: 4, stages: 3, landmarkId: lm.id });
   }
   // Lv5:幾乎無法戰勝的地方,四層
   for (const lm of LANDMARKS.filter((l) => l.level === 5)) {
-    sites.push({ key: `${lm.x},${lm.y}`, x: lm.x, y: lm.y, level: 5, stages: 4, landmarkId: lm.id });
+    sites.push({ key: `${lm.x},${lm.y}`, x: lm.x, y: lm.y, mapId: lm.mapId ?? "A", level: 5, stages: 4, landmarkId: lm.id });
+  }
+
+  // 北嶺的哨站鏈(Lv1,一層):南緣入口通往煤礦坑的路上兩座——沒有它們,煤礦坑在水量網路外
+  for (const [ox, oy] of [
+    [52, 44],
+    [52, 24],
+  ] as const) {
+    sites.push({ key: `N:${ox},${oy}`, x: ox, y: oy, mapId: "N", level: 1, stages: 1 });
   }
 
   cache = sites;
   return sites;
 }
 
-export function siteAt(x: number, y: number): SpecialSite | undefined {
-  return specialSites().find((s) => s.x === x && s.y === y);
+export function siteAt(x: number, y: number, mapId = "A"): SpecialSite | undefined {
+  return specialSites().find((s) => s.x === x && s.y === y && (s.mapId ?? "A") === mapId);
 }
 
 // ---- 黑鐵鑰匙(教堂的前置):藏在離教堂最近的那座 Lv3 遺跡最深處 ----
@@ -116,7 +127,7 @@ const CHURCH_KEY_FLAG = "church-key";
 /** 收著黑鐵鑰匙的 Lv3 遺跡(確定性:離教堂最近的那座) */
 export function churchKeySiteKey(): string {
   const church = LANDMARKS.find((l) => l.id === "church")!;
-  const lv3 = specialSites().filter((s) => s.level === 3);
+  const lv3 = specialSites().filter((s) => s.level === 3 && (s.mapId ?? "A") === "A");
   lv3.sort((a, b) => Math.hypot(a.x - church.x, a.y - church.y) - Math.hypot(b.x - church.x, b.y - church.y));
   return lv3[0]?.key ?? "";
 }

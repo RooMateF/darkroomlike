@@ -23,6 +23,8 @@ export interface LandmarkDef {
   symbol: string;
   x: number;
   y: number;
+  /** 所在地圖(未填 = 中央地圖 A) */
+  mapId?: string;
   /** 特殊探勘地點等級(4 或 5) */
   level: 4 | 5;
   /** 踩上未解放的地標時的敘事 */
@@ -64,6 +66,18 @@ export const LANDMARKS: LandmarkDef[] = [
     clearedText: "祭壇安靜了下來。石縫裡的刻紋在光線下泛著微弱的暖意,像是餘燼。",
   },
   {
+    // 北嶺的具名地標:煤礦坑——鋼鐵時代的鑰匙(鋼=鐵+煤合煉),相鄰地圖的第一個真正目標
+    id: "coalmine",
+    label: "煤礦坑",
+    symbol: "K",
+    x: 52,
+    y: 8,
+    mapId: "N",
+    level: 4,
+    introText: "半山腰裂開一道黑色的礦口,連風吹過都帶著煤灰味。坑道深處傳來規律的、像挖掘一樣的聲音——但這裡不該有任何人。",
+    clearedText: "煤礦安全了。烏黑的煤層在礦燈下泛著油亮的光——村裡的爐火,可以燒得更旺了。",
+  },
+  {
     id: "church",
     label: "靜默教堂",
     symbol: "C",
@@ -83,6 +97,8 @@ export interface Tile {
   revealed: boolean;
   /** 點過燈的據點(燈柱燃著):周圍一帶的遭遇率大幅下降 */
   lit?: boolean;
+  /** 鋪了鐵軌(永久建設,死亡不失去):軌上移動省水糧、不遇敵 */
+  rail?: boolean;
 }
 
 export interface Checkpoint {

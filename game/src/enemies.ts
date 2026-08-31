@@ -173,17 +173,30 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     ],
     loot: { meat: 5, hide: 3, shard: 2 },
   },
+  // 北嶺煤礦坑(Lv4):鐵階裝備的攻堅目標——比中央三地標硬一階,毒塵是特色威脅
+  coalmine: {
+    id: "coalmine-guardian",
+    label: "煤層深處的掘穴者",
+    intro: "煤壁在動。一雙裹滿煤灰的巨螯先探了出來,然後是佈滿環節的身軀——牠鑿穿岩層的聲音,你在坑道外就聽見了。",
+    hp: 90,
+    moves: [
+      { id: "dig", label: "鑿擊", baseCost: 0.8, symbol: "»»", damage: 8 },
+      { id: "dust", label: "揚塵", baseCost: 0.7, symbol: "…", damage: 0, status: { kind: "poison", amount: 40 } },
+      { id: "collapse", label: "崩落", baseCost: 1.9, symbol: "»»»»»»", damage: 20 },
+    ],
+    loot: { coal: 8, stone: 6, shard: 3 },
+  },
   // Lv5:本章的極限——不靠這一章的頂配(鐵製裝備+滿肉乾+分段攻堅)幾乎無法戰勝。
   // hp 110:蒙地卡羅實測滿血鐵裝+肉乾14 勝率約 55%,加上前三層消耗與單程補給風險,整體攻堅成功率 2~3 成
   church: {
     id: "church-guardian",
     label: "不再祈禱的東西",
     intro: "祭壇前跪著一個背影,維持著祈禱的姿勢——但那個輪廓不屬於任何還能被稱為人的東西。它緩緩站了起來。站得太高了。",
-    hp: 110,
+    hp: 160,
     moves: [
       { id: "whisper", label: "低語", baseCost: 0.9, symbol: "…", damage: 0 },
-      { id: "rend", label: "撕裂", baseCost: 1.3, symbol: "»»»»", damage: 9, status: { kind: "bleed", amount: 35 } },
-      { id: "toll", label: "崩擊", baseCost: 2.6, symbol: "»»»»»»»", damage: 16 },
+      { id: "rend", label: "撕裂", baseCost: 1.2, symbol: "»»»»", damage: 14, status: { kind: "bleed", amount: 40 } },
+      { id: "toll", label: "崩擊", baseCost: 2.4, symbol: "»»»»»»»", damage: 26 },
     ],
     loot: { shard: 5 },
   },
@@ -202,6 +215,10 @@ export const LANDMARK_REWARDS: Record<string, { loot?: Record<string, number>; w
   shrine: {
     loot: { scroll: 2 },
     message: "祭壇的石縫裡收著兩卷奇怪的卷軸,紙面溫熱,墨跡像還沒乾的火。",
+  },
+  coalmine: {
+    loot: { coal: 15, stone: 10 },
+    message: "煤礦解放了。黑亮的煤層一路延伸進山腹深處——爐火燒得更旺的日子,要開始了。",
   },
   church: {
     weapon: "alloy-blade",

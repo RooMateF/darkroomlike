@@ -231,7 +231,7 @@ export function generateMap(mapId: MapId = "A"): Tile[][] {
   }
 
   // 特殊探勘地點(五級制,design-notes.md § 3.10.1):Lv1~3 為 site,Lv4/5 為具名地標
-  for (const s of specialSites()) {
+  for (const s of specialSites().filter((s2) => (s2.mapId ?? "A") === "A")) {
     grid[s.y][s.x] = { type: s.level >= 4 ? "landmark" : "site", revealed: false };
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -1; dx <= 1; dx++) {
@@ -301,6 +301,17 @@ function finishNeighborMap(grid: Tile[][], mapId: MapId): Tile[][] {
   for (let i = 1; i <= 4; i++) {
     const t = grid[ey + ddy * i]?.[ex + ddx * i];
     if (t && (t.type === "wall" || t.type === "water")) grid[ey + ddy * i][ex + ddx * i] = { type: "plain", revealed: false };
+  }
+
+  // 這張地圖自己的探勘點/地標(如北嶺的哨站與煤礦坑)
+  for (const s of specialSites().filter((s2) => s2.mapId === mapId)) {
+    grid[s.y][s.x] = { type: s.level >= 4 ? "landmark" : "site", revealed: false };
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const t = grid[s.y + dy]?.[s.x + dx];
+        if (t && (t.type === "wall" || t.type === "water")) grid[s.y + dy][s.x + dx] = { type: "plain", revealed: false };
+      }
+    }
   }
 
   // 稀疏補給點:相鄰地圖沒有村莊撐腰,全圖均勻撒但數量少——水網比中央地圖緊得多

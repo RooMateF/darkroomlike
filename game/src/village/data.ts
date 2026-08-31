@@ -14,6 +14,13 @@ export const JOBS: JobDef[] = [
   // 探索發現解鎖(design-notes.md § 5.1.1):要先在地圖上打贏礦坑守衛、解放鐵礦坑
   // 重勞動吃肉乾(resources.md § 9.1 的醃肉邏輯):沒肉乾就不下坑
   { id: "miner", label: "鐵礦工", produces: { jerky: -1, iron: 1 }, requiresLandmark: "mine" },
+  // 冶金三階(2026-08 擴充):鐵礦 → 鐵 → 鋼鐵
+  // 冶煉工:爐火吃木柴、石材當爐襯——3 份鐵礦煉出 1 份鐵
+  { id: "smelter", label: "冶煉工", produces: { iron: -3, wood: -10, stone: -5, ingot: 1 }, requiresBuilding: "smithy", requiresLandmark: "mine" },
+  // 採煤工:北嶺煤礦坑解放後開放;和鐵礦工一樣吃肉乾
+  { id: "coalminer", label: "採煤工", produces: { jerky: -1, coal: 1 }, requiresLandmark: "coalmine" },
+  // 煉鋼工:鐵+煤合煉成鋼——本章工業的頂點
+  { id: "steelworker", label: "煉鋼工", produces: { ingot: -2, coal: -2, steel: 1 }, requiresBuilding: "smithy", requiresLandmark: "coalmine" },
 ];
 
 // 建築成本沿用 resources.md § 9.3
@@ -41,8 +48,6 @@ export const BUILDINGS: BuildingDef[] = [
   { id: "smithy", label: "工匠鋪", cost: { wood: 150, stone: 120 }, effect: "可修理受損的武器", requiresSiteLevel: 3 },
   // 交易所:撿過異晶(知道「有人收這種東西」)才浮現;開張後用異晶兌換稀有物資(TRADES)
   { id: "trading-post", label: "交易所", cost: { wood: 1500, stone: 800 }, effect: "用異晶兌換稀有的物資", requiresExplore: true, requiresResourceSeen: "shard" },
-  // 鐵道:中心到鐵礦坑的大型工程(design-notes.md § 3.8.1)——台車沿鐵軌把礦石運回村莊,開採效率翻倍
-  { id: "railway", label: "鐵道", cost: { wood: 4000, stone: 2500, iron: 250 }, effect: "鐵礦工的產出翻倍", requiresLandmark: "mine" },
 ];
 
 // ---- 交易所兌換清單(異晶 → 稀有物資) ----
@@ -64,10 +69,10 @@ export const TRADES: TradeDef[] = [
   { id: "trade-elixir", get: "elixir", qty: 1, shards: 10, flavor: "小玻璃瓶裡的透明藥劑,瓶身刻著看不懂的小字。" },
 ];
 
-/** 這把武器是否屬於鐵製以上(配方吃鐵)——修理它需要升格後的鐵匠鋪 */
+/** 這把武器是否屬於鐵製以上(配方吃鐵/鋼)——修理它需要升格後的鐵匠鋪 */
 export function isIronTierWeapon(weaponId: string): boolean {
   const weapon = WEAPONS.find((w) => w.id === weaponId);
-  return !!weapon && (weapon.cost.iron ?? 0) > 0;
+  return !!weapon && ((weapon.cost.iron ?? 0) > 0 || (weapon.cost.ingot ?? 0) > 0 || (weapon.cost.steel ?? 0) > 0);
 }
 
 /** 修理成本:打造成本的一半(向上取整)——受損就修,不修的話耐久會一直帶著 */
@@ -99,8 +104,10 @@ export interface WeaponDef {
   symbol: string;
   /** 耐久度:每次使用 -1,歸零損壞;帶備用武器出門就有意義了 */
   durability: number;
-  /** 遠程武器每次使用消耗 1 支弓矢(讀條快的代價) */
-  usesArrow?: boolean;
+  /** 彈藥類型(弓矢/子彈);未填 = 不吃彈藥 */
+  ammo?: "arrow" | "bullet";
+  /** 每次使用消耗的彈藥數(散彈 2 發;傷害與彈數成正比) */
+  ammoPerUse?: number;
   /** 占用揹負空間的格數 */
   packSize: number;
   /** 只能從戰利品取得,不開放打造(cost 仍需定義——修理費以打造成本的一半計算) */
@@ -110,20 +117,29 @@ export interface WeaponDef {
 // 武器造價提高、耐久拉高:一把武器是「值錢的資產」,死掉全丟——資源管理與惜命要銘記在心。
 // 輕重定位(2026-08 定案):重武器 CD 拉長到 2 秒級,傷害給「超額補正」——
 // 等待越久代表要多挨敵人幾下,所以重武器的 DPS 要「高於」同位階輕武器,作為風險溢價
+// 輕重原則:重武器 CD 長但 DPS 有風險溢價;刀類極速但共用歸零會壓制同帶武器與道具預讀。
+// 位階:木/石 → 鐵(冶煉的鐵)→ 鋼(鐵+煤)。槍械只有鋼階才做得出來。
 export const WEAPONS: WeaponDef[] = [
-  // 位階 0:木製——開局唯一做得出來的武器,快而輕(輕:0.8s/3,DPS 3.8)
+  // 位階 0:木製——開局唯一做得出來的武器,快而輕(0.8s/3,DPS 3.8)
   { id: "wood-spear", label: "木槍", cost: { wood: 40 }, category: "melee", baseCost: 0.8, damage: 3, symbol: ">>", durability: 30, packSize: 3 },
-  // 位階 1:石製——重攻擊的代表(重:2.0s/11,DPS 5.5):兩秒的破綻換一記真正的重斬
+  // 位階 1:石製——重攻擊的代表(2.0s/11,DPS 5.5):兩秒的破綻換一記真正的重斬
   { id: "stone-axe", label: "石斧", cost: { wood: 30, stone: 40 }, category: "melee", baseCost: 2.0, damage: 11, symbol: ">>>", durability: 45, packSize: 4 },
-  { id: "hunting-bow", label: "獵弓", cost: { wood: 50, hide: 10 }, category: "ranged", baseCost: 1.0, damage: 4, symbol: "→", durability: 40, usesArrow: true, packSize: 3 },
-  // 位階 2:鐵製——中重(1.2s/9,DPS 7.5):突刺的節奏介於輕重之間
-  { id: "iron-spear", label: "鐵槍", cost: { iron: 20, wood: 15 }, category: "melee", baseCost: 1.2, damage: 9, symbol: ">>>", durability: 60, packSize: 4 },
-  // 舊時代軍用品:軍規的緊湊設計,占位小。
-  // 刀類=極速出手的定位(0.4s/4,DPS 10):手最忙、決策點最密,而且耐久燒得快(修理費是連擊的隱形代價)
-  { id: "bayonet", label: "軍用刺刀", cost: { iron: 25, leather: 5 }, category: "melee", baseCost: 0.4, damage: 4, symbol: ">|", durability: 50, packSize: 2 },
-  // 靜默教堂(Lv5)的戰利品:輕得不可思議(呼應敘事),幾乎不占空間。同為刀類的極速定位(0.5s/7,DPS 14)。
-  // lootOnly:「這個時代做不出來。上一個時代也做不出來。」——當然不能在鐵匠鋪打造;cost 只作為修理費基準
-  { id: "alloy-blade", label: "異質短刃", cost: { iron: 60, leather: 20, scroll: 1 }, category: "melee", baseCost: 0.5, damage: 7, symbol: ">>|", durability: 80, packSize: 2, lootOnly: true },
+  { id: "hunting-bow", label: "獵弓", cost: { wood: 50, hide: 10 }, category: "ranged", baseCost: 1.0, damage: 4, symbol: "→", durability: 40, ammo: "arrow", ammoPerUse: 1, packSize: 3 },
+  // ---- 鐵階(冶煉的鐵) ----
+  { id: "iron-knife", label: "鐵刀", cost: { ingot: 6, wood: 10 }, category: "melee", baseCost: 0.4, damage: 3, symbol: ">|", durability: 40, packSize: 2 },
+  { id: "iron-sword", label: "鐵劍", cost: { ingot: 10, wood: 10 }, category: "melee", baseCost: 1.0, damage: 8, symbol: ">>", durability: 55, packSize: 3 },
+  { id: "iron-spear", label: "鐵槍", cost: { ingot: 8, wood: 15 }, category: "melee", baseCost: 1.2, damage: 10, symbol: ">>>", durability: 60, packSize: 4 },
+  // 舊時代軍用品:軍規的緊湊設計——鐵階最好的刀(觀測台獎勵;之後可仿製)
+  { id: "bayonet", label: "軍用刺刀", cost: { ingot: 8, leather: 5 }, category: "melee", baseCost: 0.4, damage: 4, symbol: ">|", durability: 50, packSize: 2 },
+  // ---- 鋼階(鐵+煤合煉) ----
+  { id: "steel-knife", label: "鋼刀", cost: { steel: 8, leather: 5 }, category: "melee", baseCost: 0.4, damage: 5, symbol: ">|", durability: 60, packSize: 2 },
+  { id: "steel-sword", label: "鋼劍", cost: { steel: 12, wood: 20 }, category: "melee", baseCost: 1.0, damage: 13, symbol: ">>", durability: 70, packSize: 3 },
+  { id: "steel-spear", label: "鋼槍", cost: { steel: 14, wood: 30 }, category: "melee", baseCost: 1.2, damage: 17, symbol: ">>>", durability: 80, packSize: 4 },
+  // 槍械:鋼階限定。左輪輕快(1 發/擊)、散彈沉重(2 發/擊,單發傷害一致 → 彈數決定傷害)
+  { id: "revolver", label: "左輪手槍", cost: { steel: 10, wood: 10 }, category: "ranged", baseCost: 0.6, damage: 8, symbol: "→!", durability: 50, ammo: "bullet", ammoPerUse: 1, packSize: 2 },
+  { id: "shotgun", label: "散彈槍", cost: { steel: 14, wood: 20 }, category: "ranged", baseCost: 1.5, damage: 16, symbol: "→!!", durability: 45, ammo: "bullet", ammoPerUse: 2, packSize: 3 },
+  // 靜默教堂(Lv5)的戰利品:輕得不可思議(呼應敘事)。lootOnly:cost 只作修理費基準
+  { id: "alloy-blade", label: "異質短刃", cost: { steel: 12, leather: 20, scroll: 1 }, category: "melee", baseCost: 0.5, damage: 7, symbol: ">>|", durability: 80, packSize: 2, lootOnly: true },
 ];
 
 // ---- 消耗品打造(整備出門用) ----
@@ -137,6 +153,11 @@ export interface ConsumableDef {
   requiresBuilding?: string;
   /** 需要先打造過的武器(如弓矢要先有獵弓才有意義) */
   requiresWeapon?: string;
+  /** 持有其中任一把武器即可(如子彈:左輪或散彈) */
+  requiresWeaponAny?: string[];
+  /** 需要先解放對應地標(如鐵軌要先解放鐵礦坑) */
+  requiresLandmark?: string;
+  /** 需要先蓋出的建築之外,額外需要的建築(如鐵軌要鐵匠鋪) */
 }
 
 // 肉乾不走手動打造——由「燻肉師」職業在燻製棚持續燒製(見 JOBS)
@@ -149,6 +170,11 @@ export const CONSUMABLES: ConsumableDef[] = [
   { id: "arrow", label: "弓矢", cost: { wood: 30, stone: 20 }, yield: 3, requiresWeapon: "hunting-bow" },
   // 燈油:燻製棚熬獸脂——點亮據點燈柱的燃料(每座燈柱 3 份,壓低周圍的遭遇率)
   { id: "oil", label: "燈油", cost: { meat: 2, wood: 5 }, yield: 1, requiresBuilding: "smokehouse" },
+  // 子彈:鋼階彈藥(火藥吃煤)——左輪/散彈通用
+  { id: "bullet", label: "子彈", cost: { steel: 2, coal: 2 }, yield: 6, requiresWeaponAny: ["revolver", "shotgun"] },
+  // 鐵軌:鋪在遠征地圖上的永久建設——從村莊一格一格連出去;軌上水 1/4 步、糧 1/8 步、不遇敵。
+  // 鋪到礦坑旁,礦車自動運輸(鐵礦工產出 ×2)。2 根占 1 格,揹得動多少是推車/小貨車的事
+  { id: "rail", label: "鐵軌", cost: { ingot: 1, wood: 5 }, yield: 1, requiresBuilding: "smithy", requiresLandmark: "mine" },
 ];
 
 // ---- 一次性裝備升級(改變探索/戰鬥的基礎參數) ----
@@ -159,6 +185,8 @@ export interface UpgradeDef {
   cost: Partial<Record<import("./types").ResourceId, number>>;
   effect: string;
   requiresBuilding?: string;
+  /** 前置升級(如鋼水壺要先有鐵水壺)——升級鏈逐級推進 */
+  requiresUpgrade?: string;
 }
 
 // 一次性永久升級 = 實質上的「角色升級」:只做一遍的東西,成本就是一個存錢目標,
@@ -168,8 +196,16 @@ export const UPGRADES: UpgradeDef[] = [
   { id: "waterskin", label: "大水袋", cost: { leather: 100, wood: 1000 }, effect: "外出時能攜帶更多的水", requiresBuilding: "tannery" },
   // 背包:整備容量的關鍵升級——揹負空間 20 → 45,遠征規模翻倍的分水嶺
   { id: "backpack", label: "背包", cost: { leather: 150, wood: 1500 }, effect: "能攜帶更多裝備出門", requiresBuilding: "tannery" },
-  // 皮甲:生命上限 +10——本章唯一的體質升級,壓軸級的存錢目標
+  // 皮甲:生命上限 +10——體質升級鏈的第一件
   { id: "leather-armor", label: "皮甲", cost: { leather: 200, wood: 2000, stone: 2000 }, effect: "生命上限 +10", requiresBuilding: "tannery" },
+  // ---- 鐵階升級(鐵匠鋪) ----
+  { id: "iron-flask", label: "鐵水壺", cost: { ingot: 15, leather: 50 }, effect: "水量上限 32 → 40", requiresBuilding: "smithy", requiresUpgrade: "waterskin" },
+  { id: "iron-armor", label: "鐵甲", cost: { ingot: 25, leather: 100 }, effect: "生命上限 40 → 50", requiresBuilding: "smithy", requiresUpgrade: "leather-armor" },
+  { id: "iron-cart", label: "推車", cost: { ingot: 20, wood: 300, leather: 30 }, effect: "揹負空間 45 → 70(鋪軌工程的運力)", requiresBuilding: "smithy", requiresUpgrade: "backpack" },
+  // ---- 鋼階升級(需煤礦解放後的鋼產線) ----
+  { id: "steel-flask", label: "鋼水壺", cost: { steel: 12, leather: 50 }, effect: "水量上限 40 → 50", requiresBuilding: "smithy", requiresUpgrade: "iron-flask" },
+  { id: "steel-armor", label: "鋼甲", cost: { steel: 20, leather: 120 }, effect: "生命上限 50 → 65", requiresBuilding: "smithy", requiresUpgrade: "iron-armor" },
+  { id: "steel-cart", label: "小貨車", cost: { steel: 15, ingot: 10, wood: 300 }, effect: "揹負空間 70 → 100", requiresBuilding: "smithy", requiresUpgrade: "iron-cart" },
 ];
 
 /** 生命上限:基礎 30,皮甲 +10 */
@@ -181,12 +217,21 @@ export const LEATHER_ARMOR_HP_BONUS = 10;
  * 弓矢等彈藥類 3 個併 1 格(ARROWS_PER_SLOT)。
  * 基礎 20 格 ≈ 兩把初級武器 + 撐短程的乾糧就是極限;背包升級後 45 格。
  */
-export function carryCapacity(hasBackpack: boolean): number {
-  return hasBackpack ? 45 : 20;
+export function carryCapacity(upgrades: Record<string, boolean> | boolean): number {
+  // 相容舊呼叫(boolean = 有沒有背包);新呼叫傳整個 upgrades
+  if (typeof upgrades === "boolean") return upgrades ? 45 : 20;
+  if (upgrades["steel-cart"]) return 100;
+  if (upgrades["iron-cart"]) return 70;
+  if (upgrades.backpack) return 45;
+  return 20;
 }
 
 /** 彈藥類幾個併 1 格 */
 export const ARROWS_PER_SLOT = 3;
+/** 子彈小巧:6 發併 1 格 */
+export const BULLETS_PER_SLOT = 6;
+/** 鐵軌沉重:2 根併 1 格 */
+export const RAILS_PER_SLOT = 2;
 /** 乾糧輕便:2 份併 1 格(肉乾重,1 份 1 格) */
 export const RATIONS_PER_SLOT = 2;
 

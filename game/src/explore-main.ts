@@ -4,7 +4,7 @@ import { MAP_DEFS } from "./explore/map-gen";
 import { hasChurchKey } from "./explore/sites";
 import { LANDMARKS, TILE_SYMBOL } from "./explore/types";
 import { playerMaxHp, packUsed, saveCarried } from "./carried";
-import { WEAPONS, ARROWS_PER_SLOT, RATIONS_PER_SLOT } from "./village/data";
+import { WEAPONS, ARROWS_PER_SLOT, RATIONS_PER_SLOT, BULLETS_PER_SLOT, RAILS_PER_SLOT } from "./village/data";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
 
 const savedTheme = localStorage.getItem("theme") ?? "dark";
@@ -277,12 +277,14 @@ function renderPack() {
   }
 
   // 補給品(乾糧 2 併 1 格、弓矢 3 併 1 格,其餘 1 格 1 件)
-  type SupplyKey = "rations" | "jerky" | "bandages" | "arrows" | "scrolls" | "oil" | "elixirs";
+  type SupplyKey = "rations" | "jerky" | "bandages" | "arrows" | "bullets" | "rails" | "scrolls" | "oil" | "elixirs";
   const supplies: { key: SupplyKey; id: ResourceId; perSlot: number }[] = [
     { key: "rations", id: "ration", perSlot: RATIONS_PER_SLOT },
     { key: "jerky", id: "jerky", perSlot: 1 },
     { key: "bandages", id: "bandage", perSlot: 1 },
     { key: "arrows", id: "arrow", perSlot: ARROWS_PER_SLOT },
+    { key: "bullets", id: "bullet", perSlot: BULLETS_PER_SLOT },
+    { key: "rails", id: "rail", perSlot: RAILS_PER_SLOT },
     { key: "scrolls", id: "scroll", perSlot: 1 },
     { key: "oil", id: "oil", perSlot: 1 },
     { key: "elixirs", id: "elixir", perSlot: 1 },
@@ -351,6 +353,10 @@ function render() {
       const isPlayer = x === engine.playerX && y === engine.playerY;
       const tile = engine.grid[y][x];
       let symbol = tile.revealed ? TILE_SYMBOL[tile.type] : " ";
+      // 鐵軌:一般地形上畫 =(據點/地標等重要符號優先)
+      if (tile.revealed && tile.rail && (tile.type === "plain" || tile.type === "brush" || tile.type === "rubble")) {
+        symbol = "=";
+      }
       // 補給點三態:S 有儲備 / s 這趟已拿空 / %(點過燈,燈柱燃著)
       if (tile.revealed && tile.type === "depot") {
         symbol = tile.lit ? "%" : engine.isDepotLooted(x, y) ? "s" : "S";
@@ -359,9 +365,9 @@ function render() {
       if (tile.revealed && tile.type === "exit") {
         symbol = y === 0 ? "^" : y === MAP_HEIGHT - 1 ? "v" : x === 0 ? "<" : ">";
       }
-      // 地標依定義畫各自的字母(M 礦坑 / O 觀測台 / A 祭壇)
+      // 地標依定義畫各自的字母(M 礦坑 / O 觀測台 / A 祭壇 / K 煤礦坑)
       if (tile.revealed && tile.type === "landmark") {
-        symbol = LANDMARKS.find((l) => l.x === x && l.y === y)?.symbol ?? "!";
+        symbol = LANDMARKS.find((l) => l.x === x && l.y === y && (l.mapId ?? "A") === engine.mapId)?.symbol ?? "!";
       }
       // 村莊:整張地圖最特別的一格(家的符號),只在中央地圖
       if (engine.mapId === "A" && tile.revealed && x === homePos.x && y === homePos.y) symbol = "⌂";
@@ -441,6 +447,17 @@ function render() {
     homeBtn.textContent = "返回村莊(結束遠征)";
     homeBtn.href = "village.html";
     siteActionEl.appendChild(homeBtn);
+  }
+
+  // 站在可鋪軌的格子上 → 顯示「鋪設鐵軌」(從村莊連出去的永久工程)
+  if (engine.canLayRail()) {
+    const railBtn = document.createElement("button");
+    railBtn.className = "btn";
+    railBtn.textContent = `鋪設鐵軌(剩 ${engine.carried?.rails ?? 0})`;
+    railBtn.addEventListener("click", () => {
+      if (engine.layRail()) render();
+    });
+    siteActionEl.appendChild(railBtn);
   }
 
   // 站在據點上、身上有肉乾且沒滿血 → 顯示「吃肉乾」(要不要花這口糧,玩家自己決定)

@@ -142,7 +142,9 @@ function canUse(subActionId: string): boolean {
   const weapon = WEAPONS.find((w) => w.id === subActionId);
   if (weapon) {
     if ((carried.weapons[subActionId] ?? 0) <= 0) return false;
-    if (weapon.usesArrow && carried.arrows <= 0) return false;
+    const per = weapon.ammoPerUse ?? 1;
+    if (weapon.ammo === "arrow" && carried.arrows < per) return false;
+    if (weapon.ammo === "bullet" && (carried.bullets ?? 0) < per) return false;
     return true;
   }
   if (subActionId === "bandage") return carried.bandages > 0;
@@ -157,7 +159,9 @@ function afterUse(subActionId: string) {
   if (!carried) return;
   const weapon = WEAPONS.find((w) => w.id === subActionId);
   if (weapon) {
-    if (weapon.usesArrow) carried.arrows = Math.max(0, carried.arrows - 1);
+    const per = weapon.ammoPerUse ?? 1;
+    if (weapon.ammo === "arrow") carried.arrows = Math.max(0, carried.arrows - per);
+    if (weapon.ammo === "bullet") carried.bullets = Math.max(0, (carried.bullets ?? 0) - per);
     carried.durability[subActionId] = (carried.durability[subActionId] ?? weapon.durability) - 1;
     if (carried.durability[subActionId] <= 0) {
       carried.weapons[subActionId] = Math.max(0, (carried.weapons[subActionId] ?? 0) - 1);
@@ -193,8 +197,8 @@ function subActionLabel(subActionId: string, baseLabel: string): string {
     if (count <= 0) return `${baseLabel}(損壞)`;
     const dur = carried.durability[subActionId] ?? weapon.durability;
     const spare = count > 1 ? ` ×${count}` : "";
-    const arrows = weapon.usesArrow ? `・矢${carried.arrows}` : "";
-    return `${baseLabel}${spare}(耐${dur}${arrows})`;
+    const ammoText = weapon.ammo === "arrow" ? `・矢${carried.arrows}` : weapon.ammo === "bullet" ? `・彈${carried.bullets ?? 0}` : "";
+    return `${baseLabel}${spare}(耐${dur}${ammoText})`;
   }
   if (subActionId === "bandage") return `${baseLabel} ×${carried.bandages}`;
   if (subActionId === "jerky") return `${baseLabel} ×${carried.jerky ?? 0}`;

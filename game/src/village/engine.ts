@@ -34,6 +34,11 @@ export class VillageEngine {
     bandage: 0,
     arrow: 0,
     iron: 0,
+    ingot: 0,
+    coal: 0,
+    steel: 0,
+    bullet: 0,
+    rail: 0,
     scroll: 0,
     shard: 0,
     oil: 0,
@@ -166,6 +171,15 @@ export class VillageEngine {
     if (!def) return false;
     if (def.requiresBuilding && !this.hasBuilding(def.requiresBuilding)) return false;
     if (def.requiresWeapon && this.weaponCount(def.requiresWeapon) <= 0) return false;
+    if (def.requiresWeaponAny && !def.requiresWeaponAny.some((id) => this.weaponCount(id) > 0)) return false;
+    if (def.requiresLandmark) {
+      try {
+        const cleared = JSON.parse(localStorage.getItem("landmarks-cleared") ?? "[]") as string[];
+        if (!cleared.includes(def.requiresLandmark)) return false;
+      } catch {
+        return false;
+      }
+    }
     return Object.keys(def.cost).every((id) => this.seenResources.has(id as ResourceId));
   }
 
@@ -214,6 +228,7 @@ export class VillageEngine {
     if (!def) return false;
     if (this.upgrades[upgradeId]) return true;
     if (def.requiresBuilding && !this.hasBuilding(def.requiresBuilding)) return false;
+    if (def.requiresUpgrade && !this.upgrades[def.requiresUpgrade]) return false; // 升級鏈逐級推進
     return Object.keys(def.cost).every((id) => this.seenResources.has(id as ResourceId));
   }
 
@@ -535,8 +550,8 @@ export class VillageEngine {
 
       // 加工型工作(produces 有負值)逐位工人結算:原料不足的工人當輪不生產,不會把庫存扣成負的
       const consumes = Object.entries(job.produces).filter(([, n]) => (n ?? 0) < 0);
-      // 鐵道通車後,台車把礦石直接運回村莊——鐵礦工的「產出」翻倍(消耗不變)
-      const railwayBoost = job.id === "miner" && this.hasBuilding("railway") ? 2 : 1;
+      // 鐵軌鋪到礦坑旁(rail-to-mine 旗標)後,礦車自動運輸——鐵礦工的「產出」翻倍(消耗不變)
+      const railwayBoost = job.id === "miner" && localStorage.getItem("rail-to-mine") === "1" ? 2 : 1;
       for (let w = 0; w < workers; w++) {
         const canWork = consumes.every(([id, n]) => this.resources[id as ResourceId] >= -(n ?? 0));
         if (!canWork) break;

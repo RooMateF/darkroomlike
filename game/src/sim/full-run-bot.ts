@@ -60,7 +60,9 @@ function canUseSim(carried: Carried, id: string): boolean {
   const weapon = WEAPONS.find((w) => w.id === id);
   if (weapon) {
     if ((carried.weapons[id] ?? 0) <= 0) return false;
-    if (weapon.usesArrow && carried.arrows <= 0) return false;
+    const per = weapon.ammoPerUse ?? 1;
+    if (weapon.ammo === "arrow" && carried.arrows < per) return false;
+    if (weapon.ammo === "bullet" && (carried.bullets ?? 0) < per) return false;
     return true;
   }
   if (id === "bandage") return carried.bandages > 0;
@@ -73,7 +75,9 @@ function canUseSim(carried: Carried, id: string): boolean {
 function afterUseSim(engine: CombatEngine, carried: Carried, id: string) {
   const weapon = WEAPONS.find((w) => w.id === id);
   if (weapon) {
-    if (weapon.usesArrow) carried.arrows = Math.max(0, carried.arrows - 1);
+    const per = weapon.ammoPerUse ?? 1;
+    if (weapon.ammo === "arrow") carried.arrows = Math.max(0, carried.arrows - per);
+    if (weapon.ammo === "bullet") carried.bullets = Math.max(0, (carried.bullets ?? 0) - per);
     carried.durability[id] = (carried.durability[id] ?? weapon.durability) - 1;
     if (carried.durability[id] <= 0) {
       carried.weapons[id] = Math.max(0, (carried.weapons[id] ?? 0) - 1);
@@ -302,6 +306,7 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
     };
     if (goal.iron) {
       put("miner", 5);
+      put("smelter", 3); // 冶金:鐵礦 → 鐵(鐵階武器的原料)
       put("smoker", 3);
       put("hunter", 9);
     } else if (goal.jerky) {
@@ -388,7 +393,7 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
   }
 
   function depart(loadout: Loadout): Carried {
-    const packCap = carryCapacity(!!village.upgrades["backpack"]);
+    const packCap = carryCapacity(village.upgrades);
     const carried: Carried = {
       weapons: {},
       durability: {},

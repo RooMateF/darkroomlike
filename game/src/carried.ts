@@ -7,7 +7,11 @@ export const PLAYER_MAX_HP = 30;
 export function playerMaxHp(): number {
   try {
     const v = JSON.parse(localStorage.getItem("village-state") ?? "{}");
-    return v.upgrades?.["leather-armor"] ? 40 : 30;
+    const u = v.upgrades ?? {};
+    if (u["steel-armor"]) return 65;
+    if (u["iron-armor"]) return 50;
+    if (u["leather-armor"]) return 40;
+    return 30;
   } catch {
     return 30;
   }
@@ -25,6 +29,10 @@ export interface Carried {
   jerky?: number;
   bandages: number;
   arrows: number;
+  /** 槍械通用子彈(左輪 1 發/擊、散彈 2 發/擊) */
+  bullets?: number;
+  /** 鐵軌(2 根 1 格):鋪設在地圖上成為永久建設 */
+  rails?: number;
   /** 火焰卷軸:一次性法術道具(法術系統解鎖前的第一次接觸) */
   scrolls?: number;
   /** 燈油:點亮據點燈柱的燃料(每座 3 份) */
@@ -39,7 +47,7 @@ export interface Carried {
   packCap?: number;
 }
 
-import { WEAPONS, ARROWS_PER_SLOT, RATIONS_PER_SLOT } from "./village/data";
+import { WEAPONS, ARROWS_PER_SLOT, RATIONS_PER_SLOT, BULLETS_PER_SLOT, RAILS_PER_SLOT } from "./village/data";
 
 /**
  * 揹負空間目前的占用量(統一容量):
@@ -55,12 +63,16 @@ export function packUsed(carried: Carried): number {
   }
   const arrowsTotal = carried.arrows + (carried.loot?.arrow ?? 0);
   used += Math.ceil(arrowsTotal / ARROWS_PER_SLOT);
+  const bulletsTotal = (carried.bullets ?? 0) + (carried.loot?.bullet ?? 0);
+  if (bulletsTotal > 0) used += Math.ceil(bulletsTotal / BULLETS_PER_SLOT);
+  const railsTotal = (carried.rails ?? 0) + (carried.loot?.rail ?? 0);
+  if (railsTotal > 0) used += Math.ceil(railsTotal / RAILS_PER_SLOT);
   // 乾糧輕便 2 份併 1 格;肉乾重,1 份 1 格
   const rationsTotal = carried.rations + (carried.loot?.ration ?? 0);
   used += Math.ceil(rationsTotal / RATIONS_PER_SLOT);
   used += (carried.jerky ?? 0) + carried.bandages + (carried.scrolls ?? 0) + (carried.oil ?? 0) + (carried.elixirs ?? 0);
   for (const [id, n] of Object.entries(carried.loot ?? {})) {
-    if (id === "arrow" || id === "ration") continue; // 已併入各自的格
+    if (id === "arrow" || id === "ration" || id === "bullet" || id === "rail") continue; // 已併入各自的格
     used += n;
   }
   return used;
@@ -136,6 +148,8 @@ export function returnCarriedToVillage() {
   village.resources.jerky = (village.resources.jerky ?? 0) + (leftover.jerky ?? 0);
   village.resources.bandage = (village.resources.bandage ?? 0) + leftover.bandages;
   village.resources.arrow = (village.resources.arrow ?? 0) + leftover.arrows;
+  village.resources.bullet = (village.resources.bullet ?? 0) + (leftover.bullets ?? 0);
+  village.resources.rail = (village.resources.rail ?? 0) + (leftover.rails ?? 0);
   village.resources.scroll = (village.resources.scroll ?? 0) + (leftover.scrolls ?? 0);
   village.resources.oil = (village.resources.oil ?? 0) + (leftover.oil ?? 0);
   village.resources.elixir = (village.resources.elixir ?? 0) + (leftover.elixirs ?? 0);

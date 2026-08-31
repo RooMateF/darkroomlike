@@ -1,5 +1,5 @@
 import "./style.css";
-import { WEAPONS, carryCapacity, ARROWS_PER_SLOT, RATIONS_PER_SLOT } from "./village/data";
+import { WEAPONS, carryCapacity, ARROWS_PER_SLOT, RATIONS_PER_SLOT, BULLETS_PER_SLOT, RAILS_PER_SLOT } from "./village/data";
 import { RESOURCE_LABEL } from "./village/types";
 import { saveCarried, returnCarriedToVillage, playerMaxHp, type Carried } from "./carried";
 import { markFreshExpedition } from "./explore/engine";
@@ -52,6 +52,8 @@ const pick = {
   jerky: 0,
   bandages: 0,
   arrows: 0,
+  bullets: 0,
+  rails: 0,
   scrolls: 0,
   oil: 0,
   elixirs: 0,
@@ -97,7 +99,7 @@ const supplyListEl = document.querySelector<HTMLDivElement>("#supply-list")!;
 
 // ---- 揹負空間(統一容量):武器(各有占格)、補給、途中拾獲的戰利品全部共用 ----
 const upgrades = (village as { upgrades?: Record<string, boolean> }).upgrades ?? {};
-const capacity = carryCapacity(upgrades.backpack === true);
+const capacity = carryCapacity(upgrades);
 
 /** 目前配置占用的格數:武器 packSize×把數 + 肉乾/繃帶/卷軸各 1 + 乾糧 2 併 1 格 + 弓矢 3 併 1 格 */
 function packPicked(): number {
@@ -109,6 +111,8 @@ function packPicked(): number {
   used += pick.jerky + pick.bandages + pick.scrolls + pick.oil + pick.elixirs;
   used += Math.ceil(pick.rations / RATIONS_PER_SLOT);
   used += Math.ceil(pick.arrows / ARROWS_PER_SLOT);
+  used += Math.ceil(pick.bullets / BULLETS_PER_SLOT);
+  used += Math.ceil(pick.rails / RAILS_PER_SLOT);
   return used;
 }
 
@@ -124,11 +128,11 @@ function fitsAfterAdd(mutate: () => void, revert: () => void): boolean {
 let capPackValue: HTMLElement;
 {
   const statsEl = document.querySelector<HTMLDivElement>("#stats-list")!;
-  const hasWaterskin = upgrades.waterskin === true;
-  const waterCap = hasWaterskin ? 32 : 20;
+  const waterCap = upgrades["steel-flask"] ? 50 : upgrades["iron-flask"] ? 40 : upgrades.waterskin ? 32 : 20;
+  const flaskTag = upgrades["steel-flask"] ? "(鋼水壺)" : upgrades["iron-flask"] ? "(鐵水壺)" : upgrades.waterskin ? "(大水袋)" : "";
   const stats: [string, string, string?][] = [
-    ["HP", `${playerMaxHp()}/${playerMaxHp()}${upgrades["leather-armor"] ? "(皮甲)" : ""}`],
-    ["水", `${waterCap}/${waterCap}${hasWaterskin ? "(大水袋)" : ""}`],
+    ["HP", `${playerMaxHp()}/${playerMaxHp()}${upgrades["steel-armor"] ? "(鋼甲)" : upgrades["iron-armor"] ? "(鐵甲)" : upgrades["leather-armor"] ? "(皮甲)" : ""}`],
+    ["水", `${waterCap}/${waterCap}${flaskTag}`],
     ["揹負空間", `0/${capacity}`, "cap-pack"],
     ["每步消耗", "水 1"],
     ["每 2 步消耗", "乾糧 1(不回血;乾糧見底改咬肉乾,咬一口 +10 HP)"],
@@ -208,7 +212,7 @@ for (const w of WEAPONS) {
   const remainingDur = village.weaponDurability?.[w.id] ?? w.durability;
   const row = makePickRow(
     w.label,
-    `占 ${w.packSize} 格・耐久 ${remainingDur}/${w.durability}${w.usesArrow ? "・需要弓矢" : ""}`,
+    `占 ${w.packSize} 格・耐久 ${remainingDur}/${w.durability}${w.ammo === "arrow" ? "・需要弓矢" : w.ammo === "bullet" ? `・需要子彈(每擊 ${w.ammoPerUse ?? 1} 發)` : ""}`,
     stock,
     () => pick.weapons[w.id] ?? 0,
     (n) => (pick.weapons[w.id] = n),
@@ -230,6 +234,8 @@ const supplyDefs = [
   { id: "jerky", label: RESOURCE_LABEL.jerky, extra: "占 1 格・重但滋養,關鍵時刻能回血", get: () => pick.jerky, set: (n: number) => (pick.jerky = n) },
   { id: "bandage", label: RESOURCE_LABEL.bandage, extra: "占 1 格・稀有,大量回復並止血", get: () => pick.bandages, set: (n: number) => (pick.bandages = n) },
   { id: "arrow", label: RESOURCE_LABEL.arrow, extra: `${ARROWS_PER_SLOT} 支占 1 格・獵弓的彈藥`, get: () => pick.arrows, set: (n: number) => (pick.arrows = n) },
+  { id: "bullet", label: RESOURCE_LABEL.bullet, extra: `${BULLETS_PER_SLOT} 發占 1 格・左輪/散彈通用`, get: () => pick.bullets, set: (n: number) => (pick.bullets = n) },
+  { id: "rail", label: RESOURCE_LABEL.rail, extra: `${RAILS_PER_SLOT} 根占 1 格・鋪在地圖上的永久建設`, get: () => pick.rails, set: (n: number) => (pick.rails = n) },
   { id: "scroll", label: RESOURCE_LABEL.scroll, extra: "占 1 格・一次性,威力驚人", get: () => pick.scrolls, set: (n: number) => (pick.scrolls = n) },
   { id: "oil", label: RESOURCE_LABEL.oil, extra: "占 1 格・點亮據點燈柱的燃料(每座 3 份)", get: () => pick.oil, set: (n: number) => (pick.oil = n) },
   { id: "elixir", label: RESOURCE_LABEL.elixir, extra: "占 1 格・戰鬥中飲用:大量回復並解除所有異常", get: () => pick.elixirs, set: (n: number) => (pick.elixirs = n) },
@@ -263,11 +269,13 @@ try {
     pick.jerky = Math.min(Math.floor(village.resources.jerky ?? 0), last.jerky ?? 0);
     pick.bandages = Math.min(Math.floor(village.resources.bandage ?? 0), last.bandages ?? 0);
     pick.arrows = Math.min(Math.floor(village.resources.arrow ?? 0), last.arrows ?? 0);
+    pick.bullets = Math.min(Math.floor(village.resources.bullet ?? 0), last.bullets ?? 0);
+    pick.rails = Math.min(Math.floor(village.resources.rail ?? 0), last.rails ?? 0);
     pick.scrolls = Math.min(Math.floor(village.resources.scroll ?? 0), last.scrolls ?? 0);
     pick.oil = Math.min(Math.floor(village.resources.oil ?? 0), last.oil ?? 0);
     pick.elixirs = Math.min(Math.floor(village.resources.elixir ?? 0), last.elixirs ?? 0);
     // 夾回揹負空間(可能上次是有背包時的配置):先減補給,再減武器
-    const order: ("oil" | "elixirs" | "scrolls" | "arrows" | "bandages" | "jerky" | "rations")[] = ["oil", "elixirs", "scrolls", "arrows", "bandages", "jerky", "rations"];
+    const order: ("rails" | "oil" | "elixirs" | "scrolls" | "bullets" | "arrows" | "bandages" | "jerky" | "rations")[] = ["rails", "oil", "elixirs", "scrolls", "bullets", "arrows", "bandages", "jerky", "rations"];
     let oi = 0;
     while (packPicked() > capacity && oi < order.length) {
       if (pick[order[oi]] > 0) pick[order[oi]]--;
@@ -294,6 +302,8 @@ departBtn.addEventListener("click", () => {
   village.resources.jerky = (village.resources.jerky ?? 0) - pick.jerky;
   village.resources.bandage = (village.resources.bandage ?? 0) - pick.bandages;
   village.resources.arrow = (village.resources.arrow ?? 0) - pick.arrows;
+  village.resources.bullet = (village.resources.bullet ?? 0) - pick.bullets;
+  village.resources.rail = (village.resources.rail ?? 0) - pick.rails;
   village.resources.scroll = (village.resources.scroll ?? 0) - pick.scrolls;
   village.resources.oil = (village.resources.oil ?? 0) - pick.oil;
   village.resources.elixir = (village.resources.elixir ?? 0) - pick.elixirs;
@@ -307,6 +317,8 @@ departBtn.addEventListener("click", () => {
     jerky: pick.jerky,
     bandages: pick.bandages,
     arrows: pick.arrows,
+    bullets: pick.bullets,
+    rails: pick.rails,
     scrolls: pick.scrolls,
     oil: pick.oil,
     elixirs: pick.elixirs,

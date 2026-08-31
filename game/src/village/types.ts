@@ -13,6 +13,11 @@ export type ResourceId =
   | "bandage"
   | "arrow"
   | "iron"
+  | "ingot"
+  | "coal"
+  | "steel"
+  | "bullet"
+  | "rail"
   | "scroll"
   | "shard"
   | "oil"
@@ -31,6 +36,14 @@ export const RESOURCE_LABEL: Record<ResourceId, string> = {
   bandage: "繃帶",
   arrow: "弓矢",
   iron: "鐵礦",
+  // 冶金三階:鐵礦(礦坑產)→ 鐵(冶煉,吃木石)→ 鋼鐵(鐵+煤合煉)
+  ingot: "鐵",
+  coal: "煤礦",
+  steel: "鋼鐵",
+  // 槍械通用彈藥(左輪 1 發/擊,散彈 2 發/擊;每發傷害一致)
+  bullet: "子彈",
+  // 鐵軌:鋪設在遠征地圖上的永久建設(從村莊連出去;軌上省水糧、不遇敵)
+  rail: "鐵軌",
   scroll: "火焰卷軸",
   // 從汙染沾身的生物傷口裡挖出來的半透明晶體:無法自行加工,是交易所的硬通貨(resources.md § 9.4)
   shard: "異晶",

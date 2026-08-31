@@ -112,7 +112,11 @@ function readPerk(id: string): boolean {
 function readWaterCapacity(): number {
   try {
     const v = JSON.parse(localStorage.getItem("village-state") ?? "{}");
-    return v.upgrades?.waterskin ? 32 : 20;
+    const u = v.upgrades ?? {};
+    if (u["steel-flask"]) return 50;
+    if (u["iron-flask"]) return 40;
+    if (u.waterskin) return 32;
+    return 20;
   } catch {
     return 20;
   }
@@ -163,6 +167,8 @@ export class ExploreEngine {
   pendingPickup: Record<string, number> | null = null;
   /** 這份地圖狀態屬於第幾趟遠征(據點儲備的重置依據) */
   private stateSerial = -1;
+  /** 軌上連續行走的步數(水 1/4 步、糧 1/8 步的節流計數) */
+  private railSteps = 0;
   /** 離開最後一個據點後,新揭露的格子座標,用來在死亡時把迷霧退回據點狀態(§3.9) */
   private revealedSinceCheckpoint = new Set<string>();
   /** 離開最後一個據點後拾獲、尚未帶回的東西,死亡時退回原位(§3.9) */
@@ -191,6 +197,7 @@ export class ExploreEngine {
       this.depotHealUsed = restored.depotHealUsed;
       this.pendingPickup = restored.pendingPickup;
       this.stateSerial = restored.serial;
+      this.railSteps = restored.railSteps;
     } else {
       this.grid = generateMap(this.mapId);
       this.playerX = start.x;
@@ -250,25 +257,26 @@ export class ExploreEngine {
       this.reveal(start.x, start.y);
     }
 
-    // 打通的 Lv1/Lv3 探勘點升格為前線補給基地(只有中央地圖有探勘點)
-    if (this.mapId === "A") this.promoteClearedSitesToDepots();
+    // 打通的 Lv1/Lv3 探勘點升格為前線補給基地(各地圖處理自己的點)
+    this.promoteClearedSitesToDepots();
 
     // 剛打贏地城回到地圖時,人就站在據點上(補給點或解放後的地標)——直接補給。
     // 沒有這一手,在礦坑/觀測台這種深處打完勝仗,會因為水袋見底而回不了家
     const standing = this.grid[this.playerY]?.[this.playerX];
     if (standing?.type === "depot") {
       this.refillHere();
-    } else if (standing?.type === "landmark" && this.mapId === "A") {
-      const site = siteAt(this.playerX, this.playerY);
+    } else if (standing?.type === "landmark") {
+      const site = siteAt(this.playerX, this.playerY, this.mapId);
       if (site && siteProgress(site.key).cleared) this.refillHere();
     }
 
     this.saveState();
   }
 
-  /** Lv1/Lv3 打通後變成補給點(前線基地) */
+  /** Lv1/Lv3 打通後變成補給點(前線基地);只處理本地圖的點 */
   private promoteClearedSitesToDepots() {
     for (const s of specialSites()) {
+      if ((s.mapId ?? "A") !== this.mapId) continue;
       if ((s.level === 1 || s.level === 3) && siteProgress(s.key).cleared) {
         const tile = this.grid[s.y]?.[s.x];
         if (tile && tile.type !== "depot") tile.type = "depot";
@@ -300,8 +308,7 @@ export class ExploreEngine {
 
   /** 目前站著的未打通探勘點(給 UI 顯示「深入調查」按鈕用) */
   currentSite() {
-    if (this.mapId !== "A") return null; // 探勘點只存在於中央地圖
-    const site = siteAt(this.playerX, this.playerY);
+    const site = siteAt(this.playerX, this.playerY, this.mapId);
     if (!site) return null;
     const progress = siteProgress(site.key);
     if (progress.cleared) return null;
@@ -332,10 +339,12 @@ export class ExploreEngine {
     const typeRows: string[] = [];
     const revealRows: string[] = [];
     const litRows: string[] = [];
+    const railRows: string[] = [];
     for (const row of this.grid) {
       typeRows.push(row.map((t) => TILE_SYMBOL[t.type]).join(""));
       revealRows.push(row.map((t) => (t.revealed ? "1" : "0")).join(""));
       litRows.push(row.map((t) => (t.lit ? "1" : "0")).join(""));
+      railRows.push(row.map((t) => (t.rail ? "1" : "0")).join(""));
     }
     localStorage.setItem(
       stateKeyFor(this.mapId),
@@ -356,7 +365,9 @@ export class ExploreEngine {
         depotGrantsUsed: [...this.depotGrantsUsed],
         depotHealUsed: [...this.depotHealUsed],
         pendingPickup: this.pendingPickup,
+        railSteps: this.railSteps,
         litRows,
+        railRows,
       }),
     );
   }
@@ -371,6 +382,7 @@ export class ExploreEngine {
           type: SYMBOL_TO_TYPE[symbol] ?? "plain",
           revealed: (s.revealRows as string[])[y][x] === "1",
           lit: (s.litRows as string[] | undefined)?.[y]?.[x] === "1",
+          rail: (s.railRows as string[] | undefined)?.[y]?.[x] === "1",
         })),
       );
       return {
@@ -389,6 +401,7 @@ export class ExploreEngine {
         depotHealUsed: new Set<string>(s.depotHealUsed ?? []),
         pendingPickup: (s.pendingPickup ?? null) as Record<string, number> | null,
         serial: (s.serial ?? -1) as number,
+        railSteps: (s.railSteps ?? 0) as number,
       };
     } catch {
       return null;
@@ -477,9 +490,9 @@ export class ExploreEngine {
           .join("、");
         this.cb.onLog(`你翻找出:${text}。`);
       }
-    } else if ((target.type === "site" || target.type === "landmark") && this.mapId === "A") {
+    } else if (target.type === "site" || target.type === "landmark") {
       // 特殊探勘地點(五級制):踩上只給敘事與危險氛圍,由玩家主動選「深入調查」才開戰
-      const site = siteAt(nx, ny);
+      const site = siteAt(nx, ny, this.mapId);
       if (site) {
         const progress = siteProgress(site.key);
         const lm = LANDMARKS.find((l) => l.x === nx && l.y === ny);
@@ -510,12 +523,22 @@ export class ExploreEngine {
       }
     }
 
-    // 水:每步扣;食物:每 2 步吃一餐(仿 ADR)——先吃輕便的乾糧(不回血),
+    // 軌上移動(這一步的起點與終點都有軌):台車滑行——水 1/4 步、糧 1/8 步、不遇敵
+    const fromTile = this.grid[this.playerY - dy]?.[this.playerX - dx];
+    const onRail = !!(fromTile?.rail && target.rail);
+    if (onRail) this.railSteps++;
+
+    // 水:每步扣(軌上每 4 步扣 1);食物:每 2 步吃一餐(軌上每 8 步)——先吃輕便的乾糧(不回血),
     // 乾糧見底改咬肉乾(重但滋養,回血),兩者都空了才是真正的斷糧
     const wasDry = this.water <= 0; // 這一步出發前就已經沒水了
-    this.water = Math.max(0, this.water - MOVE_WATER_COST);
+    if (onRail) {
+      if (this.railSteps % 4 === 0) this.water = Math.max(0, this.water - 1);
+    } else {
+      this.water = Math.max(0, this.water - MOVE_WATER_COST);
+    }
     let ateThisStep = false;
-    if (this.carried && this.stepCount % FOOD_EVERY_STEPS === 0) {
+    const foodDue = onRail ? this.railSteps % 8 === 0 : this.stepCount % FOOD_EVERY_STEPS === 0;
+    if (this.carried && foodDue) {
       if (this.carried.rations > 0) {
         this.carried.rations--;
         ateThisStep = true;
@@ -568,7 +591,9 @@ export class ExploreEngine {
     }
     // 【潛行】(老者教的走法):遭遇率再 ×0.8
     const stealthMult = readPerk("stealth") ? 0.8 : 1;
-    if (this.encounterGrace > 0) {
+    if (onRail) {
+      // 軌道是人開出來的路:牠們不靠近鐵軌——完全不遇敵(滿狀態抵達 Boss 的戰略通道)
+    } else if (this.encounterGrace > 0) {
       this.encounterGrace--; // 戰後喘息中,不觸發隨機遭遇
     } else if (Math.random() < ENCOUNTER_CHANCE * lampMult * stealthMult * homeMult) {
       this.cb.onLog("⚠ 你感覺到附近有什麼東西的氣息……");
@@ -598,9 +623,49 @@ export class ExploreEngine {
     const tile = this.grid[this.playerY]?.[this.playerX];
     if (!tile || tile.lit) return false;
     const clearedLandmark =
-      this.mapId === "A" && tile.type === "landmark" && !!siteAt(this.playerX, this.playerY) && siteProgress(siteAt(this.playerX, this.playerY)!.key).cleared;
+      tile.type === "landmark" && !!siteAt(this.playerX, this.playerY, this.mapId) && siteProgress(siteAt(this.playerX, this.playerY, this.mapId)!.key).cleared;
     if (tile.type !== "depot" && !clearedLandmark) return false;
     return (this.carried?.oil ?? 0) >= LAMP_OIL_COST;
+  }
+
+  /** 這一格能不能鋪鐵軌:限中央地圖、身上有軌、格子可走且沒鋪過、與村莊或既有軌道相連 */
+  canLayRail(): boolean {
+    if (this.mapId !== "A" || !this.carried || (this.carried.rails ?? 0) <= 0) return false;
+    const tile = this.grid[this.playerY]?.[this.playerX];
+    if (!tile || tile.rail) return false;
+    if (BLOCKED.includes(tile.type) || tile.type === "exit") return false;
+    const start = startPosition();
+    // 相連規則:貼著村莊,或四方向鄰接既有軌道
+    if (Math.abs(this.playerX - start.x) + Math.abs(this.playerY - start.y) <= 1) return true;
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as const) {
+      if (this.grid[this.playerY + dy]?.[this.playerX + dx]?.rail) return true;
+    }
+    return false;
+  }
+
+  /** 鋪一段鐵軌:永久建設(死亡不失去);鋪到礦坑旁,礦車開始自動運輸(村莊礦工產出×2) */
+  layRail(): boolean {
+    if (!this.canLayRail() || !this.carried) return false;
+    const tile = this.grid[this.playerY][this.playerX];
+    tile.rail = true;
+    this.carried.rails = (this.carried.rails ?? 0) - 1;
+    saveCarried(this.carried);
+    // 鋪到礦坑旁:礦車自動運輸
+    const mine = LANDMARKS.find((l) => l.id === "mine");
+    if (mine && localStorage.getItem("rail-to-mine") !== "1") {
+      const adj = Math.abs(this.playerX - mine.x) + Math.abs(this.playerY - mine.y) <= 1;
+      if (adj) {
+        localStorage.setItem("rail-to-mine", "1");
+        this.cb.onLog("鐵軌接上了礦坑的舊軌道。第一台礦車被推上鐵軌時,整條路都在輕輕震——從今天起,礦石自己會回村了。(鐵礦工產出 ×2)");
+      }
+    }
+    this.saveState();
+    return true;
   }
 
   /** 站在據點上嗎(補給點或已解放地標)——休息類動作的前提 */
@@ -608,8 +673,8 @@ export class ExploreEngine {
     const tile = this.grid[this.playerY]?.[this.playerX];
     if (!tile) return false;
     if (tile.type === "depot") return true;
-    if (tile.type === "landmark" && this.mapId === "A") {
-      const site = siteAt(this.playerX, this.playerY);
+    if (tile.type === "landmark") {
+      const site = siteAt(this.playerX, this.playerY, this.mapId);
       return !!site && siteProgress(site.key).cleared;
     }
     return false;
