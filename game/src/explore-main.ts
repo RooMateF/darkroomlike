@@ -402,7 +402,8 @@ function render() {
       // 高亮:村莊/燃燈;退場:拿空據點 s、回收場 r;光圈:提亮;地形紋理(. ; :)最暗,特殊點自然浮出
       cell.className = "map-cell";
       if (!isPlayer && tile.revealed) {
-        const isTexture = tile.type === "plain" || tile.type === "brush" || tile.type === "rubble";
+        // 地面層:一般地形+牆+水潭——牆亮晶晶會引誘人走過去,它只是地形的一部分
+        const isTexture = tile.type === "plain" || tile.type === "brush" || tile.type === "rubble" || tile.type === "wall" || tile.type === "water";
         if (symbol === "⌂" || symbol === "%") cell.classList.add("beacon");
         else if (symbol === "s" || symbol === "r") cell.classList.add("dim");
         else if (lamps.length > 0 && inGlow(x, y)) cell.classList.add("glow");
