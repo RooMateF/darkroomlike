@@ -724,7 +724,15 @@ export class ExploreEngine {
   /** 據點上可以坐下來吃肉乾補血(玩家自己決定要不要花這口糧) */
   canEatJerky(): boolean {
     if (!this.atRestPoint() || !this.carried) return false;
+    if (this.isAtHome()) return false; // 家門口不啃行軍糧——結束遠征回村休整就好
     return (this.carried.jerky ?? 0) > 0 && (this.carried.hp ?? playerMaxHp()) < playerMaxHp();
+  }
+
+  /** 站在村莊出發點上嗎(中央地圖限定)——家門口不是荒野據點,不套補給/休整那一套 */
+  private isAtHome(): boolean {
+    if (this.mapId !== "A") return false;
+    const start = startPosition();
+    return this.playerX === start.x && this.playerY === start.y;
   }
 
   /** 吃一份肉乾:+10 HP */
@@ -759,6 +767,13 @@ export class ExploreEngine {
    * - 記錄檢查點
    */
   private refillHere() {
+    // 家門口:只默默把水打滿(井就在旁邊),不套荒野據點的儲備/休整/補給播報——
+    // 站在村口時的主角是「返回村莊(結束遠征)」
+    if (this.isAtHome()) {
+      this.water = this.maxWater;
+      this.setCheckpoint();
+      return;
+    }
     const waterGain = this.maxWater - this.water;
     this.water = this.maxWater;
     let rationGain = 0;
