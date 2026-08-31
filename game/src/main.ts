@@ -94,7 +94,7 @@ retreatBtn.addEventListener("click", () => {
     if (engine.playerHp <= 0) {
       clearCarried();
       localStorage.setItem("death-cause", "combat");
-      endCombat("你在逃跑途中倒下……代行者將你救回營地。", "village.html", 2200);
+      endCombat("你在逃跑途中倒下……一股溫暖的微光在你的意識消散前包裹著你。", "village.html", 2200);
       return;
     }
   } else {
@@ -332,7 +332,7 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
       clearCarried();
       localStorage.removeItem(DUNGEON_KEY);
       localStorage.setItem("death-cause", "combat"); // 回村後代行者依死因給一句叮囑
-      endCombat("你倒下了……代行者將你救回營地。", "village.html", 2200);
+      endCombat("你倒下了……但是一股溫暖的微光包裹著你。", "village.html", 2200);
     } else if (engine.enemyHp <= 0) {
       // 勝利:剩餘 HP 記回行囊、收下戰利品——活著帶回村才真的入庫
       const gains: Record<string, number> = { ...enemyDef.loot };

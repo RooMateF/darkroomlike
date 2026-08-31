@@ -45,9 +45,9 @@ export function markLandmarkCleared(id: string) {
 
 /** 觀測台解放後,再訪時輪播的觀測紀錄(認知揭露弧線第一~二階段之間:舊文明的存在+一絲異常,不說破) */
 const OBSERVATORY_LORE: string[] = [
-  "「第 12 夜。倍率不夠,得再磨一組鏡片。它表面的紋路,和去年畫下來的不一樣了。」",
-  "「第 31 夜。今晚很清楚。那不是紋路。紋路不會動。」",
-  "「第 47 夜。我把畫拿給鎮上的人看,他們笑我。從今天起不再給任何人看。它又變大了。」",
+  "「第 12 夜。倍率還是不夠我看得清楚,得再換一組鏡片才行。它表面的紋路,和去年畫下來的不一樣了。」",
+  "「第 31 夜。今晚很清楚。那東西肯定不是什麼隕石坑。隕石坑可不會動!」",
+  "「第 47 夜。我把畫拿給鎮上的人看,他們笑我。但沒有關係,我知道的,祂一直在看著我,我是祂在這片土地上的代行者,哈哈哈...」",
   "紀錄到這裡就斷了。最後一頁只有一幅用力過猛的炭筆畫:一輪滿月,月面上纏繞著許多細長的、像根一樣的東西。",
 ];
 const OBSERVATORY_LORE_KEY = "observatory-lore-index";
@@ -694,7 +694,7 @@ export class ExploreEngine {
     if (restHeal > 0) parts.push(`HP +${restHeal}(休整)`);
     let tail = "";
     if (packWasFull) tail = "儲藏格裡還有乾糧,但你的背包塞不下了——騰出空間再來拿。";
-    else if (alreadyLooted && this.carried) tail = "儲備這趟已經拿過了,只剩水還能補。";
+    else if (alreadyLooted && this.carried) tail = "儲備這趟已經拿過了,只剩水還能補給。";
     if (parts.length > 0) {
       this.cb.onLog(`補給:${parts.join("、")}。${tail}`);
     } else {

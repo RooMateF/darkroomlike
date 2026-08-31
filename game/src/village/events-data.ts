@@ -62,7 +62,15 @@ export interface ChoiceEvent extends EventBase {
     /** 選了之後,在 delayMin~delayMax 個週期後從 FOLLOWUP_POOLS[pool] 抽一個後續(可能什麼也沒發生) */
     followUp?: { pool: string; delayMin: number; delayMax: number };
     /** 機率結局:選了之後從這裡加權抽一個(戰鬥型選項的勝敗)。有 outcomes 時忽略頂層 effect/resultText */
-    outcomes?: { weight: number; effect: Partial<Record<ResourceId, number>>; effectPct?: Partial<Record<ResourceId, number>>; populationDelta?: number; resultText: string }[];
+    outcomes?: {
+      weight: number;
+      effect: Partial<Record<ResourceId, number>>;
+      effectPct?: Partial<Record<ResourceId, number>>;
+      populationDelta?: number;
+      /** 人口比例損失(0.3 = 失去現有人口的 30%) */
+      populationPct?: number;
+      resultText: string;
+    }[];
     /** 取得永久被動(稀有訪客的交換品) */
     grantPerk?: string;
     /** 比例扣除(0.3 = 扣掉庫存的 30%)——嚴重損失型選項用;不做庫存門檻(有多少扣多少) */
@@ -109,19 +117,19 @@ export const EVENTS: VillageEvent[] = [
     kind: "choice",
     id: "hungry-wanderer",
     text: "一個瘦得脫形的流浪者在村口徘徊,乞求一點吃的。",
-    condition: (ctx) => (ctx.resources.grain ?? 0) >= 3 || (ctx.resources.ration ?? 0) >= 1,
+    condition: (ctx) => (ctx.resources.grain ?? 0) >= 50 || (ctx.resources.ration ?? 0) >= 10,
     options: [
       {
-        label: "分他一頓熱食(穀物 -3)",
-        effect: { grain: -3 },
+        label: "分他一頓熱食(穀物 -50)",
+        effect: { grain: -50 },
         resultText: "他狼吞虎嚥地吃完,朝村子深深鞠了一躬,消失在路的盡頭。",
-        followUp: { pool: "wanderer", delayMin: 25, delayMax: 70 },
+        followUp: { pool: "wanderer", delayMin: 30, delayMax: 72 },
       },
       {
-        label: "塞給他一份乾糧(乾糧 -1)",
-        effect: { ration: -1 },
+        label: "塞給他一份乾糧(乾糧 -10)",
+        effect: { ration: -10 },
         resultText: "他把乾糧緊緊抱在懷裡,一邊回頭道謝一邊小跑著離開了。",
-        followUp: { pool: "wanderer", delayMin: 25, delayMax: 70 },
+        followUp: { pool: "wanderer", delayMin: 30, delayMax: 72 },
       },
       { label: "趕走他", effect: {}, resultText: "他沒有糾纏,拖著腳步消失在暮色裡。" },
     ],
@@ -147,7 +155,7 @@ export const EVENTS: VillageEvent[] = [
         passiveLoss: true,
         outcomes: [
           { weight: 65, effect: { wood: 10, stone: 8, hide: 4 }, resultText: "一場混戰。土匪沒料到村子敢拚命,丟下傷者和輜重潰逃了——那個流浪者跑得最快。" },
-          { weight: 35, effect: {}, effectPct: { grain: 0.25, ration: 0.25 }, populationDelta: -1, resultText: "寡不敵眾。土匪搶走了存糧,村裡有人沒能撐過那一夜。" },
+          { weight: 35, effect: {}, effectPct: { grain: 0.25, ration: 0.25 }, populationPct: 0.3, resultText: "寡不敵眾。土匪搶走了存糧,村裡有人沒能撐過那一夜。" },
         ],
       },
       {
@@ -167,13 +175,13 @@ export const EVENTS: VillageEvent[] = [
     weight: 0.06,
     minTick: 30,
     condition: (ctx) => !ctx.perks.stealth,
-    text: "一位拄著杖的老者在村口駐足。他認得原野上那些東西的習性——「牠們靠聲音找人。我可以教你們怎麼走路,但村裡得供我一批過冬的東西。」",
+    text: "一位拄著杖的老者在村口駐足。他認得原野上那些東西的習性——「牠們靠聲音找人。我可以教你們怎麼移動,但你們得提供我一批過冬的東西。」",
     options: [
       {
-        label: "供養他(皮革 -40、肉乾 -15)",
-        effect: { leather: -40, jerky: -15 },
+        label: "供養他(皮革 -40、肉乾 -20)",
+        effect: { leather: -40, jerky: -20 },
         grantPerk: "stealth",
-        resultText: "老者住了幾天,教會了所有外出的人貼地換步的走法。(獲得【潛行】:遠征的遭遇率降低)",
+        resultText: "老者住了幾天,教會了你貼地換步的走法。(獲得【潛行】:遠征的遭遇率降低)",
       },
       { label: "送他上路", effect: {}, resultText: "老者不置可否地點點頭,拄著杖走遠了。" },
     ],
@@ -201,11 +209,11 @@ export const EVENTS: VillageEvent[] = [
     weight: 0.06,
     minTick: 60,
     condition: (ctx) => !ctx.perks.blessing && (ctx.resources.shard ?? 0) > 0,
-    text: "一個穿著褪色祭袍的人站在村外,眼神還算清明。他盯著屋簷下掛著的異晶看了很久:「晶,換一段禱詞。趁我還記得怎麼唸。」",
+    text: "一個穿著褪色祭袍的人站在村外,眼神還算清明。他盯著屋簷下掛著的異晶看了很久:「神的結晶……讓給我,我可以賜與你們一些神的恩賜。」",
     options: [
       {
-        label: "與他交換(異晶 -12)",
-        effect: { shard: -12 },
+        label: "與他交換(異晶 -100)",
+        effect: { shard: -100 },
         grantPerk: "blessing",
         resultText: "他教了村民一段不成調的低吟。說也奇怪,唱過之後,傷口沒那麼容易惡化了。(獲得【祝禱】:戰鬥中毒/流血的累積減半)",
       },
@@ -271,9 +279,9 @@ export const EVENTS: VillageEvent[] = [
     id: "crow-flock",
     text: "大群鴉鳥盤旋在晾曬場上空,不斷俯衝啄食。",
     minTick: 10,
-    condition: (ctx) => (ctx.resources.meat ?? 0) >= 2,
+    condition: (ctx) => (ctx.resources.meat ?? 0) >= 20,
     options: [
-      { label: "派人驅趕", effect: { meat: -1 }, resultText: "花了些功夫把鴉群趕走,只損失了一點肉乾原料。" },
+      { label: "派人驅趕(生肉 -20)", effect: { meat: -20 }, resultText: "花了些功夫把鴉群趕走,只損失了一點肉乾原料。" },
       { label: "隨牠們去", effect: {}, effectPct: { meat: 0.5 }, resultText: "鴉群飽餐一頓才離開——晾曬場的肉少了一半。", passiveLoss: true },
     ],
   },
@@ -283,7 +291,7 @@ export const EVENTS: VillageEvent[] = [
     text: "一位旅行工匠來訪,願意用手藝換一頓飽飯。",
     minTick: 15,
     options: [
-      { label: "款待他(穀物 -5)", effect: { grain: -5, stone: 5, wood: 5 }, resultText: "他幫忙修整了工具,效率提升了不少,臨走前還留下些材料。" },
+      { label: "款待他(穀物 -10)", effect: { grain: -10, stone: 10, wood: 10 }, resultText: "他幫忙修整了工具,效率提升了不少,臨走前還留下些材料。" },
       { label: "婉拒", effect: {}, resultText: "他點點頭,沒有多說什麼就上路了。" },
     ],
   },
@@ -315,8 +323,8 @@ export const EVENTS: VillageEvent[] = [
     text: "有村民喝了水源的水之後開始上吐下瀉,大家對那口水井起了疑心。",
     minTick: 35,
     options: [
-      { label: "暫停取水,徹底檢查(石材 -5)", effect: { stone: -5 }, resultText: "花了些材料重砌井口,情況穩定下來了。" },
-      { label: "應該只是吃壞肚子", effect: {}, effectPct: { grain: 0.3 }, populationDelta: -1, resultText: "幾天後,又有人倒下了……這次沒能救回來。壞掉的存糧也只能整批倒掉。", passiveLoss: true },
+      { label: "暫停取水,徹底檢查(石材 -50)", effect: { stone: -50 }, resultText: "花了些材料重砌井口,情況穩定下來了。" },
+      { label: "應該只是吃壞肚子", effect: {}, effectPct: { grain: 0.3 }, populationDelta: -5, resultText: "幾天後,又有人倒下了……這次沒能救回來。壞掉的存糧也只能整批倒掉。", passiveLoss: true },
     ],
   },
   {
@@ -335,7 +343,7 @@ export const EVENTS: VillageEvent[] = [
         label: "順其自然",
         effect: {},
         effectPct: { meat: 0.5, hide: 0.4 },
-        populationDelta: -1,
+        populationDelta: -10,
         resultText: "沒人守夜的第二晚,狼群回來把晾曬場洗劫一空。村莊失去了一位居民。",
         passiveLoss: true,
       },

@@ -375,6 +375,7 @@ export class VillageEngine {
     effect: Partial<Record<ResourceId, number>>,
     populationDelta?: number,
     effectPct?: Partial<Record<ResourceId, number>>,
+    populationPct?: number,
   ): string {
     const parts: string[] = [];
     for (const [id, amount] of Object.entries(effect)) {
@@ -397,6 +398,13 @@ export class VillageEngine {
       this.population = Math.max(0, Math.min(this.populationCap, this.population + populationDelta));
       const actual = this.population - before;
       if (actual !== 0) parts.push(`人口 ${actual > 0 ? "+" : ""}${actual}`);
+    }
+    // 人口比例損失(如土匪敗北 -30%):至少折損 1 人
+    if (populationPct) {
+      const loss = Math.max(1, Math.floor(this.population * populationPct));
+      const before = this.population;
+      this.population = Math.max(0, this.population - loss);
+      if (this.population !== before) parts.push(`人口 -${before - this.population}`);
     }
     return parts.join("、");
   }
@@ -442,6 +450,7 @@ export class VillageEngine {
     let effect = option.effect;
     let effectPct = option.effectPct;
     let populationDelta = option.populationDelta;
+    let populationPct: number | undefined;
     let resultText = option.resultText;
     if (option.outcomes && option.outcomes.length > 0) {
       const total = option.outcomes.reduce((sum, o) => sum + o.weight, 0);
@@ -457,10 +466,11 @@ export class VillageEngine {
       effect = picked.effect;
       effectPct = picked.effectPct;
       populationDelta = picked.populationDelta;
+      populationPct = picked.populationPct;
       resultText = picked.resultText;
     }
 
-    const summary = this.applyEventEffect(effect, populationDelta, effectPct);
+    const summary = this.applyEventEffect(effect, populationDelta, effectPct, populationPct);
     if (option.grantPerk) this.perks[option.grantPerk] = true;
     if (option.followUp) {
       // 幾分鐘後開獎的賭注:排進延遲後續佇列
