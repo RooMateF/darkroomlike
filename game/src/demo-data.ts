@@ -7,7 +7,7 @@ import type { Carried } from "./carried";
  * - 冷兵器:攜帶中的近戰武器;一把都沒有時只剩「徒手」
  * - 熱武器:攜帶中的遠程武器(弓需要弓矢,授權判斷在 main.ts);沒有就整個類別不出現
  * - 法術:初期未解鎖,不出現(worldbuilding.md § 6:由建造者後續引導揭露)
- * - 道具:繃帶(回復多)/乾糧(回復少),都是消耗品,用完就不能再按
+ * - 道具:繃帶/肉乾/藥劑/卷軸,都是消耗品,用完就不能再按(乾糧是行軍糧,不進戰鬥道具欄也不回血)
  */
 export function buildPlayerCategories(carried: Carried | null): CategoryDef[] {
   const carriedWeapons = WEAPONS.filter((w) => (carried?.weapons[w.id] ?? 0) > 0);

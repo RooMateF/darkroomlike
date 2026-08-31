@@ -131,7 +131,7 @@ let capPackValue: HTMLElement;
     ["水", `${waterCap}/${waterCap}${hasWaterskin ? "(大水袋)" : ""}`],
     ["揹負空間", `0/${capacity}`, "cap-pack"],
     ["每步消耗", "水 1"],
-    ["每 2 步消耗", "乾糧 1(進食回復 1 HP)"],
+    ["每 2 步消耗", "乾糧 1(不回血;乾糧見底改咬肉乾,咬一口 +2 HP)"],
   ];
   for (const [label, value, id] of stats) {
     const item = document.createElement("div");
