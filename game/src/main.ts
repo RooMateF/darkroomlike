@@ -76,6 +76,10 @@ app.innerHTML = `
       <div class="section" id="categories"></div>
     </div>
     <div class="combat-side">
+      <div class="section" style="margin-bottom:8px;">
+        <div class="section-title">異常狀態</div>
+        <div id="status-panel"></div>
+      </div>
       <div class="section-title">戰鬥紀錄</div>
       <div class="log-panel scrollable combat-log" id="log"></div>
     </div>
@@ -127,6 +131,7 @@ const enemyBarLabelEl = document.querySelector<HTMLElement>("#enemy-bar-label")!
 const enemyBarFilled = document.querySelector<HTMLElement>("#enemy-bar-filled")!;
 const enemyBarEmpty = document.querySelector<HTMLElement>("#enemy-bar-empty")!;
 const statusEffectsEl = document.querySelector<HTMLElement>("#status-effects")!;
+const statusPanelEl = document.querySelector<HTMLElement>("#status-panel")!;
 enemyLabelEl.textContent = enemyDef.label;
 enemyBarLabelEl.textContent = enemyDef.label;
 
@@ -549,13 +554,28 @@ function render() {
   playerHpText.textContent = `${engine.playerHp}/${engine.playerMaxHp}`;
   enemyHpText.textContent = `${engine.enemyHp}/${engine.enemyMaxHp}`;
 
-  // 異常狀態顯示(§2.11.2):只顯示已成立的等級,計量值不顯示(玩家從挨打頻率自行感受)
+  // 異常狀態欄(2026-08 用戶要求:計量值明示)——中毒/流血含累積值,控制含剩餘秒數
   const effects: string[] = [];
   if (engine.playerStatus.poison.level > 0) effects.push(`中毒Lv${engine.playerStatus.poison.level}`);
   if (engine.playerStatus.bleed.level > 0) effects.push(`流血Lv${engine.playerStatus.bleed.level}`);
   statusEffectsEl.textContent = effects.length ? `(${effects.join(" ")})` : "";
-    if (engine.stunLeft > 0) statusEffectsEl.textContent += `【暈眩 ${engine.stunLeft.toFixed(1)}s】`;
-    else if (engine.slowLeft > 0) statusEffectsEl.textContent += `【遲緩 ${engine.slowLeft.toFixed(1)}s】`;
+  {
+    const st: string[] = [];
+    const po = engine.playerStatus.poison;
+    const bl = engine.playerStatus.bleed;
+    const fmtStatus = (label: string, x: { level: number; gauge: number }) =>
+      x.level >= 3 ? `${label} Lv3(已滿級)` : x.level > 0 ? `${label} Lv${x.level}(累積 ${Math.round(x.gauge)}/100)` : `${label}累積 ${Math.round(x.gauge)}/100(尚未成立)`;
+    if (po.level > 0 || po.gauge > 0) st.push(fmtStatus("中毒", po));
+    if (bl.level > 0 || bl.gauge > 0) st.push(fmtStatus("流血", bl));
+    const dot = po.level + bl.level;
+    if (dot > 0) st.push(`持續傷害 每 2 秒 -${dot}`);
+    if (engine.stunLeft > 0) st.push(`暈眩 剩 ${engine.stunLeft.toFixed(1)} 秒(行動條凍結)`);
+    if (engine.slowLeft > 0) st.push(`遲緩 剩 ${engine.slowLeft.toFixed(1)} 秒(充能減半)`);
+    if (engine.controlImmuneLeft > 0) st.push(`控制免疫 剩 ${engine.controlImmuneLeft.toFixed(1)} 秒(醒神鹽)`);
+    statusPanelEl.innerHTML = st.length
+      ? st.map((t) => `<div class="status-line">${t}</div>`).join("")
+      : `<div class="hint-line">目前沒有異常。</div>`;
+  }
 
   // 敵方跑條(§2.9):速度本身就是威脅預告——招式越重跑條越慢,玩家看節奏自行判讀
   const ePct = Math.round(engine.enemy.progress * 100);
