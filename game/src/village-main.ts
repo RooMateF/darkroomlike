@@ -80,7 +80,6 @@ function startVillage() {
           <div id="resource-empty" class="hint-line">火堆旁還沒有任何存料。</div>
           <div id="manual" class="button-row" style="margin-top:6px;"></div>
           <div id="gather-slot"></div>
-          <div id="depart" class="status-line" style="margin-top:8px;"></div>
         </div>
       </div>
 
@@ -162,7 +161,6 @@ function startVillage() {
   let shownEventId: string | null = null;
   const jobsEl = document.querySelector<HTMLDivElement>("#jobs")!;
   const buildingsEl = document.querySelector<HTMLDivElement>("#buildings")!;
-  const departEl = document.querySelector<HTMLDivElement>("#depart")!;
   const logEl = document.querySelector<HTMLDivElement>("#log")!;
 
   document.querySelector<HTMLButtonElement>("#theme-toggle")!.addEventListener("click", toggleTheme);
@@ -1092,17 +1090,8 @@ function startVillage() {
     // 掛載放在顯示之後:遠征視圖初始化要量測容器尺寸,容器必須已經可見
     syncMountedView(activeVillageTab);
 
-    // 外出探索:人口上限達 20(靠不斷擴建小木屋)且蓋出田才開放——
-    // 沒有田就沒有穀物、沒有乾糧,空著肚子出門是送死;條件不寫提示,讓玩家自行摸索
-    departEl.innerHTML = "";
-    if (readyToGo && !onExpedition) {
-      const goPrep = document.createElement("button");
-      goPrep.className = "btn btn-primary";
-      goPrep.textContent = "整備出門 →";
-      goPrep.addEventListener("click", () => switchVillageTab("prep"));
-      departEl.appendChild(goPrep);
-    }
-
+    // 外出探索的入口只有選單列的「整備」分頁(人口上限 20+田 解鎖時浮現)——
+    // 左欄不再放重複的出門按鈕;條件不寫提示,讓玩家自行摸索
     checkMilestones();
   }
 
