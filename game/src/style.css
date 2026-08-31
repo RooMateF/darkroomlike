@@ -1,0 +1,691 @@
+:root {
+  --bg: #000000;
+  --fg: #d8d8d8;
+  --fg-dim: #707070;
+  --fg-faint: #454545;
+  --fg-bright: #ffffff;
+  font-family: ui-monospace, "Cascadia Mono", "Consolas", "SF Mono", "Courier New", monospace;
+}
+
+:root[data-theme="light"] {
+  --bg: #ffffff;
+  --fg: #1c1c1c;
+  --fg-dim: #8a8a8a;
+  --fg-faint: #c9c9c9;
+  --fg-bright: #000000;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 24px 16px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#app {
+  width: 100%;
+  max-width: 760px;
+}
+
+/* 一頁式儀表板:兩欄佈局,避免整頁靠捲軸才看得完 */
+.dashboard {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 28px;
+  align-items: start;
+}
+
+.dashboard .full-width {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 640px) {
+  .dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  /* 小視窗(偷玩模式):縮小留白與字級,資訊密度優先 */
+  body {
+    padding: 16px 10px;
+    font-size: 13px;
+  }
+
+  .resource-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .section {
+    margin-bottom: 14px;
+  }
+
+  .top-row {
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+  }
+}
+
+/* ---------- 頁首 ---------- */
+
+.top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--fg-faint);
+  margin-bottom: 12px;
+}
+
+h1 {
+  font-size: 13px;
+  color: var(--fg-dim);
+  font-weight: normal;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+
+#theme-toggle,
+#dev-btn {
+  font-family: inherit;
+  font-size: 12px;
+  background: none;
+  border: 1px solid var(--fg-dim);
+  color: var(--fg-dim);
+  padding: 3px 10px;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+#theme-toggle:hover,
+#dev-btn:hover {
+  color: var(--fg);
+  border-color: var(--fg);
+}
+
+.nav-links {
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--fg-dim);
+  margin-bottom: 16px;
+}
+
+.nav-links a {
+  color: var(--fg-dim);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.nav-links a:hover {
+  color: var(--fg);
+  border-bottom-color: var(--fg-dim);
+}
+
+/* ---------- 區塊 ---------- */
+
+.section {
+  margin-bottom: 14px;
+}
+
+.section-title {
+  font-size: 11px;
+  color: var(--fg-dim);
+  letter-spacing: 0.12em;
+  margin-bottom: 5px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--fg-faint);
+}
+
+.hint-line {
+  color: var(--fg-dim);
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+
+.status-line {
+  color: var(--fg);
+  min-height: 1.6em;
+}
+
+/* ---------- 數值列(生命值/水量等單行標籤) ---------- */
+
+.hp-line {
+  color: var(--fg-dim);
+  margin-bottom: 4px;
+}
+
+.hp-line b {
+  color: var(--fg);
+  font-weight: normal;
+}
+
+/* ---------- 資源網格 ---------- */
+
+.resource-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px 16px;
+}
+
+.resource-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px dotted var(--fg-faint);
+  padding-bottom: 2px;
+}
+
+.resource-item .label {
+  color: var(--fg-dim);
+}
+
+.resource-item .value {
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 列表列(工作 / 建築 / 進度條子行動,統一用 grid 對齊) ---------- */
+
+.row-grid {
+  display: grid;
+  grid-template-columns: 4.5em auto 1fr;
+  align-items: center;
+  column-gap: 10px;
+  padding: 2px 0;
+  border-bottom: 1px dotted var(--fg-faint);
+}
+
+.row-grid:last-child {
+  border-bottom: none;
+}
+
+.row-name {
+  color: var(--fg);
+}
+
+.row-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.row-count {
+  min-width: 1.2em;
+  text-align: center;
+  color: var(--fg);
+}
+
+.row-info {
+  color: var(--fg-dim);
+  font-size: 12px;
+  text-align: right;
+}
+
+/* 建築列用兩行(名稱+成本一行,效果+按鈕一行),資訊比工作列多 */
+.building-row {
+  display: block;
+  padding: 4px 0;
+  border-bottom: 1px dotted var(--fg-faint);
+}
+
+.building-row:last-child {
+  border-bottom: none;
+}
+
+.building-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.building-name {
+  color: var(--fg);
+}
+
+.building-cost {
+  color: var(--fg-dim);
+  font-size: 12px;
+}
+
+.building-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.building-effect {
+  color: var(--fg-dim);
+  font-size: 12px;
+}
+
+/* ---------- 按鈕(維持 ASCII 括號連結感,但用 flex/grid 對齊取代手動全形空白) ---------- */
+
+/* 統一的按鈕樣式:方框、hover 反白,維持終端機質感但比純底線連結好按也好看 */
+.btn {
+  font-family: inherit;
+  font-size: 12px;
+  background: none;
+  border: 1px solid var(--fg-faint);
+  color: var(--fg-dim);
+  padding: 3px 10px;
+  cursor: not-allowed;
+  white-space: nowrap;
+  border-radius: 2px;
+  transition: background 90ms linear, color 90ms linear, border-color 90ms linear;
+}
+
+.btn.ready {
+  border-color: var(--fg-dim);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.btn.ready:hover {
+  background: var(--fg);
+  border-color: var(--fg);
+  color: var(--bg);
+}
+
+.btn.ready:active {
+  transform: translateY(1px);
+}
+
+/* 小型方形按鈕(工作指派的 +/-) */
+.btn-tiny {
+  font-family: inherit;
+  font-size: 12px;
+  background: none;
+  border: 1px solid var(--fg-faint);
+  color: var(--fg-dim);
+  width: 20px;
+  height: 20px;
+  line-height: 1;
+  padding: 0;
+  cursor: not-allowed;
+  border-radius: 2px;
+  transition: background 90ms linear, color 90ms linear, border-color 90ms linear;
+}
+
+.btn-tiny.ready {
+  border-color: var(--fg-dim);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.btn-tiny.ready:hover {
+  background: var(--fg);
+  border-color: var(--fg);
+  color: var(--bg);
+}
+
+/* 強調型按鈕(外出等重要行動) */
+.btn-primary {
+  border-color: var(--fg);
+  color: var(--fg-bright);
+  font-weight: bold;
+  cursor: pointer;
+  padding: 5px 14px;
+}
+
+.btn-primary:hover {
+  background: var(--fg-bright);
+  color: var(--bg);
+}
+
+/* 舊的純文字連結樣式,戰鬥畫面的「使用」仍在用 */
+.use-link {
+  font-family: inherit;
+  font-size: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--fg-faint);
+  cursor: default;
+  white-space: nowrap;
+}
+
+.use-link.ready {
+  color: var(--fg-bright);
+  font-weight: bold;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ---------- 採集小遊戲的節奏條 ---------- */
+
+.gather-bar {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 26px;
+}
+
+.gather-row {
+  letter-spacing: 1px;
+  white-space: pre;
+}
+
+.gather-track {
+  color: var(--fg-faint);
+}
+
+.gather-good {
+  color: var(--fg-dim);
+}
+
+.gather-sweet {
+  color: var(--fg-bright);
+}
+
+.gather-cursor {
+  color: var(--fg-bright);
+  font-weight: bold;
+}
+
+/* ---- 停下後的命中回饋:命中中心整條閃白,失手則抖一下 ---- */
+
+.gather-row.hit-perfect {
+  animation: flash-perfect 500ms ease-out;
+}
+
+.gather-row.hit-good {
+  animation: flash-good 320ms ease-out;
+}
+
+.gather-row.hit-miss {
+  animation: shake 260ms ease-in-out;
+}
+
+@keyframes flash-perfect {
+  0%,
+  40% {
+    filter: brightness(2.6);
+    letter-spacing: 3px;
+  }
+  100% {
+    filter: brightness(1);
+    letter-spacing: 1px;
+  }
+}
+
+@keyframes flash-good {
+  0% {
+    filter: brightness(1.8);
+  }
+  100% {
+    filter: brightness(1);
+  }
+}
+
+.gather-result {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.gather-result.grade-perfect {
+  color: var(--fg-bright);
+  font-weight: bold;
+}
+
+.gather-result.grade-good {
+  color: var(--fg);
+}
+
+.gather-result.grade-ok,
+.gather-result.grade-poor {
+  color: var(--fg-dim);
+}
+
+.stopped-perfect {
+  color: var(--fg-bright);
+}
+
+.stopped-good {
+  color: var(--fg);
+}
+
+.stopped-ok,
+.stopped-poor {
+  color: var(--fg-dim);
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--fg-faint);
+  margin: 10px 0;
+}
+
+/* ---------- 日誌 ---------- */
+
+.log-panel {
+  height: 6.5em;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 1px;
+}
+
+/* 可捲動的紀錄(村莊/探索):保留最近 100 筆供回頭查看,新訊息自動捲到底 */
+.log-panel.scrollable {
+  display: block;
+  overflow-y: auto;
+  height: 10em;
+  scrollbar-width: thin;
+  scrollbar-color: var(--fg-faint) transparent;
+}
+
+.log-panel.scrollable .log-line {
+  margin-bottom: 2px;
+}
+
+.log-line {
+  white-space: pre-wrap;
+  font-size: 12px;
+  color: var(--fg-dim);
+}
+
+.log-line:last-child {
+  color: var(--fg);
+}
+
+.log-symbol {
+  display: inline-block;
+  color: var(--fg-bright);
+  font-weight: bold;
+  animation: symbol-slide 140ms ease-out;
+}
+
+@keyframes symbol-slide {
+  from {
+    transform: translateX(-14px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.log-target.hit {
+  display: inline-block;
+  animation: shake 180ms ease-in-out;
+}
+
+@keyframes shake {
+  0% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px);
+  }
+  50% {
+    transform: translateX(3px);
+  }
+  75% {
+    transform: translateX(-2px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+/* ---------- 戰鬥:進度條子行動 ---------- */
+
+.bar {
+  color: var(--fg-dim);
+}
+
+.bar .filled {
+  color: var(--fg);
+}
+
+.bar.ready .filled {
+  color: var(--fg-bright);
+  font-weight: bold;
+}
+
+/* ---------- 地圖 ---------- */
+
+.map-grid {
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--fg);
+  margin: 4px 0;
+  cursor: pointer;
+  /* 等寬字元「高比寬窄」,原本 line-height:1 的格子看起來會是長方形而不是正方形,
+     這裡把整個地圖垂直壓縮,讓格子的視覺比例接近 1:1,菱形視野才會看起來真的是菱形 */
+  transform: scaleY(0.6);
+  transform-origin: top left;
+}
+
+.map-row {
+  white-space: pre;
+  line-height: 1;
+}
+
+.map-cell {
+  display: inline-block;
+  width: 1ch;
+}
+
+/* 拿空的補給點(s):淡化——一眼看出這條線的儲備吃過了 */
+.map-cell.dim {
+  color: var(--fg-faint);
+}
+
+/* 燈火的光圈:照亮區內的格子整體提亮,把「點燈壓遇敵」的範圍畫成看得見的光 */
+.map-cell.glow {
+  color: var(--fg-bright);
+  text-shadow: 0 0 6px rgba(255, 220, 140, 0.35);
+}
+
+/* 村莊(⌂)與燃著的燈柱(%):高亮加粗,是地圖上的錨點 */
+.map-cell.beacon {
+  color: var(--fg-bright);
+  font-weight: bold;
+}
+
+/* 「全圖」模式:字級跟著視窗寬度縮放(上限 16px)——
+   視窗縮小時整張地圖等比縮小,不出現橫向捲軸;字會小,是規劃路線用的鳥瞰圖 */
+.map-grid-full {
+  font-size: min(16px, calc((100vw - 40px) / 80));
+}
+
+/* 「視野」模式(預設):攝影機跟隨,固定清晰字級——格子數由視窗大小決定,字級永不縮水 */
+.map-grid-cam {
+  font-size: 16px;
+}
+
+/* ---------- 事件全螢幕遮罩(反正時間已經暫停,就讓玩家專心做決定) ---------- */
+
+.event-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  animation: overlay-in 180ms ease-out;
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.event-box {
+  border: 1px solid var(--fg-dim);
+  padding: 28px 32px;
+  max-width: 42ch;
+  width: calc(100% - 32px);
+  animation: box-in 220ms ease-out;
+}
+
+@keyframes box-in {
+  from {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.event-box .event-title {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--fg-dim);
+  margin-bottom: 14px;
+}
+
+.event-box .event-text {
+  color: var(--fg-bright);
+  line-height: 1.9;
+  margin-bottom: 22px;
+}
+
+.event-box .event-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.event-box .event-options .btn {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 13px;
+  white-space: normal;
+}
+
+/* ---------- 開場敘事 ---------- */
+
+.narrative-text {
+  max-width: 44ch;
+  color: var(--fg);
+  margin: 28px 0 20px;
+  line-height: 1.9;
+}

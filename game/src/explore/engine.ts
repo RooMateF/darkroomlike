@@ -1,0 +1,788 @@
+import { BLOCKED, LANDMARKS, TILE_SYMBOL, type Checkpoint, type Tile, type TileType } from "./types";
+import { generateMap, startPosition, exitLinkAt, MAP_DEFS, MAP_WIDTH, MAP_HEIGHT, type MapId, type ExitLink } from "./map-gen";
+import { loadCarried, saveCarried, clearCarried, addLoot, packUsed, playerMaxHp, type Carried } from "../carried";
+import { RESOURCE_LABEL, type ResourceId } from "../village/types";
+import { siteAt, siteProgress, specialSites, hasChurchKey, DUNGEON_KEY, SITE_ARRIVAL_TEXT, type DungeonRun } from "./sites";
+import { RATIONS_PER_SLOT } from "../village/data";
+
+const STATE_KEY = "explore-state-v6"; // v6:移除隨機水域,舊存檔不相容(中央地圖沿用;相鄰地圖各自帶尾碼)
+const FRESH_KEY = "expedition-fresh";
+const CURRENT_MAP_KEY = "current-map";
+const MAP_ENTRY_KEY = "map-entry"; // 跨圖移動時的落點(一次性)
+const EXPEDITION_SERIAL_KEY = "expedition-serial"; // 第幾趟遠征:各地圖用它判斷「新遠征了,據點儲備重置」
+const VISITED_MAPS_KEY = "maps-visited"; // 到過的地圖(第一次踏入播抵達敘事)
+
+/** 目前所在的地圖(遠征從村莊出發時重設回中央地圖 A) */
+export function currentMapId(): MapId {
+  const v = localStorage.getItem(CURRENT_MAP_KEY);
+  return v === "N" || v === "E" || v === "S" || v === "W" ? v : "A";
+}
+
+function stateKeyFor(mapId: MapId): string {
+  return mapId === "A" ? STATE_KEY : `${STATE_KEY}:${mapId}`;
+}
+
+function expeditionSerial(): number {
+  return Number(localStorage.getItem(EXPEDITION_SERIAL_KEY) ?? "0");
+}
+const LANDMARKS_CLEARED_KEY = "landmarks-cleared";
+
+export function clearedLandmarks(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(LANDMARKS_CLEARED_KEY) ?? "[]") as string[];
+  } catch {
+    return [];
+  }
+}
+
+export function markLandmarkCleared(id: string) {
+  const list = clearedLandmarks();
+  if (!list.includes(id)) {
+    list.push(id);
+    localStorage.setItem(LANDMARKS_CLEARED_KEY, JSON.stringify(list));
+  }
+}
+
+/** 觀測台解放後,再訪時輪播的觀測紀錄(認知揭露弧線第一~二階段之間:舊文明的存在+一絲異常,不說破) */
+const OBSERVATORY_LORE: string[] = [
+  "「第 12 夜。倍率不夠,得再磨一組鏡片。它表面的紋路,和去年畫下來的不一樣了。」",
+  "「第 31 夜。今晚很清楚。那不是紋路。紋路不會動。」",
+  "「第 47 夜。我把畫拿給鎮上的人看,他們笑我。從今天起不再給任何人看。它又變大了。」",
+  "紀錄到這裡就斷了。最後一頁只有一幅用力過猛的炭筆畫:一輪滿月,月面上纏繞著許多細長的、像根一樣的東西。",
+];
+const OBSERVATORY_LORE_KEY = "observatory-lore-index";
+
+/**
+ * 整備頁「出發」時呼叫:地圖是固定的,探索過的區域跨遠征保留,
+ * 但新遠征要把玩家放回出發點、補滿水、重設檢查點。
+ */
+export function markFreshExpedition() {
+  localStorage.setItem(FRESH_KEY, "1");
+  // 每趟遠征都從村莊(中央地圖)出發;遠征序號 +1,各地圖據此重置據點儲備
+  localStorage.setItem(CURRENT_MAP_KEY, "A");
+  localStorage.setItem(EXPEDITION_SERIAL_KEY, String(expeditionSerial() + 1));
+}
+
+const SYMBOL_TO_TYPE: Record<string, TileType> = Object.fromEntries(
+  Object.entries(TILE_SYMBOL).map(([type, symbol]) => [symbol, type as TileType]),
+);
+
+/**
+ * 探索中撿到的敘事碎片(worldbuilding.md § 8.2 認知揭露弧線的第一階段線索)。
+ * 核心寫作原則:只給線索,不說破——玩家此刻應該還以為這是個普通的中古世界,
+ * 這些碎片是「曾有現代文明」的第一批暗示,說得越少越好。
+ */
+const NARRATIVE_FINDS: string[] = [
+  "草叢裡有一小片又硬又輕的碎片,不是木頭也不是石頭。摸起來冰涼光滑,你說不出它是什麼。",
+  "一截埋在土裡的細長金屬,筆直得不可思議——沒有任何鍛造的鎚痕。",
+  "碎石堆下壓著一張脆化的紙片,上面印著整齊得詭異的小字。大部分已經模糊,只認得出一個詞:「……疏散……」",
+  "半埋的木盒裡有一本泡爛的小冊子,字跡雋秀:「……他最近總是盯著院子裡那棵樹看,一句話也不說……」後面的頁面黏死了。",
+  "一塊斷裂的平滑石板,表面刻著筆直的溝槽,溝槽裡殘留著暗色的、像是金屬的東西。",
+  "你在樹幹上發現幾道抓痕。太高了——不管是什麼留下的,牠站起來比你高得多。",
+  "風裡短暫飄來一段像是歌聲的聲音,又立刻消失了。方向不明。",
+  "地上有一只小小的圓形玻璃片,磨得很精細,把景物放得很大。誰會做這種東西?又是為了看什麼?",
+];
+
+export interface CollectedItem {
+  x: number;
+  y: number;
+  type: TileType;
+}
+
+/** 自動拾取開關(預設關:每次拾獲都由玩家抉擇;探索頁的按鈕切換) */
+export function isAutoPickup(): boolean {
+  return localStorage.getItem("auto-pickup") === "1";
+}
+
+export function setAutoPickup(on: boolean) {
+  localStorage.setItem("auto-pickup", on ? "1" : "0");
+}
+
+/** 讀村莊的永久被動(稀有訪客交換,如【潛行】) */
+function readPerk(id: string): boolean {
+  try {
+    const v = JSON.parse(localStorage.getItem("village-state") ?? "{}");
+    return v.perks?.[id] === true;
+  } catch {
+    return false;
+  }
+}
+
+/** 水量上限:村莊做出「大水袋」升級後放寬(village/data.ts WATERSKIN_CAPACITY) */
+function readWaterCapacity(): number {
+  try {
+    const v = JSON.parse(localStorage.getItem("village-state") ?? "{}");
+    return v.upgrades?.waterskin ? 32 : 20;
+  } catch {
+    return 20;
+  }
+}
+
+export interface ExploreCallbacks {
+  onLog: (text: string) => void;
+  onDeath: () => void;
+  /** 隨機遭遇觸發時呼叫,由 UI 層決定要不要真的跳去戰鬥畫面(§3.7) */
+  onEncounter: () => void;
+}
+
+const REVEAL_RADIUS = 3; // 上下左右各 3 格的菱形視野(曼哈頓距離)
+const MOVE_WATER_COST = 1; // 每格 1 水(design-notes.md § 3.4)
+const FOOD_EVERY_STEPS = 2; // 每走 2 格消耗 1 乾糧(仿 ADR)
+// §3.7 隨機遭遇。0.15 時實測(全流程模擬)長途遠征平均每 9~10 步一戰、每戰耗 10~16 HP,
+// 任何 60 步往返需要 60~90 HP 的續戰力——Lv4 地標在數學上就到不了。0.10 → 約 13 步一戰,
+// 深入仍有壓力但補給鏈撐得住;點燈後照亮區內再打四折
+const ENCOUNTER_CHANCE = 0.1;
+const LAMP_OIL_COST = 3; // 點亮一座據點燈柱的燈油
+export const LAMP_RADIUS = 8; // 燈火壓遇敵的範圍(曼哈頓距離);UI 用它把光圈畫在地圖上
+const LAMP_SUPPRESS = 0.4; // 照亮區內的遭遇率倍率
+
+export class ExploreEngine {
+  /** 這個引擎實例所在的地圖 */
+  readonly mapId: MapId;
+  grid: Tile[][];
+  playerX: number;
+  playerY: number;
+  water: number;
+  /** 上限刻意壓低,前期活動範圍靠初始區域密集的補給點支撐;做出「大水袋」升級後放寬 */
+  maxWater = readWaterCapacity();
+  /** 隨身行囊(整備頁打包),null = 什麼都沒帶就出門了 */
+  carried: Carried | null;
+  checkpoint: Checkpoint;
+  private stepCount = 0;
+  /** 斷水後硬撐的步數(寬限 2 步,第 3 步倒下);補到水就歸零 */
+  private thirstSteps = 0;
+  /** 斷糧後硬撐的步數(規則同上) */
+  private hungerSteps = 0;
+  /** 戰後喘息:每場戰鬥結束後 3 步內不再觸發隨機遭遇,避免連環戰把節奏打爛 */
+  private encounterGrace = 0;
+  /** 這趟遠征已領過乾糧儲備的據點("x,y"):每個據點每趟只給一次,新遠征重置 */
+  private depotGrantsUsed = new Set<string>();
+  /** 腳邊還沒做決定的拾獲物(手動拾取模式):走開就留在身後 */
+  pendingPickup: Record<string, number> | null = null;
+  /** 這份地圖狀態屬於第幾趟遠征(據點儲備的重置依據) */
+  private stateSerial = -1;
+  /** 離開最後一個據點後,新揭露的格子座標,用來在死亡時把迷霧退回據點狀態(§3.9) */
+  private revealedSinceCheckpoint = new Set<string>();
+  /** 離開最後一個據點後拾獲、尚未帶回的東西,死亡時退回原位(§3.9) */
+  private collectedSinceCheckpoint: CollectedItem[] = [];
+
+  constructor(private readonly cb: ExploreCallbacks) {
+    this.mapId = currentMapId();
+    this.carried = loadCarried();
+
+    // 地圖是固定的(種子生成);探索進度(迷霧/拾獲狀態)跨遠征保留
+    const restored = this.restoreState();
+    const start = startPosition();
+    if (restored) {
+      this.grid = restored.grid;
+      this.playerX = restored.playerX;
+      this.playerY = restored.playerY;
+      this.water = restored.water;
+      this.stepCount = restored.stepCount;
+      this.thirstSteps = restored.thirstSteps ?? 0;
+      this.hungerSteps = restored.hungerSteps ?? 0;
+      this.encounterGrace = restored.encounterGrace ?? 0;
+      this.checkpoint = restored.checkpoint;
+      this.revealedSinceCheckpoint = restored.revealedSinceCheckpoint;
+      this.collectedSinceCheckpoint = restored.collectedSinceCheckpoint;
+      this.depotGrantsUsed = restored.depotGrantsUsed;
+      this.pendingPickup = restored.pendingPickup;
+      this.stateSerial = restored.serial;
+    } else {
+      this.grid = generateMap(this.mapId);
+      this.playerX = start.x;
+      this.playerY = start.y;
+      this.water = this.maxWater;
+      this.checkpoint = { x: start.x, y: start.y, water: this.maxWater };
+      this.reveal(start.x, start.y);
+    }
+
+    // 跨圖落點(一次性):從出口走過來,落在這張地圖的入口
+    try {
+      const entryRaw = localStorage.getItem(MAP_ENTRY_KEY);
+      if (entryRaw) {
+        localStorage.removeItem(MAP_ENTRY_KEY);
+        const entry = JSON.parse(entryRaw) as { x: number; y: number; water?: number };
+        this.playerX = entry.x;
+        this.playerY = entry.y;
+        if (entry.water !== undefined) this.water = entry.water; // 水量跟著人走——跨圖不是免費補水
+        this.checkpoint = { x: entry.x, y: entry.y, water: this.water };
+        this.revealedSinceCheckpoint.clear();
+        this.collectedSinceCheckpoint = [];
+        this.reveal(entry.x, entry.y);
+        // 第一次踏上這張地圖:播抵達敘事
+        const visited = new Set<string>(JSON.parse(localStorage.getItem(VISITED_MAPS_KEY) ?? "[]") as string[]);
+        if (!visited.has(this.mapId) && MAP_DEFS[this.mapId].arrivalText) {
+          visited.add(this.mapId);
+          localStorage.setItem(VISITED_MAPS_KEY, JSON.stringify([...visited]));
+          this.cb.onLog(MAP_DEFS[this.mapId].arrivalText);
+        }
+      }
+    } catch {
+      /* 壞資料忽略 */
+    }
+
+    // 新遠征序號:每張地圖第一次在這趟被載入時,重置據點儲備
+    const serial = expeditionSerial();
+    if (this.stateSerial !== serial) {
+      this.stateSerial = serial;
+      this.depotGrantsUsed.clear();
+    }
+
+    // 新遠征(整備頁出發):人回到出發點、補滿水、重設檢查點,但保留已探索的迷霧
+    if (this.mapId === "A" && localStorage.getItem(FRESH_KEY)) {
+      localStorage.removeItem(FRESH_KEY);
+      this.playerX = start.x;
+      this.playerY = start.y;
+      this.water = this.maxWater;
+      this.stepCount = 0;
+      this.thirstSteps = 0;
+      this.hungerSteps = 0;
+      this.checkpoint = { x: start.x, y: start.y, water: this.maxWater };
+      this.revealedSinceCheckpoint.clear();
+      this.collectedSinceCheckpoint = [];
+      this.depotGrantsUsed.clear(); // 新遠征:各據點的乾糧儲備重新補上
+      this.reveal(start.x, start.y);
+    }
+
+    // 打通的 Lv1/Lv3 探勘點升格為前線補給基地(只有中央地圖有探勘點)
+    if (this.mapId === "A") this.promoteClearedSitesToDepots();
+
+    // 剛打贏地城回到地圖時,人就站在據點上(補給點或解放後的地標)——直接補給。
+    // 沒有這一手,在礦坑/觀測台這種深處打完勝仗,會因為水袋見底而回不了家
+    const standing = this.grid[this.playerY]?.[this.playerX];
+    if (standing?.type === "depot") {
+      this.refillHere();
+    } else if (standing?.type === "landmark" && this.mapId === "A") {
+      const site = siteAt(this.playerX, this.playerY);
+      if (site && siteProgress(site.key).cleared) this.refillHere();
+    }
+
+    this.saveState();
+  }
+
+  /** Lv1/Lv3 打通後變成補給點(前線基地) */
+  private promoteClearedSitesToDepots() {
+    for (const s of specialSites()) {
+      if ((s.level === 1 || s.level === 3) && siteProgress(s.key).cleared) {
+        const tile = this.grid[s.y]?.[s.x];
+        if (tile && tile.type !== "depot") tile.type = "depot";
+      }
+    }
+  }
+
+  /** 這個據點這趟遠征是否已領過乾糧儲備(UI 用:拿空的補給點畫成小寫 s) */
+  isDepotLooted(x: number, y: number): boolean {
+    return this.depotGrantsUsed.has(this.key(x, y));
+  }
+
+  /** 站在出口上時,這個出口通往哪裡(給 UI 顯示「前進」按鈕) */
+  exitLinkHere(): ExitLink | null {
+    const tile = this.grid[this.playerY]?.[this.playerX];
+    if (!tile || tile.type !== "exit") return null;
+    return exitLinkAt(this.mapId, this.playerX, this.playerY);
+  }
+
+  /** 跨圖移動:保存這張地圖的進度,切換目前地圖並記下落點;由 UI 重新載入頁面完成切換 */
+  travelThroughExit(): ExitLink | null {
+    const link = this.exitLinkHere();
+    if (!link) return null;
+    this.saveState();
+    localStorage.setItem(CURRENT_MAP_KEY, link.to);
+    localStorage.setItem(MAP_ENTRY_KEY, JSON.stringify({ x: link.entryX, y: link.entryY, water: this.water }));
+    return link;
+  }
+
+  /** 目前站著的未打通探勘點(給 UI 顯示「深入調查」按鈕用) */
+  currentSite() {
+    if (this.mapId !== "A") return null; // 探勘點只存在於中央地圖
+    const site = siteAt(this.playerX, this.playerY);
+    if (!site) return null;
+    const progress = siteProgress(site.key);
+    if (progress.cleared) return null;
+    return { site, progress };
+  }
+
+  /** 玩家按下「深入調查」:寫入地城狀態,由 UI 觸發跳戰鬥頁 */
+  startDungeon(): boolean {
+    const current = this.currentSite();
+    if (!current) return false;
+    // 靜默教堂上了鎖:要先在某座遺跡深處找到黑鐵鑰匙(UI 端會顯示鎖的敘事)
+    if (current.site.landmarkId === "church" && !hasChurchKey()) return false;
+    const run: DungeonRun = {
+      key: current.site.key,
+      level: current.site.level,
+      stage: current.progress.stage + 1,
+      stages: current.site.stages,
+      landmarkId: current.site.landmarkId,
+    };
+    localStorage.setItem(DUNGEON_KEY, JSON.stringify(run));
+    this.encounterGrace = 3; // 地城戰打完出來也給喘息,不會一出門又被隨機遭遇堵上
+    this.saveState();
+    return true;
+  }
+
+  /** 跳去戰鬥頁前保存遠征進度,回來時 restoreState 接續 */
+  saveState() {
+    const typeRows: string[] = [];
+    const revealRows: string[] = [];
+    const litRows: string[] = [];
+    for (const row of this.grid) {
+      typeRows.push(row.map((t) => TILE_SYMBOL[t.type]).join(""));
+      revealRows.push(row.map((t) => (t.revealed ? "1" : "0")).join(""));
+      litRows.push(row.map((t) => (t.lit ? "1" : "0")).join(""));
+    }
+    localStorage.setItem(
+      stateKeyFor(this.mapId),
+      JSON.stringify({
+        serial: this.stateSerial,
+        typeRows,
+        revealRows,
+        playerX: this.playerX,
+        playerY: this.playerY,
+        water: this.water,
+        stepCount: this.stepCount,
+        thirstSteps: this.thirstSteps,
+        hungerSteps: this.hungerSteps,
+        encounterGrace: this.encounterGrace,
+        checkpoint: this.checkpoint,
+        revealedSince: [...this.revealedSinceCheckpoint],
+        collectedSince: this.collectedSinceCheckpoint,
+        depotGrantsUsed: [...this.depotGrantsUsed],
+        pendingPickup: this.pendingPickup,
+        litRows,
+      }),
+    );
+  }
+
+  private restoreState() {
+    try {
+      const raw = localStorage.getItem(stateKeyFor(this.mapId));
+      if (!raw) return null;
+      const s = JSON.parse(raw);
+      const grid: Tile[][] = (s.typeRows as string[]).map((rowStr: string, y: number) =>
+        [...rowStr].map((symbol, x) => ({
+          type: SYMBOL_TO_TYPE[symbol] ?? "plain",
+          revealed: (s.revealRows as string[])[y][x] === "1",
+          lit: (s.litRows as string[] | undefined)?.[y]?.[x] === "1",
+        })),
+      );
+      return {
+        grid,
+        playerX: s.playerX as number,
+        playerY: s.playerY as number,
+        water: s.water as number,
+        stepCount: s.stepCount as number,
+        thirstSteps: (s.thirstSteps ?? 0) as number,
+        hungerSteps: (s.hungerSteps ?? 0) as number,
+        encounterGrace: (s.encounterGrace ?? 0) as number,
+        checkpoint: s.checkpoint as Checkpoint,
+        revealedSinceCheckpoint: new Set<string>(s.revealedSince ?? []),
+        collectedSinceCheckpoint: (s.collectedSince ?? []) as CollectedItem[],
+        depotGrantsUsed: new Set<string>(s.depotGrantsUsed ?? []),
+        pendingPickup: (s.pendingPickup ?? null) as Record<string, number> | null,
+        serial: (s.serial ?? -1) as number,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  get rations(): number {
+    return this.carried?.rations ?? 0;
+  }
+
+  get hp(): number {
+    return this.carried?.hp ?? playerMaxHp();
+  }
+
+  private key(x: number, y: number) {
+    return `${x},${y}`;
+  }
+
+  private reveal(cx: number, cy: number) {
+    // 菱形視野:曼哈頓距離 |dx|+|dy| <= REVEAL_RADIUS,而不是正方形範圍
+    for (let dy = -REVEAL_RADIUS; dy <= REVEAL_RADIUS; dy++) {
+      const remain = REVEAL_RADIUS - Math.abs(dy);
+      for (let dx = -remain; dx <= remain; dx++) {
+        const x = cx + dx;
+        const y = cy + dy;
+        const tile = this.grid[y]?.[x];
+        if (tile && !tile.revealed) {
+          tile.revealed = true;
+          this.revealedSinceCheckpoint.add(this.key(x, y));
+        }
+      }
+    }
+  }
+
+  /**
+   * 滑鼠點擊用:不用點準相鄰格,點在玩家哪一側就往哪個方向走一步。
+   * 例如點在 @ 右邊(不管遠近)就往右走一格,取水平/垂直落差較大的那一軸為移動方向。
+   */
+  moveTo(x: number, y: number) {
+    const dx = x - this.playerX;
+    const dy = y - this.playerY;
+    if (dx === 0 && dy === 0) return;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      this.move(Math.sign(dx), 0);
+    } else {
+      this.move(0, Math.sign(dy));
+    }
+  }
+
+  /** dx/dy 為 -1/0/1,代表移動方向 */
+  move(dx: number, dy: number) {
+    const nx = this.playerX + dx;
+    const ny = this.playerY + dy;
+    const target = this.grid[ny]?.[nx];
+    if (!target || BLOCKED.includes(target.type)) {
+      this.cb.onLog("那個方向走不過去。");
+      return;
+    }
+
+    // 腳邊還有沒撿的東西:走開就等於放棄
+    if (this.pendingPickup && Object.keys(this.pendingPickup).length > 0) {
+      this.cb.onLog("你把剩下的東西留在了身後。");
+    }
+    this.pendingPickup = null;
+
+    this.playerX = nx;
+    this.playerY = ny;
+    this.reveal(nx, ny);
+    this.stepCount++;
+
+    if (target.type === "depot") {
+      this.refillHere();
+    } else if (target.type === "resource" || target.type === "event") {
+      this.collectedSinceCheckpoint.push({ x: nx, y: ny, type: target.type });
+      const rolled = this.rollPickupGains(target.type);
+      target.type = "plain";
+      if (typeof rolled === "string") {
+        this.cb.onLog(rolled); // 敘事碎片,或沒背囊
+      } else if (isAutoPickup()) {
+        this.cb.onLog(this.applyPickup(rolled)); // 自動拾取:照舊全收(受揹負空間限制)
+      } else {
+        // 手動拾取:先擺在腳邊,列出來讓玩家決定撿什麼、丟什麼
+        this.pendingPickup = rolled;
+        const text = Object.entries(rolled)
+          .map(([id, n]) => `${RESOURCE_LABEL[id as ResourceId]} ×${n}`)
+          .join("、");
+        this.cb.onLog(`你翻找出:${text}。`);
+      }
+    } else if ((target.type === "site" || target.type === "landmark") && this.mapId === "A") {
+      // 特殊探勘地點(五級制):踩上只給敘事與危險氛圍,由玩家主動選「深入調查」才開戰
+      const site = siteAt(nx, ny);
+      if (site) {
+        const progress = siteProgress(site.key);
+        const lm = LANDMARKS.find((l) => l.x === nx && l.y === ny);
+        if (progress.cleared) {
+          if (lm?.id === "observatory") {
+            const idx = Number(localStorage.getItem(OBSERVATORY_LORE_KEY) ?? "0");
+            this.cb.onLog(OBSERVATORY_LORE[Math.min(idx, OBSERVATORY_LORE.length - 1)]);
+            if (idx < OBSERVATORY_LORE.length - 1) localStorage.setItem(OBSERVATORY_LORE_KEY, String(idx + 1));
+          } else if (lm) {
+            this.cb.onLog(lm.clearedText);
+          } else {
+            this.cb.onLog("這裡已經被你清理乾淨了。");
+          }
+          // 解放後的地標同時是前線據點:能補水補糧、記錄檢查點——
+          // 沒有這一層,礦坑/觀測台這種離補給網 20+ 步的地方就是回不來的單程票。
+          // 第一次進攻仍然是「不打贏就回不了家」的豪賭(Lv4 到場警語說的正是這件事)
+          if (lm) this.refillHere();
+        } else {
+          if (lm) this.cb.onLog(`【${lm.label}】${lm.introText}`);
+          this.cb.onLog(SITE_ARRIVAL_TEXT[site.level]);
+          if (progress.stage > 0) this.cb.onLog("你認得自己上次留下的記號——可以從中斷的地方繼續深入。");
+        }
+      }
+    } else if (target.type === "exit") {
+      const link = this.exitLinkHere();
+      if (link) {
+        this.cb.onLog(link.to === "A" ? "路往回坡去——再走下去就回到中央地帶了。" : "路在腳下向遠方延伸,越過這道稜線,就是另一片土地了。");
+      }
+    }
+
+    // 水:每步扣;食物:每 2 步吃一餐(仿 ADR)——先吃輕便的乾糧(不回血),
+    // 乾糧見底改咬肉乾(重但滋養,回血),兩者都空了才是真正的斷糧
+    const wasDry = this.water <= 0; // 這一步出發前就已經沒水了
+    this.water = Math.max(0, this.water - MOVE_WATER_COST);
+    let ateThisStep = false;
+    if (this.carried && this.stepCount % FOOD_EVERY_STEPS === 0) {
+      if (this.carried.rations > 0) {
+        this.carried.rations--;
+        ateThisStep = true;
+        if (this.carried.rations === 2) this.cb.onLog("背囊裡的乾糧所剩無幾了。");
+        if (this.carried.rations === 0 && (this.carried.jerky ?? 0) > 0) this.cb.onLog("乾糧吃完了。接下來只能靠肉乾撐著。");
+      } else if ((this.carried.jerky ?? 0) > 0) {
+        this.carried.jerky = (this.carried.jerky ?? 0) - 1;
+        ateThisStep = true;
+        this.carried.hp = Math.min(playerMaxHp(), (this.carried.hp ?? playerMaxHp()) + 2);
+        this.cb.onLog("你咬了口肉乾——鹹得發苦,但力氣回來了一點。");
+      }
+      saveCarried(this.carried);
+    }
+    if (this.water === 4) this.cb.onLog("水袋輕得讓人不安。");
+    if (this.water === 0 && !wasDry) this.cb.onLog("水完全喝光了。喉嚨像著了火——得馬上找到補給。");
+
+    // 耗盡後的寬限:斷水/斷糧後都還能硬撐 2 步(找補給的最後機會),第 3 步倒下
+    if (wasDry && this.water <= 0) {
+      this.thirstSteps++;
+      if (this.thirstSteps > 2) {
+        this.die("你的腳步越來越沉,最後在乾渴中倒下……", "thirst");
+        return;
+      }
+    } else if (this.water > 0) {
+      this.thirstSteps = 0;
+    }
+    const noFood = this.carried && this.carried.rations <= 0 && (this.carried.jerky ?? 0) <= 0;
+    if (noFood && !ateThisStep) {
+      this.hungerSteps++;
+      if (this.hungerSteps === 1) this.cb.onLog("最後一點吃的也沒了。胃在絞痛——撐不了多久了。");
+      if (this.hungerSteps > 2) {
+        this.die("飢餓抽乾了你最後的力氣……", "hunger");
+        return;
+      }
+    } else if (!noFood) {
+      this.hungerSteps = 0;
+    }
+
+    // 村莊威壓圈:村子周邊有人活動、有火堆,野獸不在家門口晃(曼哈頓 6 格內遭遇率 ×0.3)——
+    // 沒有這一圈,回程最後幾步被堵的機率高得離譜,「快到家了」變成最危險的時刻
+    const start = startPosition();
+    const nearHome = this.mapId === "A" && Math.abs(this.playerX - start.x) + Math.abs(this.playerY - start.y) <= 6;
+    const homeMult = nearHome ? 0.3 : 1;
+    // 燈火壓遇敵:照亮區(任一點燈據點的曼哈頓 8 格內)遭遇率打四折
+    const lampMult = this.nearLitLamp() ? LAMP_SUPPRESS : 1;
+    // 第一次走在光圈裡:用一句觀察描寫把「這裡安全得多」說給玩家體感(整輪遊戲只說一次)
+    if (lampMult < 1 && !localStorage.getItem("lamp-glow-noticed")) {
+      localStorage.setItem("lamp-glow-noticed", "1");
+      this.cb.onLog("走在燈火裡,連夜風都柔和了些。窸窣與低嗥被擋在光的邊緣之外——這圈溫暖裡,肩膀可以稍微鬆下來。");
+    }
+    // 【潛行】(老者教的走法):遭遇率再 ×0.8
+    const stealthMult = readPerk("stealth") ? 0.8 : 1;
+    if (this.encounterGrace > 0) {
+      this.encounterGrace--; // 戰後喘息中,不觸發隨機遭遇
+    } else if (Math.random() < ENCOUNTER_CHANCE * lampMult * stealthMult * homeMult) {
+      this.cb.onLog("⚠ 你感覺到附近有什麼東西的氣息……");
+      this.encounterGrace = 3;
+      this.saveState();
+      this.cb.onEncounter();
+      return;
+    }
+
+    // 每步存檔:地圖固定、進度持續保留,任何時候跳頁/重載都能接續
+    this.saveState();
+  }
+
+  /** 目前位置是否在任一點燈據點的照亮範圍內 */
+  private nearLitLamp(): boolean {
+    for (let dy = -LAMP_RADIUS; dy <= LAMP_RADIUS; dy++) {
+      const remain = LAMP_RADIUS - Math.abs(dy);
+      for (let dx = -remain; dx <= remain; dx++) {
+        if (this.grid[this.playerY + dy]?.[this.playerX + dx]?.lit) return true;
+      }
+    }
+    return false;
+  }
+
+  /** 站著的這格能不能點燈:是據點(補給點/已解放地標)、還沒點過、身上燈油夠 */
+  canLightLamp(): boolean {
+    const tile = this.grid[this.playerY]?.[this.playerX];
+    if (!tile || tile.lit) return false;
+    const clearedLandmark =
+      this.mapId === "A" && tile.type === "landmark" && !!siteAt(this.playerX, this.playerY) && siteProgress(siteAt(this.playerX, this.playerY)!.key).cleared;
+    if (tile.type !== "depot" && !clearedLandmark) return false;
+    return (this.carried?.oil ?? 0) >= LAMP_OIL_COST;
+  }
+
+  /** 點亮據點的燈柱:消耗燈油,永久壓低周圍的遭遇率 */
+  lightLamp(): boolean {
+    if (!this.canLightLamp() || !this.carried) return false;
+    const tile = this.grid[this.playerY][this.playerX];
+    tile.lit = true;
+    this.carried.oil = (this.carried.oil ?? 0) - LAMP_OIL_COST;
+    saveCarried(this.carried);
+    this.saveState();
+    this.cb.onLog("燈油淌進油槽,火苗竄上燈芯。溫暖的光漫開,把黑暗連同藏在其中的東西一併推遠。火光烘在臉上——這一小圈地方,重新屬於人了。");
+    return true;
+  }
+
+  /**
+   * 據點補給(補給點 $ 與解放後的地標共用):
+   * - 水:據點有水源,無限補滿
+   * - 乾糧:據點的「儲備」——每個據點每趟遠征只能拿一次,隨機 5~15 份(受揹負空間限制);
+   *   拿過的據點這趟再回來只剩水,防止在據點旁反覆進出刷糧
+   * - 記錄檢查點
+   */
+  private refillHere() {
+    const waterGain = this.maxWater - this.water;
+    this.water = this.maxWater;
+    let rationGain = 0;
+    const grantKey = this.key(this.playerX, this.playerY);
+    const alreadyLooted = this.depotGrantsUsed.has(grantKey);
+    let packWasFull = false;
+    if (this.carried && !alreadyLooted) {
+      const cap = this.carried.packCap ?? 20;
+      const room = Math.max(0, cap - packUsed(this.carried));
+      const stock = 5 + Math.floor(Math.random() * 11); // 5~15
+      rationGain = Math.min(stock, room * RATIONS_PER_SLOT);
+      if (rationGain > 0) {
+        this.carried.rations += rationGain;
+        this.depotGrantsUsed.add(grantKey);
+        saveCarried(this.carried);
+      } else {
+        packWasFull = true; // 背包塞不下:儲備保留,不算拿過
+      }
+    }
+    // 據點休整:傷得重的話,靠著牆啃肉乾喘口氣(每份 +4,最多回到八成,並保留 2 份救命用)——
+    // 沒有這一手,殘血抵達據點只是「補了水的殘血」,走出去照樣是死亡螺旋
+    let restHeal = 0;
+    if (this.carried) {
+      const cap = playerMaxHp();
+      while ((this.carried.hp ?? cap) < cap * 0.8 && (this.carried.jerky ?? 0) > 2) {
+        this.carried.jerky = (this.carried.jerky ?? 0) - 1;
+        const before = this.carried.hp ?? cap;
+        this.carried.hp = Math.min(cap, before + 4);
+        restHeal += this.carried.hp - before;
+      }
+      if (restHeal > 0) saveCarried(this.carried);
+    }
+
+    this.setCheckpoint();
+    // 具體回報補了什麼——玩家要能一眼看出據點的用處;沒補到東西也講清楚「真正的原因」
+    const parts: string[] = [];
+    if (waterGain > 0) parts.push(`水 +${waterGain}`);
+    if (rationGain > 0) parts.push(`乾糧 +${rationGain}`);
+    if (restHeal > 0) parts.push(`HP +${restHeal}(肉乾)`);
+    let tail = "";
+    if (packWasFull) tail = "儲藏格裡還有乾糧,但你的背包塞不下了——騰出空間再來拿。";
+    else if (alreadyLooted && this.carried) tail = "儲備這趟已經拿過了,只剩水還能補。";
+    if (parts.length > 0) {
+      this.cb.onLog(`補給:${parts.join("、")}。${tail}`);
+    } else {
+      this.cb.onLog(tail || "水是滿的,這裡暫時幫不上什麼忙。");
+    }
+  }
+
+  /** 把一批拾獲物加進行囊(受揹負空間限制),回傳結算文字 */
+  private applyPickup(gains: Record<string, number>): string {
+    if (!this.carried) return "拾獲了一些東西,但你沒有背囊可以裝。";
+    const { added, overflow } = addLoot(this.carried, gains);
+    saveCarried(this.carried);
+    const entries = Object.entries(added);
+    if (entries.length === 0) return "找到了一些東西,但背包已經塞不下了,只能忍痛留在原地。";
+    const text = entries.map(([id, n]) => `${RESOURCE_LABEL[id as ResourceId]} +${n}`).join("、");
+    return overflow ? `拾獲:${text}(背包塞不下,剩下的留在了原地)` : `拾獲:${text}`;
+  }
+
+  /** 從腳邊的拾獲物撿起指定數量(手動拾取模式) */
+  pickupFromPending(id: string, count: number) {
+    if (!this.pendingPickup || !this.carried) return;
+    const avail = this.pendingPickup[id] ?? 0;
+    const take = Math.min(avail, count);
+    if (take <= 0) return;
+    const { added } = addLoot(this.carried, { [id]: take });
+    const got = added[id] ?? 0;
+    saveCarried(this.carried);
+    this.pendingPickup[id] = avail - got;
+    if (this.pendingPickup[id] <= 0) delete this.pendingPickup[id];
+    if (got < take) this.cb.onLog("背包塞不下更多了。");
+    this.saveState();
+  }
+
+  /** 全部撿起(塞得下多少撿多少) */
+  pickupAllPending() {
+    if (!this.pendingPickup) return;
+    for (const id of Object.keys({ ...this.pendingPickup })) {
+      this.pickupFromPending(id, Number.MAX_SAFE_INTEGER);
+    }
+  }
+
+  /** 全部放棄 */
+  discardPending() {
+    this.pendingPickup = null;
+    this.saveState();
+  }
+
+  /** 地圖拾獲($ 資源點 / * 小事件):擲出這一格的內容(敘事碎片回傳文字,其餘回傳資源表) */
+  private rollPickupGains(type: TileType): string | Record<string, number> {
+    if (!this.carried) return "拾獲了一些東西,但你沒有背囊可以裝。";
+
+    // 距離梯度:離村莊越遠,拾獲量越豐厚(走得深要值得)
+    const cx = Math.floor(MAP_WIDTH / 2);
+    const cy = Math.floor(MAP_HEIGHT / 2);
+    const dist = Math.hypot(this.playerX - cx, this.playerY - cy);
+    const depthBonus = 1 + dist / Math.hypot(cx, cy); // 1.0(村口)~ 2.0(地圖角落)
+
+    const gains: Record<string, number> = {};
+    if (type === "resource") {
+      // 資源點:1~2 種基礎素材,偏向所在象限的特產(林地多木皮、廢墟多石材)
+      const inForest = this.playerX < cx && this.playerY < cy;
+      const inRuins = this.playerX >= cx && this.playerY < cy;
+      const pool: [ResourceId, number][] = inForest
+        ? [["wood", 4], ["wood", 5], ["hide", 2], ["meat", 2]]
+        : inRuins
+          ? [["stone", 3], ["stone", 4], ["wood", 3], ["arrow", 2]]
+          : [["wood", 3], ["stone", 2], ["hide", 1], ["meat", 2]];
+      const count = 1 + (Math.random() < 0.4 ? 1 : 0);
+      for (let i = 0; i < count; i++) {
+        const [id, n] = pool[Math.floor(Math.random() * pool.length)];
+        gains[id] = (gains[id] ?? 0) + Math.round(n * depthBonus);
+      }
+    } else {
+      // 小事件:三成是敘事碎片(認知揭露弧線的水滴,worldbuilding.md § 8.2),其餘是補給品
+      if (Math.random() < 0.3) {
+        return NARRATIVE_FINDS[Math.floor(Math.random() * NARRATIVE_FINDS.length)];
+      }
+      const roll = Math.random();
+      if (roll < 0.4) gains.ration = Math.round(2 * depthBonus);
+      else if (roll < 0.7) gains.bandage = 1;
+      else if (roll < 0.9) gains.arrow = Math.round(3 * depthBonus);
+      else gains.hide = Math.round(2 * depthBonus);
+    }
+
+    return gains;
+  }
+
+  private setCheckpoint() {
+    this.checkpoint = { x: this.playerX, y: this.playerY, water: this.water };
+    this.revealedSinceCheckpoint.clear();
+    this.collectedSinceCheckpoint = [];
+  }
+
+  /**
+   * 力竭死亡(§3.9):
+   * - 帶出門的東西全部消失
+   * - 最後一個檢查點之後揭露的迷霧退回、拾獲的東西回到原位(地圖是固定的,拾獲點會恢復)
+   * - 由代行者救回村莊
+   */
+  private die(reason: string, cause: string) {
+    this.cb.onLog(reason);
+    this.cb.onLog("意識模糊之際,你聽見熟悉的聲音——她把你帶回了村莊。");
+    localStorage.setItem("death-cause", cause); // 回村後代行者依死因給一句叮囑(village-main)
+    this.thirstSteps = 0;
+    this.hungerSteps = 0;
+
+    for (const key of this.revealedSinceCheckpoint) {
+      const [x, y] = key.split(",").map(Number);
+      const tile = this.grid[y]?.[x];
+      if (tile) tile.revealed = false;
+    }
+    for (const item of this.collectedSinceCheckpoint) {
+      const tile = this.grid[item.y]?.[item.x];
+      if (tile) tile.type = item.type;
+    }
+    this.revealedSinceCheckpoint.clear();
+    this.collectedSinceCheckpoint = [];
+    this.playerX = this.checkpoint.x;
+    this.playerY = this.checkpoint.y;
+    this.water = this.checkpoint.water;
+
+    clearCarried();
+    this.saveState();
+    this.cb.onDeath();
+  }
+}
+
+export { MAP_WIDTH, MAP_HEIGHT };
