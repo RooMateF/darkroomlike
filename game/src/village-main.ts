@@ -685,6 +685,12 @@ function startVillage() {
       mineCleared: engine.isSmithyIronCapable(),
       anyWeapon: Object.values(engine.ownedWeapons).some((n) => n > 0),
       waterskinDone: engine.upgrades["waterskin"] === true,
+      ironFlaskDone: engine.upgrades["iron-flask"] === true,
+      steelFlaskDone: engine.upgrades["steel-flask"] === true,
+      ironArmorDone: engine.upgrades["iron-armor"] === true,
+      steelArmorDone: engine.upgrades["steel-armor"] === true,
+      ironCartDone: engine.upgrades["iron-cart"] === true,
+      steelCartDone: engine.upgrades["steel-cart"] === true,
     };
     for (const m of MILESTONES) {
       if (!firedMilestones.has(m.id) && m.check(state)) {
