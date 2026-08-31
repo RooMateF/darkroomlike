@@ -354,7 +354,7 @@ export class VillageEngine {
     this.resources[resourceId] += amount;
     this.syncSeenResources();
     this.saveState();
-    this.gatherReadyAt = Date.now() + GATHER_COOLDOWN_MS;
+    this.gatherReadyAt = Date.now() + GATHER_COOLDOWN_MS / this.speedMult;
     return { amount, grade, streak: this.gatherStreak };
   }
 
@@ -491,12 +491,22 @@ export class VillageEngine {
     this.cb.onLog(`建成了「${building.label}」。`);
   }
 
+  /** 時間倍速(測試用,由 ?dev 的加速按鈕切換):生產週期與採集冷卻同步加速 */
+  speedMult = 1;
+
   start() {
-    this.timer = window.setInterval(() => this.tick(), TICK_MS);
+    this.timer = window.setInterval(() => this.tick(), TICK_MS / this.speedMult);
   }
 
   stop() {
     clearInterval(this.timer);
+  }
+
+  /** 切換時間倍速並重排計時器 */
+  setSpeed(mult: number) {
+    this.speedMult = mult;
+    this.stop();
+    this.start();
   }
 
   private tick() {

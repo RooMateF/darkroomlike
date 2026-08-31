@@ -54,6 +54,7 @@ function startVillage() {
     <div class="top-row">
       <h1>村莊</h1>
       <span>
+        <button id="speed-btn" title="測試用:村莊時間十倍速" style="display:none">⏩×1</button>
         <button id="dev-btn" title="測試用:快速取得各種資源" style="display:none">DEV</button>
         <button id="theme-toggle">切換底色</button>
       </span>
@@ -111,9 +112,10 @@ function startVillage() {
     </div>
   `;
 
-  // DEV 按鈕只在網址帶 ?dev 時出現(正式遊玩不暴露測試工具)
+  // DEV/加速按鈕只在網址帶 ?dev 時出現(正式遊玩不暴露測試工具)
   if (new URLSearchParams(location.search).has("dev")) {
     document.querySelector<HTMLButtonElement>("#dev-btn")!.style.display = "";
+    document.querySelector<HTMLButtonElement>("#speed-btn")!.style.display = "";
   }
   const popText = document.querySelector<HTMLElement>("#pop-text")!;
   const idleText = document.querySelector<HTMLElement>("#idle-text")!;
@@ -152,6 +154,16 @@ function startVillage() {
   }
 
   const engine = new VillageEngine({ onLog: appendLog, onTick: render });
+
+  // 測試用十倍速:生產週期 10 秒 → 1 秒,採集冷卻同步縮短(只影響本次開頁,不寫進存檔)
+  const speedBtn = document.querySelector<HTMLButtonElement>("#speed-btn")!;
+  speedBtn.addEventListener("click", () => {
+    const next = engine.speedMult === 1 ? 10 : 1;
+    engine.setSpeed(next);
+    speedBtn.textContent = `⏩×${next}`;
+    speedBtn.classList.toggle("ready", next > 1);
+    appendLog(next > 1 ? "(測試)時間十倍速開啟。" : "(測試)時間恢復正常速度。");
+  });
 
   // ---- 系統:存檔匯出/匯入/重置(theme 底色偏好不算遊戲進度,保留) ----
   function gameSaveData(): Record<string, string> {
