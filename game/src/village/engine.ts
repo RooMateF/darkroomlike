@@ -461,13 +461,17 @@ export class VillageEngine {
       this.population = Math.max(0, Math.min(this.populationCap, this.population + populationDelta));
       const actual = this.population - before;
       if (actual !== 0) parts.push(`人口 ${actual > 0 ? "+" : ""}${actual}`);
+      if (actual < 0) this.clampAssignments();
     }
-    // 人口比例損失(如土匪敗北 -30%):至少折損 1 人
+    // 人口比例損失(如土匪敗北 -30%):至少折損 1 人(套用後同樣自動裁員)
     if (populationPct) {
       const loss = Math.max(1, Math.floor(this.population * populationPct));
       const before = this.population;
       this.population = Math.max(0, this.population - loss);
-      if (this.population !== before) parts.push(`人口 -${before - this.population}`);
+      if (this.population !== before) {
+        parts.push(`人口 -${before - this.population}`);
+        this.clampAssignments();
+      }
     }
     return parts.join("、");
   }
@@ -681,6 +685,20 @@ export class VillageEngine {
       this.cb.onLog(summary ? `${event.text}(${summary})` : event.text);
     } else {
       this.pendingEvent = event; // 選擇型事件:暫停在這裡等玩家回應,不自動套用效果
+    }
+  }
+
+  /** 人口減少後的自動裁員:超編的部分依工作清單由上到下扣(先伐木、再採石、依序往下) */
+  private clampAssignments() {
+    let assigned = Object.values(this.assignments).reduce((a, b) => a + b, 0);
+    if (assigned <= this.population) return;
+    for (const job of JOBS) {
+      if (assigned <= this.population) break;
+      const cut = Math.min(this.assignments[job.id] ?? 0, assigned - this.population);
+      if (cut > 0) {
+        this.assignments[job.id] -= cut;
+        assigned -= cut;
+      }
     }
   }
 
