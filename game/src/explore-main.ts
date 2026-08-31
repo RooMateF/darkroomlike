@@ -402,9 +402,10 @@ function render() {
       if (tile.revealed && tile.rail && (tile.type === "plain" || tile.type === "brush" || tile.type === "rubble")) {
         symbol = "=";
       }
-      // 補給點三態:S 有儲備 / s 這趟已拿空 / %(點過燈,燈柱燃著)
+      // 補給點符號只表達據點本質:S 有儲備 / s 這趟已拿空——
+      // 點燈狀態交給高亮與光圈表達(換成 % 反而看不出它是補給點,用戶反饋)
       if (tile.revealed && tile.type === "depot") {
-        symbol = tile.lit ? "%" : engine.isDepotLooted(x, y) ? "s" : "S";
+        symbol = engine.isDepotLooted(x, y) ? "s" : "S";
       }
       // 已回收的 Lv2:? → r(回收場,村莊每週期被動回收木石)
       if (tile.revealed && tile.type === "site" && recycledKeys.has(`${x},${y}`)) {
@@ -428,7 +429,7 @@ function render() {
       if (!isPlayer && tile.revealed) {
         // 地面層:一般地形+牆+水潭——牆亮晶晶會引誘人走過去,它只是地形的一部分
         const isTexture = tile.type === "plain" || tile.type === "brush" || tile.type === "rubble" || tile.type === "wall" || tile.type === "water";
-        if (symbol === "⌂" || symbol === "%") cell.classList.add("beacon");
+        if (symbol === "⌂" || (tile.type === "depot" && tile.lit)) cell.classList.add("beacon");
         else if (symbol === "s" || symbol === "r") cell.classList.add("dim");
         else if (lamps.length > 0 && inGlow(x, y)) cell.classList.add("glow");
         else if (isTexture && symbol !== "=") cell.classList.add("faint");
