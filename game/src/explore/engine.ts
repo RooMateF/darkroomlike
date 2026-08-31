@@ -109,6 +109,16 @@ function readPerk(id: string): boolean {
   }
 }
 
+/** 火車蓋好了嗎:通車後軌上移動不再消耗水糧(村莊建築,跨頁讀存檔) */
+function hasTrainBuilt(): boolean {
+  try {
+    const v = JSON.parse(localStorage.getItem("village-state") ?? "{}");
+    return ((v.buildingCounts ?? {})["train"] ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
 /** 水量上限:村莊做出「大水袋」升級後放寬(village/data.ts WATERSKIN_CAPACITY) */
 function readWaterCapacity(): number {
   try {
@@ -480,6 +490,13 @@ export class ExploreEngine {
     this.stepCount++;
 
     if (target.type === "depot") {
+      // 邊境據點:第一次踏上時的一段敘事(每張相鄰地圖一次)
+      const border = borderDepotFor(this.mapId);
+      if (border && border.x === nx && border.y === ny && !localStorage.getItem(`border-depot-seen:${this.mapId}`)) {
+        localStorage.setItem(`border-depot-seen:${this.mapId}`, "1");
+        this.cb.onLog("入口內側有一座半塌的補給棚,棚內是一些發舊的物資,還有稍微可用的工具,應該修補一下就可以使用。");
+        this.cb.onLog("『接下來的旅途這裡會很適合當中繼點。』");
+      }
       this.refillHere();
     } else if (target.type === "resource" || target.type === "event") {
       this.collectedSinceCheckpoint.push({ x: nx, y: ny, type: target.type });
@@ -538,13 +555,14 @@ export class ExploreEngine {
     // 水:每步扣(軌上每 4 步扣 1);食物:每 2 步吃一餐(軌上每 8 步)——先吃輕便的乾糧(不回血),
     // 乾糧見底改咬肉乾(重但滋養,回血),兩者都空了才是真正的斷糧
     const wasDry = this.water <= 0; // 這一步出發前就已經沒水了
+    const trainRunning = onRail && hasTrainBuilt(); // 火車通車:車廂代步,軌上零消耗
     if (onRail) {
-      if (this.railSteps % 4 === 0) this.water = Math.max(0, this.water - 1);
+      if (!trainRunning && this.railSteps % 4 === 0) this.water = Math.max(0, this.water - 1);
     } else {
       this.water = Math.max(0, this.water - MOVE_WATER_COST);
     }
     let ateThisStep = false;
-    const foodDue = onRail ? this.railSteps % 8 === 0 : this.stepCount % FOOD_EVERY_STEPS === 0;
+    const foodDue = onRail ? !trainRunning && this.railSteps % 8 === 0 : this.stepCount % FOOD_EVERY_STEPS === 0;
     if (this.carried && foodDue) {
       if (this.carried.rations > 0) {
         this.carried.rations--;

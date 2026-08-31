@@ -819,6 +819,10 @@ function startVillage() {
       row.btn.textContent = maxedOut ? "已建成" : "建造";
     }
 
+    // 鐵軌配方浮現(鐵匠鋪+礦坑解放)時,代行者提一句鋪軌的構想——
+    // 原「鐵道」建築的提示重新掛載於此;她說的火車,在鋼的時代會真的開起來
+    if (engine.isConsumableVisible("rail")) announceBuildingUnlock("railway");
+
     // 裝備庫:一眼看清武器數量/狀態(受損顯示剩餘耐久)與出門用的消耗品存量
     const armorySection = document.querySelector<HTMLDivElement>("#armory-section")!;
     const armoryEl = document.querySelector<HTMLDivElement>("#armory")!;

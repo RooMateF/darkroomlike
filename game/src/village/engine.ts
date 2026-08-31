@@ -577,8 +577,10 @@ export class VillageEngine {
 
       // 加工型工作(produces 有負值)逐位工人結算:原料不足的工人當輪不生產,不會把庫存扣成負的
       const consumes = Object.entries(job.produces).filter(([, n]) => (n ?? 0) < 0);
-      // 鐵軌鋪到礦坑旁(rail-to-mine 旗標)後,礦車自動運輸——鐵礦工的「產出」翻倍(消耗不變)
-      const railwayBoost = job.id === "miner" && localStorage.getItem("rail-to-mine") === "1" ? 2 : 1;
+      // 鐵軌鋪到礦坑旁(rail-to-mine 旗標)後,礦車自動運輸——鐵礦工的「產出」翻倍(消耗不變);
+      // 火車通車後,車廂運量再翻倍(×4)
+      const railToMine = localStorage.getItem("rail-to-mine") === "1";
+      const railwayBoost = job.id === "miner" && railToMine ? (this.hasBuilding("train") ? 4 : 2) : 1;
       for (let w = 0; w < workers; w++) {
         const canWork = consumes.every(([id, n]) => this.resources[id as ResourceId] >= -(n ?? 0));
         if (!canWork) break;

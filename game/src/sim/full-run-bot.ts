@@ -406,7 +406,7 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
       put("smelter", 2);
       put("coalminer", minerCap(2));
       put("steelworker", 1);
-      put("smoker", smokerCap(4));
+      put("smoker", smokerCap(6));
       put("hunter", 10);
     } else if (goal.iron) {
       put("miner", minerCap(5));
@@ -422,10 +422,19 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
       if ((village.assignments["hunter"] ?? 0) < 10) put("hunter", 10 - (village.assignments["hunter"] ?? 0));
     }
     if (goal.grain) put("farmer", 2);
-    // 其餘人力砍柴/採石(木頭需求大約是石頭兩倍)
-    const wood = Math.ceil(free * 0.65);
-    put("woodcutter", wood);
-    put("quarrier", free);
+    if (goal.iron || goal.steel) {
+      // 集中戰略:產線被肉乾鏈限速時,剩餘人力全壓狩獵(木頭只留給燻肉棚的消耗)
+      const extraHunter = Math.min(free, Math.ceil(free * 0.6));
+      village.assignments["hunter"] = (village.assignments["hunter"] ?? 0) + extraHunter;
+      free -= extraHunter;
+      put("woodcutter", Math.ceil(free * 0.7));
+      put("quarrier", free);
+    } else {
+      // 其餘人力砍柴/採石(木頭需求大約是石頭兩倍)
+      const wood = Math.ceil(free * 0.65);
+      put("woodcutter", wood);
+      put("quarrier", free);
+    }
   }
 
   function villageBuildPolicy(phase: { canTannery: boolean; canSmithy: boolean }) {
@@ -461,7 +470,7 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
         const canHunt = village.availableGathers().includes("meat");
         let target: "wood" | "stone" | "meat" | "hide";
         if (opts.jobs?.leather && canHunt && village.resources.hide < 200) target = "hide";
-        else if ((opts.jobs?.jerky || opts.jobs?.iron || opts.jobs?.steel) && canHunt && village.resources.meat < 200) target = "meat";
+        else if ((opts.jobs?.jerky || opts.jobs?.iron || opts.jobs?.steel) && canHunt && village.resources.meat < 600) target = "meat";
         else target = village.resources.wood <= village.resources.stone * 2 ? "wood" : "stone";
         village.gatherResult(target, gatherAccuracy());
       }
