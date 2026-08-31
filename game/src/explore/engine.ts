@@ -747,6 +747,33 @@ export class ExploreEngine {
     return true;
   }
 
+  /** 旅途中從背包使用恢復品(肉乾 +10/繃帶 +20/藥劑 +15)——不必等據點 */
+  useHealingItem(kind: "jerky" | "bandage" | "elixir"): boolean {
+    if (!this.carried) return false;
+    const cap = playerMaxHp();
+    const before = this.carried.hp ?? cap;
+    if (before >= cap) return false;
+    if (kind === "jerky") {
+      if ((this.carried.jerky ?? 0) <= 0) return false;
+      this.carried.jerky = (this.carried.jerky ?? 0) - 1;
+      this.carried.hp = Math.min(cap, before + 10);
+      this.cb.onLog(`你邊走邊嚼了一條肉乾。(HP +${this.carried.hp - before})`);
+    } else if (kind === "bandage") {
+      if (this.carried.bandages <= 0) return false;
+      this.carried.bandages -= 1;
+      this.carried.hp = Math.min(cap, before + 20);
+      this.cb.onLog(`你停下腳步,把傷口重新包紮好。(HP +${this.carried.hp - before})`);
+    } else {
+      if ((this.carried.elixirs ?? 0) <= 0) return false;
+      this.carried.elixirs = (this.carried.elixirs ?? 0) - 1;
+      this.carried.hp = Math.min(cap, before + 15);
+      this.cb.onLog(`你仰頭灌下一小口藥劑。(HP +${this.carried.hp - before})`);
+    }
+    saveCarried(this.carried);
+    this.saveState();
+    return true;
+  }
+
   /** 點亮據點的燈柱:消耗燈油,永久壓低周圍的遭遇率 */
   lightLamp(): boolean {
     if (!this.canLightLamp() || !this.carried) return false;

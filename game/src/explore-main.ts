@@ -212,8 +212,8 @@ packToggle.addEventListener("click", () => {
   renderPack();
 });
 
-/** 面板的一列:名稱(占格資訊)+ 丟棄鈕 */
-function packRow(label: string, info: string, onDropOne: () => void, onDropAll?: () => void) {
+/** 面板的一列:名稱(占格資訊)+ 使用/丟棄鈕 */
+function packRow(label: string, info: string, onDropOne: () => void, onDropAll?: () => void, onUse?: () => void) {
   const line = document.createElement("div");
   line.className = "row-grid";
   const name = document.createElement("span");
@@ -223,6 +223,17 @@ function packRow(label: string, info: string, onDropOne: () => void, onDropAll?:
   mid.className = "row-controls";
   mid.textContent = info;
   const btns = document.createElement("span");
+  if (onUse) {
+    const useBtn = document.createElement("button");
+    useBtn.className = "btn ready";
+    useBtn.textContent = "使用";
+    useBtn.addEventListener("click", () => {
+      onUse();
+      renderPack();
+      render();
+    });
+    btns.appendChild(useBtn);
+  }
   const drop1 = document.createElement("button");
   drop1.className = "btn";
   drop1.textContent = "丟1";
@@ -297,15 +308,19 @@ function renderPack() {
     { key: "oil", id: "oil", perSlot: 1 },
     { key: "elixirs", id: "elixir", perSlot: 1 },
   ];
+  // 恢復類物資在路上就能用(肉乾 +10/繃帶 +20/藥劑 +15),不必等據點
+  const usableKind: Partial<Record<SupplyKey, "jerky" | "bandage" | "elixir">> = { jerky: "jerky", bandages: "bandage", elixirs: "elixir" };
   for (const def of supplies) {
     const n = (c[def.key] as number | undefined) ?? 0;
     if (n <= 0) continue;
     const slots = Math.ceil(n / def.perSlot);
+    const kind = usableKind[def.key];
     packRow(
       `${RESOURCE_LABEL[def.id]} ×${n}`,
       `占 ${slots} 格`,
       () => ((c[def.key] as number) = Math.max(0, n - 1)),
       () => ((c[def.key] as number) = 0),
+      kind ? () => engine.useHealingItem(kind) : undefined,
     );
   }
 

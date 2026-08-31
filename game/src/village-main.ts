@@ -1076,6 +1076,10 @@ function startVillage() {
       b.classList.toggle("ready", t.id === activeVillageTab);
     }
     const isExp = activeVillageTab === "expedition";
+    // 遠征中(人不在村裡):左欄資源僅供查看,手動採集收起——不能人在荒野還替村莊砍柴
+    manualEl.style.display = onExpedition ? "none" : "";
+    const gatherSlotHost = document.querySelector<HTMLDivElement>("#gather-slot");
+    if (gatherSlotHost) gatherSlotHost.style.display = onExpedition ? "none" : "";
     mainSplitEl.style.display = isExp ? "none" : "";
     expeditionSectionEl.style.display = isExp ? "" : "none";
     logDockEl.style.display = isExp ? "none" : ""; // 遠征有自己的紀錄,村莊的先收起來
