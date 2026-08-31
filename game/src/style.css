@@ -900,6 +900,60 @@ hr {
   flex: 0 0 auto;
 }
 
+/* ---------- 戰鬥頁分欄:左=行動區,右=整欄戰鬥紀錄 ---------- */
+
+.combat-split {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.combat-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--fg-faint) transparent;
+}
+
+/* 行動列的名稱欄放寬:「鐵刀(耐久 40)」一行放得下,不再折成三行 */
+.combat-main .row-grid {
+  grid-template-columns: minmax(9em, 13em) auto 1fr;
+}
+
+.combat-side {
+  flex: 0 0 42%;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.combat-log {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+}
+
+@media (max-width: 760px) {
+  .combat-split {
+    flex-direction: column;
+  }
+
+  .combat-side {
+    flex: none;
+    min-height: 0;
+  }
+
+  .combat-log {
+    flex: none;
+    height: 8em;
+  }
+}
+
 /* ---------- 戰後拾取面板 ---------- */
 
 .loot-panel {

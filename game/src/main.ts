@@ -53,25 +53,33 @@ const savedTheme = localStorage.getItem("theme") ?? "dark";
 document.documentElement.dataset.theme = savedTheme;
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
+// 版型比照村莊/遠征:左=行動區,右=整欄戰鬥紀錄——整頁塞進視窗,紀錄永遠看得到
+app.classList.add("app-frame");
+app.style.maxWidth = "920px";
 app.innerHTML = `
   <div class="top-row">
     <h1>戰鬥</h1>
     <button id="theme-toggle">切換底色</button>
   </div>
-  <div class="section">
-    <div class="hp-line">你 <b id="player-hp-text"></b><span id="status-effects"></span>　　<span id="enemy-label"></span> <b id="enemy-hp-text"></b></div>
-    <div class="row-grid">
-      <span class="row-name" id="enemy-bar-label"></span>
-      <span class="row-controls"><span class="bar" id="enemy-bar"><span class="filled" id="enemy-bar-filled"></span><span id="enemy-bar-empty"></span></span></span>
-      <span class="row-info">敵方動作</span>
+  <div class="hp-line" style="margin-bottom:8px;">你 <b id="player-hp-text"></b><span id="status-effects"></span>　　<span id="enemy-label"></span> <b id="enemy-hp-text"></b></div>
+  <div class="combat-split">
+    <div class="combat-main" id="combat-main">
+      <div class="section">
+        <div class="row-grid">
+          <span class="row-name" id="enemy-bar-label"></span>
+          <span class="row-controls"><span class="bar" id="enemy-bar"><span class="filled" id="enemy-bar-filled"></span><span id="enemy-bar-empty"></span></span></span>
+          <span class="row-info">敵方動作</span>
+        </div>
+        <div class="status-line"><span id="status-text"></span> <button class="use-link" id="skip-btn" disabled>暫不使用</button> <button class="use-link" id="retreat-btn" disabled>撤退</button></div>
+      </div>
+
+      <div class="section" id="categories"></div>
     </div>
-    <div class="status-line"><span id="status-text"></span> <button class="use-link" id="skip-btn" disabled>暫不使用</button> <button class="use-link" id="retreat-btn" disabled>撤退</button></div>
+    <div class="combat-side">
+      <div class="section-title">戰鬥紀錄</div>
+      <div class="log-panel scrollable combat-log" id="log"></div>
+    </div>
   </div>
-
-  <div class="section" id="categories"></div>
-
-  <hr />
-  <div class="log-panel scrollable" id="log"></div>
 `;
 
 const categoriesEl = document.querySelector<HTMLDivElement>("#categories")!;
@@ -523,7 +531,7 @@ function showLootPanel(message: string, gains: Record<string, number>, href: str
   actions.append(allBtn, leaveBtn);
   panel.appendChild(actions);
 
-  logEl.parentElement?.insertBefore(panel, logEl);
+  document.querySelector<HTMLDivElement>("#combat-main")?.appendChild(panel);
 }
 
 /** 戰鬥結束:停下引擎,短暫停留後自動離開,不需要按鈕 */
