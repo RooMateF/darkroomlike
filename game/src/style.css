@@ -500,6 +500,7 @@ hr {
   white-space: pre-wrap;
   font-size: 12px;
   color: var(--fg-dim);
+  text-wrap: pretty; /* 長敘事行的收尾不出現孤字 */
 }
 
 .log-line:last-child {
@@ -639,7 +640,7 @@ hr {
 .event-box {
   border: 1px solid var(--fg-dim);
   padding: 28px 32px;
-  max-width: 42ch;
+  max-width: 56ch; /* 中文約 28 字一行:事件敘事不再折得支離破碎 */
   width: calc(100% - 32px);
   animation: box-in 220ms ease-out;
 }
@@ -666,6 +667,7 @@ hr {
   color: var(--fg-bright);
   line-height: 1.9;
   margin-bottom: 22px;
+  text-wrap: pretty; /* 避免最後一行只剩一兩個字 */
 }
 
 .event-box .event-options {
@@ -684,8 +686,11 @@ hr {
 /* ---------- 開場敘事 ---------- */
 
 .narrative-text {
-  max-width: 44ch;
+  /* 中文舒適行寬約 30~36 全形字(68ch);balance 讓多行斷得勻稱,
+     不會出現「一長行+孤零零幾個字」的怪折行 */
+  max-width: 68ch;
   color: var(--fg);
   margin: 28px 0 20px;
   line-height: 1.9;
+  text-wrap: balance;
 }
