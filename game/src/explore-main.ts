@@ -514,15 +514,23 @@ function render() {
     siteActionEl.appendChild(railBtn);
   }
 
-  // 站在據點上、身上有肉乾且沒滿血 → 顯示「吃肉乾」(要不要花這口糧,玩家自己決定)
-  if (engine.canEatJerky()) {
-    const eatBtn = document.createElement("button");
-    eatBtn.className = "btn";
-    eatBtn.textContent = `吃肉乾 +10(剩 ${engine.carried?.jerky ?? 0})`;
-    eatBtn.addEventListener("click", () => {
-      if (engine.eatJerky()) render();
-    });
-    siteActionEl.appendChild(eatBtn);
+  // 恢復品快速使用(隨時隨地,沒滿血就顯示):繃帶/肉乾/藥劑——不必翻背包(用戶反饋:藏太深)
+  if (engine.carried && (engine.carried.hp ?? playerMaxHp()) < playerMaxHp()) {
+    const heals: { kind: "jerky" | "bandage" | "elixir"; label: string; n: number }[] = [
+      { kind: "jerky", label: `吃肉乾 +10(剩 ${engine.carried.jerky ?? 0})`, n: engine.carried.jerky ?? 0 },
+      { kind: "bandage", label: `用繃帶 +20(剩 ${engine.carried.bandages})`, n: engine.carried.bandages },
+      { kind: "elixir", label: `喝藥劑 +15(剩 ${engine.carried.elixirs ?? 0})`, n: engine.carried.elixirs ?? 0 },
+    ];
+    for (const h of heals) {
+      if (h.n <= 0) continue;
+      const b = document.createElement("button");
+      b.className = "btn";
+      b.textContent = h.label;
+      b.addEventListener("click", () => {
+        if (engine.useHealingItem(h.kind)) render();
+      });
+      siteActionEl.appendChild(b);
+    }
   }
 
   // 站在據點上且帶著燈油 → 顯示「點亮燈柱」(照亮區的遭遇率大幅下降)
