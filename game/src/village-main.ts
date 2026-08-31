@@ -887,9 +887,9 @@ function startVillage() {
     }
     craftSectionEl.style.display = anyCraftVisible ? "" : "none";
 
-    // 外出探索:人口上限達 20(靠不斷擴建小木屋)才開放,不寫解鎖條件提示,讓玩家自行摸索
-    // 出門前先經過整備頁(prep.html)選擇攜帶的裝備
-    const readyToExplore = engine.populationCap >= 20;
+    // 外出探索:人口上限達 20(靠不斷擴建小木屋)且蓋出田才開放——
+    // 沒有田就沒有穀物、沒有乾糧,空著肚子出門是送死;條件不寫提示,讓玩家自行摸索
+    const readyToExplore = engine.populationCap >= 20 && engine.hasBuilding("farm");
     departEl.innerHTML = readyToExplore
       ? `<a href="prep.html" class="btn btn-primary">整備出門 →</a>`
       : "";
