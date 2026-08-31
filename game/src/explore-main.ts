@@ -128,7 +128,9 @@ function buildGrid() {
 
   if (viewMode === "camera") {
     const charW = measureCharWidth();
-    const budgetW = mapEl.clientWidth || app.clientWidth;
+    // 地圖欄貼內容寬:預算=整個分欄容器寬-側欄下限(300)-間距
+    const splitEl = mapEl.closest(".explore-split") as HTMLElement | null;
+    const budgetW = Math.max(220, (splitEl?.clientWidth ?? app.clientWidth) - 316);
     // 高度預算:視窗高扣掉上方資訊區與下方日誌保留區(scaleY 0.6 壓縮後每列約 0.6 個字高)
     const budgetH = Math.max(200, window.innerHeight - mapEl.getBoundingClientRect().top - 30);
     const fontPx = 16;

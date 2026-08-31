@@ -110,13 +110,13 @@ body {
 }
 
 .explore-map-col {
-  flex: 1 1 auto;
+  flex: 0 0 auto; /* 貼著地圖的實際寬度,不佔多餘空間 */
   min-width: 0;
 }
 
 .explore-side {
-  flex: 0 0 340px;
-  min-width: 0;
+  flex: 1 1 auto; /* 剩餘寬度全給側欄——地圖和側欄之間不留死縫 */
+  min-width: 300px;
   display: flex;
   flex-direction: column;
   gap: 8px;
