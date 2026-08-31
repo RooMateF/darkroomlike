@@ -7,7 +7,7 @@ export const JOBS: JobDef[] = [
   { id: "hunter", label: "獵人", produces: { hide: 1, meat: 1 } },
   { id: "farmer", label: "農夫", produces: { grain: 3 }, requiresBuilding: "farm" },
   // 加工型工作:消耗生皮產出皮革(resources.md § 2),原料不足的工人當輪不生產
-  { id: "tanner", label: "製革工", produces: { hide: -2, leather: 1 }, requiresBuilding: "tannery" },
+  { id: "tanner", label: "製革工", produces: { hide: -10, leather: 1 }, requiresBuilding: "tannery" },
   // 燻肉師:生肉+木材燒製成肉乾(肉乾不開放手動打造,只能靠這個職業持續產出)
   // 2026-08 調價:肉乾是奢侈補品不是必需品——生肉 30+木材 30 → 肉乾 2,要吃就得養出像樣的獵肉與柴火產線
   { id: "smoker", label: "燻肉師", produces: { meat: -30, wood: -30, jerky: 2 }, requiresBuilding: "smokehouse" },

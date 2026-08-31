@@ -65,7 +65,16 @@ function startVillage() {
         <div class="hp-line">人口 <b id="pop-text"></b>(閒置 <b id="idle-text"></b>)</div>
       </div>
 
-      <div class="section">
+      <div class="section full-width">
+        <div class="section-title">紀錄</div>
+        <div class="log-panel scrollable" id="log"></div>
+      </div>
+
+      <div class="section full-width" id="village-tabs-bar" style="display:none;">
+        <div id="village-tabs" class="button-row"></div>
+      </div>
+
+      <div class="section" id="affairs-resources">
         <div class="section-title">資源</div>
         <div id="resource-grid" class="resource-grid"></div>
         <div id="resource-empty" class="hint-line">火堆旁還沒有任何存料。</div>
@@ -73,12 +82,12 @@ function startVillage() {
         <div id="gather-slot"></div>
       </div>
 
-      <div class="section">
+      <div class="section" id="affairs-jobs">
         <div class="section-title">工作</div>
         <div id="jobs"></div>
       </div>
 
-      <div class="section">
+      <div class="section" id="affairs-buildings">
         <div class="section-title">建築</div>
         <div id="buildings"></div>
         <div id="depart" class="status-line" style="margin-top:8px;"></div>
@@ -95,9 +104,10 @@ function startVillage() {
         <div id="weapons"></div>
       </div>
 
-      <div class="section full-width">
-        <div class="section-title">紀錄</div>
-        <div class="log-panel scrollable" id="log"></div>
+      <div class="section full-width" id="market-section" style="display:none;">
+        <div class="section-title">交易所</div>
+        <div class="hint-line" id="market-shards" style="margin-bottom:8px;"></div>
+        <div id="trades"></div>
       </div>
 
       <div class="section full-width">
@@ -478,13 +488,39 @@ function startVillage() {
   const craftSectionEl = document.querySelector<HTMLDivElement>("#craft-section")!;
   const weaponsEl = document.querySelector<HTMLDivElement>("#weapons")!;
 
-  // 打造分頁:武器/物資/升級/兌換——配方多了以後一頁塞不下(玩家反饋),分頁各自乾淨
-  type CraftTab = "weapon" | "goods" | "upgrade" | "trade";
+  // 頁面主分頁:村務(生產+建造)/工房(裝備庫+打造)/交易所——紀錄常駐上方(玩家反饋:紀錄太低看不到)
+  type VillageTab = "affairs" | "workshop" | "market";
+  const VILLAGE_TABS: { id: VillageTab; label: string }[] = [
+    { id: "affairs", label: "村務" },
+    { id: "workshop", label: "工房" },
+    { id: "market", label: "交易所" },
+  ];
+  let villageTab = (localStorage.getItem("village-tab") as VillageTab) ?? "affairs";
+  const villageTabsBarEl = document.querySelector<HTMLDivElement>("#village-tabs-bar")!;
+  const villageTabsEl = document.querySelector<HTMLDivElement>("#village-tabs")!;
+  const villageTabBtns = VILLAGE_TABS.map((t) => {
+    const b = document.createElement("button");
+    b.className = "btn";
+    b.textContent = t.label;
+    b.addEventListener("click", () => {
+      villageTab = t.id;
+      localStorage.setItem("village-tab", t.id);
+      render();
+    });
+    villageTabsEl.appendChild(b);
+    return { t, b };
+  });
+  const affairsEls = ["#affairs-resources", "#affairs-jobs", "#affairs-buildings"].map((sel) => document.querySelector<HTMLDivElement>(sel)!);
+  const marketSectionEl = document.querySelector<HTMLDivElement>("#market-section")!;
+  const marketShardsEl = document.querySelector<HTMLDivElement>("#market-shards")!;
+  const tradesEl = document.querySelector<HTMLDivElement>("#trades")!;
+
+  // 打造分頁:武器/物資/升級——配方多了以後一頁塞不下(玩家反饋),分頁各自乾淨;兌換移往交易所主分頁
+  type CraftTab = "weapon" | "goods" | "upgrade";
   const CRAFT_TABS: { id: CraftTab; label: string }[] = [
     { id: "weapon", label: "武器" },
     { id: "goods", label: "物資" },
     { id: "upgrade", label: "升級" },
-    { id: "trade", label: "兌換" },
   ];
   let craftTab = (localStorage.getItem("craft-tab") as CraftTab) ?? "weapon";
   const craftTabsEl = document.querySelector<HTMLDivElement>("#craft-tabs")!;
@@ -650,7 +686,7 @@ function startVillage() {
     foot.append(effect, btn);
 
     row.append(head, foot);
-    weaponsEl.appendChild(row);
+    tradesEl.appendChild(row);
     return { def, row, btn };
   });
 
@@ -879,14 +915,12 @@ function startVillage() {
         armoryEl.appendChild(line);
       }
     }
-    armorySection.style.display = armoryEl.childElementCount > 0 ? "" : "none";
 
     // 武器打造:見過所有材料的配方才浮現;可重複打造(備用武器在耐久度機制下有意義)
     const craftAvail: Record<CraftTab, boolean> = {
       weapon: weaponRows.some((r) => (r.weapon.lootOnly ? engine.weaponCount(r.weapon.id) > 0 : engine.isWeaponVisible(r.weapon.id))),
       goods: consumableRows.some((r) => engine.isConsumableVisible(r.def.id)),
       upgrade: upgradeRows.some((r) => engine.isUpgradeVisible(r.def.id)),
-      trade: engine.hasBuilding("trading-post"),
     };
     // 目前分頁沒東西(如升級還沒解鎖)就退到第一個有內容的分頁
     const tab: CraftTab = craftAvail[craftTab] ? craftTab : (CRAFT_TABS.find((t) => craftAvail[t.id])?.id ?? "weapon");
@@ -954,17 +988,30 @@ function startVillage() {
       row.btn.classList.toggle("ready", craftable);
       row.btn.textContent = done ? "已完成" : "製作";
     }
-    // 交易所兌換
+    // 交易所兌換(獨立主分頁)
     const tradeOpen = engine.hasBuilding("trading-post");
     for (const row of tradeRows) {
-      row.row.style.display = tradeOpen && tab === "trade" ? "" : "none";
+      row.row.style.display = tradeOpen ? "" : "none";
       if (!tradeOpen) continue;
-      anyCraftVisible = true;
       const affordable = engine.resources.shard >= row.def.shards;
       row.btn.disabled = !affordable;
       row.btn.classList.toggle("ready", affordable);
     }
-    craftSectionEl.style.display = anyCraftVisible ? "" : "none";
+
+    // 主分頁顯示:各分頁「有無內容」+ 當前選擇決定區塊開關;只有一頁時整條分頁列先藏著
+    const workshopHas = armoryEl.childElementCount > 0 || anyCraftVisible;
+    const tabHas: Record<VillageTab, boolean> = { affairs: true, workshop: workshopHas, market: tradeOpen };
+    const activeVillageTab: VillageTab = tabHas[villageTab] ? villageTab : "affairs";
+    villageTabsBarEl.style.display = workshopHas || tradeOpen ? "" : "none";
+    for (const { t, b } of villageTabBtns) {
+      b.style.display = tabHas[t.id] ? "" : "none";
+      b.classList.toggle("ready", t.id === activeVillageTab);
+    }
+    for (const el of affairsEls) el.style.display = activeVillageTab === "affairs" ? "" : "none";
+    armorySection.style.display = activeVillageTab === "workshop" && armoryEl.childElementCount > 0 ? "" : "none";
+    craftSectionEl.style.display = activeVillageTab === "workshop" && anyCraftVisible ? "" : "none";
+    marketSectionEl.style.display = activeVillageTab === "market" && tradeOpen ? "" : "none";
+    marketShardsEl.textContent = `異晶存量:${Math.floor(engine.resources.shard ?? 0)}`;
 
     // 外出探索:人口上限達 20(靠不斷擴建小木屋)且蓋出田才開放——
     // 沒有田就沒有穀物、沒有乾糧,空著肚子出門是送死;條件不寫提示,讓玩家自行摸索
