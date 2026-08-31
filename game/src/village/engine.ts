@@ -671,6 +671,8 @@ export class VillageEngine {
     if (this.population >= this.populationCap) return;
     this.population++;
     this.growthEventCount++;
+    // 新居民自動先去砍柴(2026-08 用戶指定):不用每次來人都手動指派;想調整隨時在工作分頁改
+    this.assignments["woodcutter"] = (this.assignments["woodcutter"] ?? 0) + 1;
     this.cb.onLog("村莊多了一位新的居民。");
   }
 }
