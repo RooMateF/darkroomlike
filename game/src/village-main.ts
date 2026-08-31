@@ -316,8 +316,8 @@ function startVillage() {
     resultEl.textContent = `${grade}　${RESOURCE_LABEL[resourceId]} +${amount}${streak >= 2 ? `　連擊×${streak}` : ""}`;
     resultEl.className = `gather-result grade-${gradeKey(distance)}`;
 
-    // 命中中心會整條閃一下,失手則是輕微抖動,兩種手感明顯不同
-    gatherRow.className = distance === 0 ? "gather-row hit-perfect" : distance <= 2 ? "gather-row hit-good" : "gather-row hit-miss";
+    // 命中回饋與引擎判定同一把尺:≤1 格=完美(整條閃光)、≤3=不錯、更遠=失手抖動
+    gatherRow.className = distance <= 1 ? "gather-row hit-perfect" : distance <= 3 ? "gather-row hit-good" : "gather-row hit-miss";
 
     resultTimer = window.setTimeout(() => {
       gatherBarEl.style.visibility = "hidden";
@@ -327,9 +327,10 @@ function startVillage() {
   }
 
   function gradeKey(distance: number): string {
-    if (distance === 0) return "perfect";
-    if (distance <= 2) return "good";
-    if (distance <= 5) return "ok";
+    // 與引擎的檔位一致:≤1 完美、≤3 不錯、≤6 普通
+    if (distance <= 1) return "perfect";
+    if (distance <= 3) return "good";
+    if (distance <= 6) return "ok";
     return "poor";
   }
 

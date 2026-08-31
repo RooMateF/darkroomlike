@@ -364,8 +364,9 @@ export class VillageEngine {
    * 手動採集的結算:accuracy 是採集小遊戲的準度(0~1,1 = 正中甜蜜點)。
    * 不再是「按一下必得固定數量」,而是要玩一次節奏條決定收穫多寡。
    * - 收穫量隨小木屋數量放大(×(1+間數)):村子越大,跟著你出去搬的人手越多
-   * - 連續「完美」疊連擊(每層 +15%,最高 5 層 ×1.75):認真玩節奏條的效率明顯高於隨手按,
-   *   這是「手動遊玩效益」的主要放大器——掛機靠職業產線,盯著玩的人進度快得多
+   * - 連續「完美」疊連擊(每層 +15%,最高 5 層 ×1.75,本次完美即時生效):
+   *   認真玩節奏條的效率明顯高於隨手按——掛機靠職業產線,盯著玩的人進度快得多;
+   *   「不錯」不中斷連擊(只是不成長),「普通/勉強」才歸零
    * - 狩獵(生肉/生皮)基礎量較低:它直接餵肉乾/皮革這兩條中後期瓶頸產線,量要收著給
    */
   gatherResult(resourceId: ResourceId, accuracy: number): { amount: number; grade: string; streak: number } {
@@ -387,10 +388,13 @@ export class VillageEngine {
       base = 1;
       grade = "勉強";
     }
+    // 連擊:本次完美「先疊層、再算倍率」——畫面寫連擊×N,這一下就真的吃 ×(1+0.15N);
+    // 「不錯」不中斷連擊(只是不成長),普通/勉強才歸零——手滑一格不至於前功盡棄
+    if (accuracy >= 0.9) this.gatherStreak = Math.min(5, this.gatherStreak + 1);
+    else if (accuracy < 0.65) this.gatherStreak = 0;
     const streakMult = 1 + 0.15 * this.gatherStreak;
     const perkMult = this.equippedPerks.includes("machinist") ? 1.25 : 1; // 【機巧】:鐵皮旅人改造過的工具
     const amount = Math.round(base * (1 + (this.buildingCounts["hut"] ?? 0)) * streakMult * perkMult);
-    this.gatherStreak = accuracy >= 0.9 ? Math.min(5, this.gatherStreak + 1) : 0;
 
     this.resources[resourceId] += amount;
     this.syncSeenResources();
