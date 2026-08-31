@@ -426,6 +426,7 @@ function render() {
       // 顏色分層(玩家反饋:全圖同亮度太密太累)——
       // 高亮:村莊/燃燈;退場:拿空據點 s、回收場 r;光圈:提亮;地形紋理(. ; :)最暗,特殊點自然浮出
       cell.className = "map-cell";
+      if (isPlayer) cell.classList.add("player");
       if (!isPlayer && tile.revealed) {
         // 地面層:一般地形+牆+水潭——牆亮晶晶會引誘人走過去,它只是地形的一部分
         const isTexture = tile.type === "plain" || tile.type === "brush" || tile.type === "rubble" || tile.type === "wall" || tile.type === "water";

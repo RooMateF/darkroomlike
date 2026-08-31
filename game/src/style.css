@@ -798,6 +798,13 @@ hr {
   text-shadow: 0 0 6px rgba(255, 220, 140, 0.35);
 }
 
+/* 主角(@):終端游標式反白方塊——整張地圖唯一的填色格,一眼就能鎖定自己 */
+.map-cell.player {
+  color: var(--bg);
+  background: var(--fg-bright);
+  font-weight: bold;
+}
+
 /* 村莊(⌂)與燃著的燈柱(%):高亮加粗,是地圖上的錨點 */
 .map-cell.beacon {
   color: var(--fg-bright);

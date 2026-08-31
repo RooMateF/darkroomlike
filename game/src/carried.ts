@@ -63,16 +63,16 @@ export function packUsed(carried: Carried): number {
     const def = WEAPONS.find((w) => w.id === id);
     used += (def?.packSize ?? 3) * n;
   }
-  const arrowsTotal = carried.arrows + (carried.loot?.arrow ?? 0);
+  const arrowsTotal = (carried.arrows ?? 0) + (carried.loot?.arrow ?? 0);
   used += Math.ceil(arrowsTotal / ARROWS_PER_SLOT);
   const bulletsTotal = (carried.bullets ?? 0) + (carried.loot?.bullet ?? 0);
   if (bulletsTotal > 0) used += Math.ceil(bulletsTotal / BULLETS_PER_SLOT);
   const railsTotal = (carried.rails ?? 0) + (carried.loot?.rail ?? 0);
   if (railsTotal > 0) used += Math.ceil(railsTotal / RAILS_PER_SLOT);
   // 乾糧輕便 2 份併 1 格;肉乾重,1 份 1 格
-  const rationsTotal = carried.rations + (carried.loot?.ration ?? 0);
+  const rationsTotal = (carried.rations ?? 0) + (carried.loot?.ration ?? 0);
   used += Math.ceil(rationsTotal / RATIONS_PER_SLOT);
-  used += (carried.jerky ?? 0) + carried.bandages + (carried.scrolls ?? 0) + (carried.oil ?? 0) + (carried.elixirs ?? 0) + (carried.salts ?? 0);
+  used += (carried.jerky ?? 0) + (carried.bandages ?? 0) + (carried.scrolls ?? 0) + (carried.oil ?? 0) + (carried.elixirs ?? 0) + (carried.salts ?? 0);
   for (const [id, n] of Object.entries(carried.loot ?? {})) {
     if (id === "arrow" || id === "ration" || id === "bullet" || id === "rail") continue; // 已併入各自的格
     used += n;
