@@ -8,9 +8,9 @@ export function playerMaxHp(): number {
   try {
     const v = JSON.parse(localStorage.getItem("village-state") ?? "{}");
     const u = v.upgrades ?? {};
-    if (u["steel-armor"]) return 65;
-    if (u["iron-armor"]) return 50;
-    if (u["leather-armor"]) return 40;
+    if (u["steel-armor"]) return 90;
+    if (u["iron-armor"]) return 70;
+    if (u["leather-armor"]) return 50;
     return 30;
   } catch {
     return 30;

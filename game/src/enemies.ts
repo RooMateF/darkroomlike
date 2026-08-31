@@ -85,8 +85,8 @@ export const MID_ENEMIES: EnemyDef[] = [
     intro: "牆縫裡湧出的東西比外面見過的更多、更急。",
     hp: 18,
     moves: [
-      { id: "swarm", label: "圍咬", baseCost: 0.5, symbol: "·»", damage: 2, status: { kind: "poison", amount: 20 } },
-      { id: "surge", label: "湧上", baseCost: 1.2, symbol: "»»", damage: 4 },
+      { id: "swarm", label: "圍咬", baseCost: 0.5, symbol: "·»", damage: 3, status: { kind: "poison", amount: 20 } },
+      { id: "surge", label: "湧上", baseCost: 1.2, symbol: "»»", damage: 5 },
     ],
     loot: { meat: 3, shard: 1 },
     shardChance: 0.65,
@@ -97,8 +97,8 @@ export const MID_ENEMIES: EnemyDef[] = [
     intro: "穿著拼湊護具的身影擋在通道中央,握武器的姿勢比外面那些人熟練得多。",
     hp: 22,
     moves: [
-      { id: "slash", label: "劈砍", baseCost: 1.0, symbol: "»»»", damage: 5 },
-      { id: "heavy", label: "蓄力斬", baseCost: 1.9, symbol: "»»»»»", damage: 9 },
+      { id: "slash", label: "劈砍", baseCost: 1.0, symbol: "»»»", damage: 6 },
+      { id: "heavy", label: "蓄力斬", baseCost: 1.9, symbol: "»»»»»", damage: 12 },
     ],
     loot: { arrow: 3, bandage: 1 },
   },
@@ -108,8 +108,8 @@ export const MID_ENEMIES: EnemyDef[] = [
     intro: "你聽見水聲的時候,牠已經撲到面前了。",
     hp: 20,
     moves: [
-      { id: "ambush", label: "突襲", baseCost: 0.8, symbol: "»»»", damage: 4, status: { kind: "bleed", amount: 25 } },
-      { id: "drag", label: "拖咬", baseCost: 1.6, symbol: "»»»»", damage: 7 },
+      { id: "ambush", label: "突襲", baseCost: 0.8, symbol: "»»»", damage: 5, status: { kind: "bleed", amount: 25 } },
+      { id: "drag", label: "拖咬", baseCost: 1.6, symbol: "»»»»", damage: 9 },
     ],
     loot: { hide: 4, meat: 3, shard: 1 },
     shardChance: 0.55,
@@ -127,8 +127,8 @@ export const LV3_BOSS: EnemyDef = {
   intro: "最深處的黑暗裡,一個高大的輪廓緩緩起身。牠在這裡守著什麼,守了很久很久。",
   hp: 80,
   moves: [
-    { id: "sweep", label: "橫掃", baseCost: 1.1, symbol: "»»»", damage: 4 },
-    { id: "slam", label: "重擊", baseCost: 2.2, symbol: "»»»»»", damage: 9, tell: "牠的輪廓在黑暗裡拔高,雙臂舉過了頭頂。" },
+    { id: "sweep", label: "橫掃", baseCost: 1.1, symbol: "»»»", damage: 5 },
+    { id: "slam", label: "重擊", baseCost: 2.2, symbol: "»»»»»", damage: 12, tell: "牠的輪廓在黑暗裡拔高,雙臂舉過了頭頂。" },
   ],
   loot: { hide: 4, meat: 4, shard: 3 },
 };
@@ -145,8 +145,8 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     intro: "黑暗裡站起一頭巨大的生物,肩膀擦過坑道的頂。牠低下頭,鼻息噴在你臉上。",
     hp: 110,
     moves: [
-      { id: "swipe", label: "拍擊", baseCost: 1.1, symbol: "»»»", damage: 3 },
-      { id: "crush", label: "重壓", baseCost: 2.4, symbol: "»»»»»»", damage: 8, tell: "巨獸壓低了身子,肩胛高高聳起——鼻息忽然停了。" },
+      { id: "swipe", label: "拍擊", baseCost: 1.1, symbol: "»»»", damage: 4 },
+      { id: "crush", label: "重壓", baseCost: 2.4, symbol: "»»»»»»", damage: 11, tell: "巨獸壓低了身子,肩胛高高聳起——鼻息忽然停了。" },
     ],
     loot: { hide: 6, meat: 6, shard: 4 },
   },
@@ -157,8 +157,8 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     hp: 90,
     moves: [
       { id: "stare", label: "凝視", baseCost: 0.7, symbol: "…", damage: 0 },
-      { id: "swing", label: "揮舞", baseCost: 1.0, symbol: "»»", damage: 3 },
-      { id: "shriek", label: "撲抓", baseCost: 1.7, symbol: "»»»»", damage: 6, tell: "他的十指扣成爪狀,慢慢舉了起來。" },
+      { id: "swing", label: "揮舞", baseCost: 1.0, symbol: "»»", damage: 4 },
+      { id: "shriek", label: "撲抓", baseCost: 1.7, symbol: "»»»»", damage: 8, tell: "他的十指扣成爪狀,慢慢舉了起來。" },
     ],
     loot: { bandage: 2, ration: 2, shard: 3 },
   },
@@ -168,8 +168,8 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     intro: "水面炸開。比人還大的節肢生物撐開甲殼,無數細足在石台上敲出急促的聲響。",
     hp: 100,
     moves: [
-      { id: "skitter", label: "亂刺", baseCost: 0.6, symbol: "·»", damage: 2, status: { kind: "poison", amount: 20 } },
-      { id: "pincer", label: "鉗擊", baseCost: 1.7, symbol: "»»»»", damage: 7, tell: "細足全部停住了。甲殼下的巨鉗張到了最開。" },
+      { id: "skitter", label: "亂刺", baseCost: 0.6, symbol: "·»", damage: 3, status: { kind: "poison", amount: 20 } },
+      { id: "pincer", label: "鉗擊", baseCost: 1.7, symbol: "»»»»", damage: 9, tell: "細足全部停住了。甲殼下的巨鉗張到了最開。" },
     ],
     loot: { meat: 5, hide: 3, shard: 3 },
   },
@@ -182,10 +182,10 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     intro: "煤壁在動。一雙裹滿煤灰的巨螯先探了出來,然後是佈滿環節的身軀——牠鑿穿岩層的聲音,你在坑道外就聽見了。",
     hp: 220,
     moves: [
-      { id: "dig", label: "鑿擊", baseCost: 0.8, symbol: "»»", damage: 5 },
+      { id: "dig", label: "鑿擊", baseCost: 0.8, symbol: "»»", damage: 6 },
       { id: "dust", label: "揚塵", baseCost: 1.4, symbol: "…", damage: 3, status: { kind: "poison", amount: 40 }, tell: "牠的環節一節節收緊,甲縫裡滲出灰黑色的粉末。" },
       // 崩落:高傷+暈眩——被震住的那一秒多,補血條也是凍結的;醒神鹽是針對性的解法
-      { id: "collapse", label: "崩落", baseCost: 2.6, symbol: "»»»»»»", damage: 14, control: { kind: "stun", duration: 1.2 }, tell: "牠高高抬起了雙螯——坑道頂上簌簌落下灰來。" },
+      { id: "collapse", label: "崩落", baseCost: 2.6, symbol: "»»»»»»", damage: 16, control: { kind: "stun", duration: 1.2 }, tell: "牠高高抬起了雙螯——坑道頂上簌簌落下灰來。" },
     ],
     loot: { coal: 8, stone: 6, shard: 6 },
   },
@@ -200,10 +200,10 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     hp: 440,
     moves: [
       // 低語:鑽進骨頭裡的聲音讓手腳發沉(遲緩)——充能減半,補血與輸出一起變慢
-      { id: "whisper", label: "低語", baseCost: 1.6, symbol: "…", damage: 4, control: { kind: "slow", duration: 2.5 }, tell: "那個高大的輪廓朝你微微傾了過來。" },
-      { id: "rend", label: "撕裂", baseCost: 1.2, symbol: "»»»»", damage: 9, status: { kind: "bleed", amount: 40 } },
+      { id: "whisper", label: "低語", baseCost: 1.6, symbol: "…", damage: 5, control: { kind: "slow", duration: 2.5 }, tell: "那個高大的輪廓朝你微微傾了過來。" },
+      { id: "rend", label: "撕裂", baseCost: 1.2, symbol: "»»»»", damage: 10, status: { kind: "bleed", amount: 40 } },
       // 鐘鳴:整座教堂共振的一擊——高傷+暈眩;不帶醒神鹽硬扛,補血節奏會被打碎
-      { id: "toll", label: "鐘鳴", baseCost: 3.0, symbol: "»»»»»»»", damage: 18, control: { kind: "stun", duration: 1.5 }, tell: "它緩緩抬起了手,指向頭頂的鐘。空氣忽地緊繃。" },
+      { id: "toll", label: "鐘鳴", baseCost: 3.0, symbol: "»»»»»»»", damage: 20, control: { kind: "stun", duration: 1.5 }, tell: "它緩緩抬起了手,指向頭頂的鐘。空氣忽地緊繃。" },
     ],
     loot: { shard: 8 },
   },

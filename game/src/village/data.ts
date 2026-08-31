@@ -201,14 +201,14 @@ export const UPGRADES: UpgradeDef[] = [
   // 背包:整備容量的關鍵升級——揹負空間 20 → 45,遠征規模翻倍的分水嶺
   { id: "backpack", label: "背包", cost: { leather: 150, wood: 1500 }, effect: "能攜帶更多裝備出門", requiresBuilding: "tannery" },
   // 皮甲:生命上限 +10——體質升級鏈的第一件
-  { id: "leather-armor", label: "皮甲", cost: { leather: 200, wood: 2000, stone: 2000 }, effect: "生命上限 +10", requiresBuilding: "tannery" },
+  { id: "leather-armor", label: "皮甲", cost: { leather: 200, wood: 2000, stone: 2000 }, effect: "生命上限 30 → 50", requiresBuilding: "tannery" },
   // ---- 鐵階升級(鐵匠鋪) ----
   { id: "iron-flask", label: "鐵水壺", cost: { ingot: 15, leather: 50 }, effect: "水量上限 32 → 40", requiresBuilding: "smithy", requiresUpgrade: "waterskin" },
-  { id: "iron-armor", label: "鐵甲", cost: { ingot: 25, leather: 100 }, effect: "生命上限 40 → 50", requiresBuilding: "smithy", requiresUpgrade: "leather-armor" },
+  { id: "iron-armor", label: "鐵甲", cost: { ingot: 25, leather: 100 }, effect: "生命上限 50 → 70", requiresBuilding: "smithy", requiresUpgrade: "leather-armor" },
   { id: "iron-cart", label: "推車", cost: { ingot: 20, wood: 300, leather: 30 }, effect: "揹負空間 45 → 70(鋪軌工程的運力)", requiresBuilding: "smithy", requiresUpgrade: "backpack" },
   // ---- 鋼階升級(需煤礦解放後的鋼產線) ----
   { id: "steel-flask", label: "鋼水壺", cost: { steel: 12, leather: 50 }, effect: "水量上限 40 → 50", requiresBuilding: "smithy", requiresUpgrade: "iron-flask" },
-  { id: "steel-armor", label: "鋼甲", cost: { steel: 20, leather: 120 }, effect: "生命上限 50 → 65", requiresBuilding: "smithy", requiresUpgrade: "iron-armor" },
+  { id: "steel-armor", label: "鋼甲", cost: { steel: 20, leather: 120 }, effect: "生命上限 70 → 90", requiresBuilding: "smithy", requiresUpgrade: "iron-armor" },
   { id: "steel-cart", label: "小貨車", cost: { steel: 15, ingot: 10, wood: 300 }, effect: "揹負空間 70 → 100", requiresBuilding: "smithy", requiresUpgrade: "iron-cart" },
 ];
 
