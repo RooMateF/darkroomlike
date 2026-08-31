@@ -91,6 +91,7 @@ function startVillage() {
 
       <div class="section" id="craft-section" style="display:none;">
         <div class="section-title">打造</div>
+        <div id="craft-tabs" class="button-row" style="margin-bottom:8px;"></div>
         <div id="weapons"></div>
       </div>
 
@@ -475,6 +476,29 @@ function startVillage() {
   // 武器打造列表(resources.md § 3.0):配方要等「見過所有材料」才浮現,已打造的顯示為持有
   const craftSectionEl = document.querySelector<HTMLDivElement>("#craft-section")!;
   const weaponsEl = document.querySelector<HTMLDivElement>("#weapons")!;
+
+  // 打造分頁:武器/物資/升級/兌換——配方多了以後一頁塞不下(玩家反饋),分頁各自乾淨
+  type CraftTab = "weapon" | "goods" | "upgrade" | "trade";
+  const CRAFT_TABS: { id: CraftTab; label: string }[] = [
+    { id: "weapon", label: "武器" },
+    { id: "goods", label: "物資" },
+    { id: "upgrade", label: "升級" },
+    { id: "trade", label: "兌換" },
+  ];
+  let craftTab = (localStorage.getItem("craft-tab") as CraftTab) ?? "weapon";
+  const craftTabsEl = document.querySelector<HTMLDivElement>("#craft-tabs")!;
+  const craftTabBtns = CRAFT_TABS.map((t) => {
+    const b = document.createElement("button");
+    b.className = "btn";
+    b.textContent = t.label;
+    b.addEventListener("click", () => {
+      craftTab = t.id;
+      localStorage.setItem("craft-tab", t.id);
+      render();
+    });
+    craftTabsEl.appendChild(b);
+    return { t, b };
+  });
   const weaponRows = WEAPONS.map((weapon) => {
     const row = document.createElement("div");
     row.className = "building-row";
@@ -818,7 +842,7 @@ function startVillage() {
       addArmoryLine(`${w.label}${dmg}`, `×${engine.weaponCount(w.id)}`);
     }
     // 出門用的消耗品(弓矢/乾糧/肉乾/繃帶/卷軸/燈油/藥劑)也一併列出
-    for (const id of ["arrow", "ration", "jerky", "bandage", "scroll", "oil", "elixir"] as ResourceId[]) {
+    for (const id of ["arrow", "ration", "jerky", "bandage", "scroll", "oil", "elixir", "salt", "rail"] as ResourceId[]) {
       const n = Math.floor(engine.resources[id] ?? 0);
       if (n > 0) addArmoryLine(RESOURCE_LABEL[id], `×${n}`);
     }
@@ -847,11 +871,23 @@ function startVillage() {
     armorySection.style.display = armoryEl.childElementCount > 0 ? "" : "none";
 
     // 武器打造:見過所有材料的配方才浮現;可重複打造(備用武器在耐久度機制下有意義)
+    const craftAvail: Record<CraftTab, boolean> = {
+      weapon: weaponRows.some((r) => (r.weapon.lootOnly ? engine.weaponCount(r.weapon.id) > 0 : engine.isWeaponVisible(r.weapon.id))),
+      goods: consumableRows.some((r) => engine.isConsumableVisible(r.def.id)),
+      upgrade: upgradeRows.some((r) => engine.isUpgradeVisible(r.def.id)),
+      trade: engine.hasBuilding("trading-post"),
+    };
+    // 目前分頁沒東西(如升級還沒解鎖)就退到第一個有內容的分頁
+    const tab: CraftTab = craftAvail[craftTab] ? craftTab : (CRAFT_TABS.find((t) => craftAvail[t.id])?.id ?? "weapon");
+    for (const { t, b } of craftTabBtns) {
+      b.style.display = craftAvail[t.id] ? "" : "none";
+      b.classList.toggle("ready", t.id === tab);
+    }
     let anyCraftVisible = false;
     for (const row of weaponRows) {
       // lootOnly(如異質短刃):不開放打造——沒入手前整列隱藏,入手後只顯示持有/修理
       const visible = row.weapon.lootOnly ? engine.weaponCount(row.weapon.id) > 0 : engine.isWeaponVisible(row.weapon.id);
-      row.row.style.display = visible ? "" : "none";
+      row.row.style.display = visible && tab === "weapon" ? "" : "none";
       if (!visible) continue;
       anyCraftVisible = true;
 
@@ -885,7 +921,7 @@ function startVillage() {
     // 消耗品:乾糧/繃帶/弓矢
     for (const row of consumableRows) {
       const visible = engine.isConsumableVisible(row.def.id);
-      row.row.style.display = visible ? "" : "none";
+      row.row.style.display = visible && tab === "goods" ? "" : "none";
       if (!visible) continue;
       anyCraftVisible = true;
 
@@ -896,7 +932,7 @@ function startVillage() {
     // 一次性升級
     for (const row of upgradeRows) {
       const visible = engine.isUpgradeVisible(row.def.id);
-      row.row.style.display = visible ? "" : "none";
+      row.row.style.display = visible && tab === "upgrade" ? "" : "none";
       if (!visible) continue;
       anyCraftVisible = true;
 
@@ -910,7 +946,7 @@ function startVillage() {
     // 交易所兌換
     const tradeOpen = engine.hasBuilding("trading-post");
     for (const row of tradeRows) {
-      row.row.style.display = tradeOpen ? "" : "none";
+      row.row.style.display = tradeOpen && tab === "trade" ? "" : "none";
       if (!tradeOpen) continue;
       anyCraftVisible = true;
       const affordable = engine.resources.shard >= row.def.shards;
