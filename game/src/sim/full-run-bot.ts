@@ -418,8 +418,9 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
       put("hunter", 6);
     }
     if (goal.leather) {
-      put("tanner", 4);
-      if ((village.assignments["hunter"] ?? 0) < 10) put("hunter", 10 - (village.assignments["hunter"] ?? 0));
+      // 皮革匯率 10:1 之後,製革工兩位就吃得滿,人力改灌獵人
+      put("tanner", 2);
+      if ((village.assignments["hunter"] ?? 0) < 14) put("hunter", 14 - (village.assignments["hunter"] ?? 0));
     }
     if (goal.grain) put("farmer", 2);
     if (goal.iron || goal.steel) {
@@ -469,7 +470,7 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
         village.gatherReadyAt = 0;
         const canHunt = village.availableGathers().includes("meat");
         let target: "wood" | "stone" | "meat" | "hide";
-        if (opts.jobs?.leather && canHunt && village.resources.hide < 200) target = "hide";
+        if (opts.jobs?.leather && canHunt && village.resources.hide < 500) target = "hide";
         else if ((opts.jobs?.jerky || opts.jobs?.iron || opts.jobs?.steel) && canHunt && village.resources.meat < 600) target = "meat";
         else target = village.resources.wood <= village.resources.stone * 2 ? "wood" : "stone";
         village.gatherResult(target, gatherAccuracy());
@@ -1118,11 +1119,12 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
     }
     mark(`${lmId}:${siteProgress(site.key).cleared ? "解放" : "×8 次嘗試失敗"}(戰死累計 ${stats.deaths})`);
   }
-  for (const lmId of ["observatory", "shrine", "mine"]) landmarkCampaign(lmId);
-  // 沒打下來的地標再各補一輪(真人不會只試一個下午就放棄)
-  for (const lmId of ["observatory", "shrine", "mine"]) {
-    const site = sites.find((s) => s.landmarkId === lmId)!;
-    if (!siteProgress(site.key).cleared) landmarkCampaign(lmId);
+  // 沒打下來的地標反覆再戰(真人不會只試一個下午就放棄):最多四輪
+  for (let lmRound = 0; lmRound < 4; lmRound++) {
+    for (const lmId of ["observatory", "shrine", "mine"]) {
+      const site = sites.find((s) => s.landmarkId === lmId)!;
+      if (!siteProgress(site.key).cleared) landmarkCampaign(lmId);
+    }
   }
 
   // Phase 6:鐵產線 → 鐵刀/鐵劍/鐵槍三件(北嶺攻堅的門票)
