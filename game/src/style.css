@@ -36,6 +36,42 @@ body {
   max-width: 760px;
 }
 
+/* 應用框架(村莊頁):標題列+人口在頂、內容區自己捲、紀錄停靠底部——
+   整頁不再依賴上下捲動,分頁鈕永遠在最上面 */
+.app-frame {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 48px);
+  height: calc(100dvh - 48px);
+}
+
+.app-frame .page-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--fg-faint) transparent;
+  padding-right: 4px;
+}
+
+.app-frame .log-dock {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--fg-faint);
+  padding-top: 8px;
+  margin-top: 10px;
+}
+
+.app-frame .log-dock .log-panel.scrollable {
+  height: 8em;
+}
+
+.top-row .tab-row {
+  display: inline-flex;
+  gap: 8px;
+  margin: 0 14px;
+  flex: 1 1 auto;
+}
+
 /* 一頁式儀表板:兩欄佈局,避免整頁靠捲軸才看得完 */
 .dashboard {
   display: grid;
@@ -51,6 +87,11 @@ body {
 @media (max-width: 640px) {
   .dashboard {
     grid-template-columns: 1fr;
+  }
+
+  .app-frame {
+    height: calc(100vh - 32px);
+    height: calc(100dvh - 32px);
   }
 
   /* 小視窗(偷玩模式):縮小留白與字級,資訊密度優先 */

@@ -36,6 +36,7 @@ function showIntro(index: number) {
     startVillage();
     return;
   }
+  app.classList.remove("app-frame");
   app.innerHTML = `
     <div class="top-row">
       <h1>村莊 — 開場</h1>
@@ -50,9 +51,11 @@ function showIntro(index: number) {
 
 // ---- 正式進入村莊畫面 ----
 function startVillage() {
+  app.classList.add("app-frame");
   app.innerHTML = `
     <div class="top-row">
       <h1>村莊</h1>
+      <span id="village-tabs" class="tab-row"></span>
       <span>
         <button id="speed-btn" title="測試用:村莊時間十倍速" style="display:none">⏩×1</button>
         <button id="dev-btn" title="測試用:快速取得各種資源" style="display:none">DEV</button>
@@ -60,20 +63,10 @@ function startVillage() {
       </span>
     </div>
 
+    <div class="hp-line" style="margin-bottom:10px;">人口 <b id="pop-text"></b>(閒置 <b id="idle-text"></b>)</div>
+
+    <div class="page-content">
     <div class="dashboard">
-      <div class="section full-width">
-        <div class="hp-line">人口 <b id="pop-text"></b>(閒置 <b id="idle-text"></b>)</div>
-      </div>
-
-      <div class="section full-width">
-        <div class="section-title">紀錄</div>
-        <div class="log-panel scrollable" id="log"></div>
-      </div>
-
-      <div class="section full-width" id="village-tabs-bar" style="display:none;">
-        <div id="village-tabs" class="button-row"></div>
-      </div>
-
       <div class="section" id="affairs-resources">
         <div class="section-title">資源</div>
         <div id="resource-grid" class="resource-grid"></div>
@@ -110,7 +103,7 @@ function startVillage() {
         <div id="trades"></div>
       </div>
 
-      <div class="section full-width">
+      <div class="section full-width" id="system-section" style="display:none;">
         <div class="section-title">系統</div>
         <div class="button-row">
           <button id="export-btn" class="btn ready">匯出存檔</button>
@@ -120,6 +113,12 @@ function startVillage() {
         </div>
         <div class="hint-line" style="margin-top:6px;">進度會自動保存在這個瀏覽器裡;匯出可備份或搬到其他裝置。</div>
       </div>
+    </div>
+    </div>
+
+    <div class="log-dock">
+      <div class="section-title">紀錄</div>
+      <div class="log-panel scrollable" id="log"></div>
     </div>
   `;
 
@@ -489,15 +488,15 @@ function startVillage() {
   const weaponsEl = document.querySelector<HTMLDivElement>("#weapons")!;
 
   // 頁面主分頁:村務(生產+建造)/工房(裝備庫+打造)/交易所——紀錄常駐上方(玩家反饋:紀錄太低看不到)
-  type VillageTab = "affairs" | "workshop" | "market";
+  type VillageTab = "affairs" | "workshop" | "market" | "system";
   const VILLAGE_TABS: { id: VillageTab; label: string }[] = [
     { id: "affairs", label: "村務" },
     { id: "workshop", label: "工房" },
     { id: "market", label: "交易所" },
+    { id: "system", label: "系統" },
   ];
   let villageTab = (localStorage.getItem("village-tab") as VillageTab) ?? "affairs";
-  const villageTabsBarEl = document.querySelector<HTMLDivElement>("#village-tabs-bar")!;
-  const villageTabsEl = document.querySelector<HTMLDivElement>("#village-tabs")!;
+  const villageTabsEl = document.querySelector<HTMLSpanElement>("#village-tabs")!;
   const villageTabBtns = VILLAGE_TABS.map((t) => {
     const b = document.createElement("button");
     b.className = "btn";
@@ -511,6 +510,7 @@ function startVillage() {
     return { t, b };
   });
   const affairsEls = ["#affairs-resources", "#affairs-jobs", "#affairs-buildings"].map((sel) => document.querySelector<HTMLDivElement>(sel)!);
+  const systemSectionEl = document.querySelector<HTMLDivElement>("#system-section")!;
   const marketSectionEl = document.querySelector<HTMLDivElement>("#market-section")!;
   const marketShardsEl = document.querySelector<HTMLDivElement>("#market-shards")!;
   const tradesEl = document.querySelector<HTMLDivElement>("#trades")!;
@@ -998,11 +998,10 @@ function startVillage() {
       row.btn.classList.toggle("ready", affordable);
     }
 
-    // 主分頁顯示:各分頁「有無內容」+ 當前選擇決定區塊開關;只有一頁時整條分頁列先藏著
+    // 主分頁顯示:分頁鈕常駐標題列;各分頁「有無內容」+ 當前選擇決定區塊開關
     const workshopHas = armoryEl.childElementCount > 0 || anyCraftVisible;
-    const tabHas: Record<VillageTab, boolean> = { affairs: true, workshop: workshopHas, market: tradeOpen };
+    const tabHas: Record<VillageTab, boolean> = { affairs: true, workshop: workshopHas, market: tradeOpen, system: true };
     const activeVillageTab: VillageTab = tabHas[villageTab] ? villageTab : "affairs";
-    villageTabsBarEl.style.display = workshopHas || tradeOpen ? "" : "none";
     for (const { t, b } of villageTabBtns) {
       b.style.display = tabHas[t.id] ? "" : "none";
       b.classList.toggle("ready", t.id === activeVillageTab);
@@ -1011,6 +1010,7 @@ function startVillage() {
     armorySection.style.display = activeVillageTab === "workshop" && armoryEl.childElementCount > 0 ? "" : "none";
     craftSectionEl.style.display = activeVillageTab === "workshop" && anyCraftVisible ? "" : "none";
     marketSectionEl.style.display = activeVillageTab === "market" && tradeOpen ? "" : "none";
+    systemSectionEl.style.display = activeVillageTab === "system" ? "" : "none";
     marketShardsEl.textContent = `異晶存量:${Math.floor(engine.resources.shard ?? 0)}`;
 
     // 外出探索:人口上限達 20(靠不斷擴建小木屋)且蓋出田才開放——
