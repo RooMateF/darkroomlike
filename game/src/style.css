@@ -392,6 +392,35 @@ h1 {
   cursor: pointer;
 }
 
+/* 可點按鈕的懸停回饋(disabled 不亮) */
+.btn:not(:disabled):hover,
+.btn-tiny:not(:disabled):hover {
+  border-color: var(--fg);
+  color: var(--fg-bright);
+}
+
+/* 分頁鈕的視覺語言:亮的是「可以切過去的」,反白的是「你所在的」——
+   當前分頁不是按鈕,是狀態,再點一次也不會發生任何事 */
+#village-tabs .btn,
+#craft-tabs .btn {
+  border-color: var(--fg-dim);
+  color: var(--fg);
+}
+
+#village-tabs .btn.ready,
+#craft-tabs .btn.ready {
+  background: var(--fg);
+  color: var(--bg);
+  border-color: var(--fg);
+  cursor: default;
+}
+
+#village-tabs .btn.ready:hover,
+#craft-tabs .btn.ready:hover {
+  border-color: var(--fg);
+  color: var(--bg); /* 當前分頁不給懸停變化 */
+}
+
 .btn.ready:hover {
   background: var(--fg);
   border-color: var(--fg);
