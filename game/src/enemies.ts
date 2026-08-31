@@ -201,7 +201,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
       { id: "whisper", label: "低語", baseCost: 1.6, symbol: "…", damage: 4, control: { kind: "slow", duration: 2.5 }, tell: "那個高大的輪廓朝你微微傾了過來。" },
       { id: "rend", label: "撕裂", baseCost: 1.2, symbol: "»»»»", damage: 10, status: { kind: "bleed", amount: 40 } },
       // 鐘鳴:整座教堂共振的一擊——高傷+暈眩;不帶醒神鹽硬扛,補血節奏會被打碎
-      { id: "toll", label: "鐘鳴", baseCost: 3.0, symbol: "»»»»»»»", damage: 20, control: { kind: "stun", duration: 1.5 }, tell: "它緩緩抬起了手,指向頭頂的鐘。空氣繃緊了。" },
+      { id: "toll", label: "鐘鳴", baseCost: 3.0, symbol: "»»»»»»»", damage: 20, control: { kind: "stun", duration: 1.5 }, tell: "它緩緩抬起了手,指向頭頂的鐘。空氣忽地緊繃。" },
     ],
     loot: { shard: 5 },
   },
