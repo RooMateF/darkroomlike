@@ -75,6 +75,8 @@ export class VillageEngine {
   lastEventTick = 0;
   /** 受損武器的剩餘耐久(遠征帶回後持續保留;鐵匠鋪可修理回滿) */
   weaponDurability: Record<string, number> = {};
+  /** 累積交易次數(交易所獨賣品的熟客解鎖依據) */
+  tradeCount = 0;
   private tickCount = 0;
   private timer = 0;
 
@@ -103,6 +105,7 @@ export class VillageEngine {
         scheduledFollowUps: this.scheduledFollowUps,
         lastEventTick: this.lastEventTick,
         weaponDurability: this.weaponDurability,
+        tradeCount: this.tradeCount,
         tickCount: this.tickCount,
       }),
     );
@@ -129,6 +132,7 @@ export class VillageEngine {
       this.scheduledFollowUps = s.scheduledFollowUps ?? [];
       this.lastEventTick = s.lastEventTick ?? 0;
       this.weaponDurability = s.weaponDurability ?? {};
+      this.tradeCount = s.tradeCount ?? 0;
       this.tickCount = s.tickCount ?? 0;
     } catch {
       /* 壞資料直接忽略,當作全新開局 */
@@ -274,14 +278,25 @@ export class VillageEngine {
   }
 
   /** 交易所兌換:異晶 → 稀有物資 */
-  trade(tradeId: string) {
+  /** 這個兌換品現在上不上架:見過的東西才會擺出來;獨賣品要交易夠熟(minTrades)才亮出來 */
+  isTradeVisible(tradeId: string): boolean {
     const def = TRADES.find((t) => t.id === tradeId);
-    if (!def || !this.hasBuilding("trading-post") || this.resources.shard < def.shards) return;
+    if (!def) return false;
+    if (def.requiresResourceSeen && !this.seenResources.has(def.requiresResourceSeen)) return false;
+    if (def.minTrades !== undefined && this.tradeCount < def.minTrades) return false;
+    return true;
+  }
+
+  trade(tradeId: string): boolean {
+    const def = TRADES.find((t) => t.id === tradeId);
+    if (!def || !this.hasBuilding("trading-post") || !this.isTradeVisible(tradeId) || this.resources.shard < def.shards) return false;
     this.resources.shard -= def.shards;
-    this.resources[def.get] += def.qty;
+    this.resources[def.get] += def.qty * 1;
+    this.tradeCount++;
     this.syncSeenResources();
     this.saveState();
-    this.cb.onLog(`用 ${def.shards} 顆異晶換得了「${RESOURCE_LABEL[def.get]}」。`);
+    this.cb.onLog(`用 ${def.shards} 顆異晶換得了「${RESOURCE_LABEL[def.get]}」${def.qty > 1 ? ` ×${def.qty}` : ""}。`);
+    return true;
   }
 
   craftConsumable(consumableId: string) {

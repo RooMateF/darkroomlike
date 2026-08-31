@@ -724,7 +724,7 @@ function startVillage() {
     head.className = "building-head";
     const name = document.createElement("span");
     name.className = "building-name";
-    name.textContent = RESOURCE_LABEL[def.get];
+    name.textContent = def.qty > 1 ? `${RESOURCE_LABEL[def.get]} ×${def.qty}` : RESOURCE_LABEL[def.get];
     const cost = document.createElement("span");
     cost.className = "building-cost";
     cost.textContent = `異晶 ${def.shards}`;
@@ -1046,11 +1046,12 @@ function startVillage() {
       row.btn.classList.toggle("ready", craftable);
       row.btn.textContent = done ? "已完成" : "製作";
     }
-    // 交易所兌換(獨立主分頁)
+    // 交易所兌換(獨立主分頁):見過的才上架;獨賣品交易熟了才亮出來
     const tradeOpen = engine.hasBuilding("trading-post");
     for (const row of tradeRows) {
-      row.row.style.display = tradeOpen ? "" : "none";
-      if (!tradeOpen) continue;
+      const visible = tradeOpen && engine.isTradeVisible(row.def.id);
+      row.row.style.display = visible ? "" : "none";
+      if (!visible) continue;
       const affordable = engine.resources.shard >= row.def.shards;
       row.btn.disabled = !affordable;
       row.btn.classList.toggle("ready", affordable);

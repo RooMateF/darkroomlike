@@ -1189,9 +1189,15 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
         { jobs: { iron: true, leather: true, jerky: true, grain: true }, canTannery: true, canSmithy: true },
       );
       if (village.hasBuilding("trading-post")) {
-        while ((village.resources.salt ?? 0) < 3 && village.resources.shard >= 6) village.trade("trade-salt");
-        while (village.resources.bandage < 4 && village.resources.shard >= 3) village.trade("trade-bandage");
-        while (village.resources.elixir < 2 && village.resources.shard >= 10) village.trade("trade-elixir");
+        while ((village.resources.salt ?? 0) < 3 && village.resources.shard >= 6) {
+        if (!village.trade("trade-salt")) break;
+      }
+        while (village.resources.bandage < 4 && village.resources.shard >= 3) {
+        if (!village.trade("trade-bandage")) break;
+      }
+        while (village.resources.elixir < 2 && village.resources.shard >= 10) {
+        if (!village.trade("trade-elixir")) break;
+      }
       }
       const saltsCarried = Math.min(3, Math.floor(village.resources.salt ?? 0));
       northExpedition({
@@ -1255,10 +1261,18 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
   for (let attempt = 0; attempt < 8 && coalCleared && !siteProgress(church.key).cleared; attempt++) {
     // 交易所兌換硬仗底牌:醒神鹽(反制鐘鳴/低語)最優先,再來藥劑、卷軸、繃帶
     if (village.hasBuilding("trading-post")) {
-      while ((village.resources.salt ?? 0) < 5 && village.resources.shard >= 6) village.trade("trade-salt");
-      while (village.resources.elixir < 3 && village.resources.shard >= 10) village.trade("trade-elixir");
-      while (village.resources.bandage < 8 && village.resources.shard >= 3) village.trade("trade-bandage");
-      while (village.resources.scroll < 2 && village.resources.shard >= 6) village.trade("trade-scroll");
+      while ((village.resources.salt ?? 0) < 5 && village.resources.shard >= 6) {
+        if (!village.trade("trade-salt")) break;
+      }
+      while (village.resources.elixir < 3 && village.resources.shard >= 10) {
+        if (!village.trade("trade-elixir")) break;
+      }
+      while (village.resources.bandage < 8 && village.resources.shard >= 3) {
+        if (!village.trade("trade-bandage")) break;
+      }
+      while (village.resources.scroll < 2 && village.resources.shard >= 6) {
+        if (!village.trade("trade-scroll")) break;
+      }
     }
     villageUntil(
       () => {

@@ -64,13 +64,24 @@ export interface TradeDef {
   shards: number;
   /** 一句來歷敘事(show-don't-tell:交易的對象是誰,玩家自己想) */
   flavor: string;
+  /** 見過這種資源才上架(撿過/打過掉落)——沒見過的東西攤子上不會擺 */
+  requiresResourceSeen?: import("./types").ResourceId;
+  /** 熟客門檻:累積交易滿 N 次,買家才亮出這件私貨(交易所獨賣品的解鎖路徑) */
+  minTrades?: number;
 }
 
 export const TRADES: TradeDef[] = [
-  { id: "trade-bandage", get: "bandage", qty: 1, shards: 3, flavor: "織得極密的繃帶,這個時代沒有這種織法。" },
-  { id: "trade-scroll", get: "scroll", qty: 1, shards: 6, flavor: "紙面溫熱的卷軸,和祭壇裡收著的那兩卷一模一樣。" },
-  { id: "trade-elixir", get: "elixir", qty: 1, shards: 10, flavor: "小玻璃瓶裡的透明藥劑,瓶身刻著看不懂的小字。" },
-  { id: "trade-salt", get: "salt", qty: 1, shards: 6, flavor: "一小瓶嗆得人流淚的結晶鹽——聞一口,骨頭裡的寒意都會被逼出去。" },
+  { id: "trade-bandage", get: "bandage", qty: 1, shards: 3, flavor: "織得極密的繃帶,這個時代沒有這種織法。", requiresResourceSeen: "bandage" },
+  { id: "trade-scroll", get: "scroll", qty: 1, shards: 6, flavor: "封印著未知力量的卷軸,將其打開會對前面的目標引發燃燒的現象。", requiresResourceSeen: "scroll" },
+  // 交易所獨賣品:攤子上一開始看不到——交易熟了,買家才從行囊深處拿出來
+  { id: "trade-salt", get: "salt", qty: 1, shards: 6, flavor: "一小瓶嗆得人流淚的結晶鹽——聞一口,骨頭裡的寒意都會被逼出去。", minTrades: 2 },
+  { id: "trade-elixir", get: "elixir", qty: 1, shards: 10, flavor: "小玻璃瓶裡的透明藥劑,瓶身刻著看不懂的小字。", minTrades: 4 },
+  // 基礎物資(用異晶換大宗):對方對「石頭」的行情好得出奇
+  { id: "trade-wood", get: "wood", qty: 120, shards: 2, flavor: "一捆捆切得整整齊齊的木料,斷口平滑得像用什麼燙過。", requiresResourceSeen: "wood" },
+  { id: "trade-stone", get: "stone", qty: 80, shards: 2, flavor: "方正得過分的石塊,每一塊的重量幾乎一模一樣。", requiresResourceSeen: "stone" },
+  { id: "trade-meat", get: "meat", qty: 40, shards: 2, flavor: "用油紙包好的肉,新鮮得不像跋涉過荒野。", requiresResourceSeen: "meat" },
+  { id: "trade-hide", get: "hide", qty: 30, shards: 2, flavor: "疊得厚厚的獸皮,每張都取得乾乾淨淨——獵人看了會沉默的那種。", requiresResourceSeen: "hide" },
+  { id: "trade-iron", get: "iron", qty: 15, shards: 3, flavor: "沉甸甸的礦石,挑得極純——對方似乎很清楚哪些石頭有用。", requiresResourceSeen: "iron" },
 ];
 
 /** 這把武器是否屬於鐵製以上(配方吃鐵/鋼)——修理它需要升格後的鐵匠鋪 */
