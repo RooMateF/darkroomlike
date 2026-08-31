@@ -143,13 +143,13 @@ export interface ExploreCallbacks {
 const REVEAL_RADIUS = 3; // 上下左右各 3 格的菱形視野(曼哈頓距離)
 const MOVE_WATER_COST = 1; // 每格 1 水(design-notes.md § 3.4)
 const FOOD_EVERY_STEPS = 2; // 每走 2 格消耗 1 乾糧(仿 ADR)
-// §3.7 隨機遭遇。0.15 時實測(全流程模擬)長途遠征平均每 9~10 步一戰、每戰耗 10~16 HP,
-// 任何 60 步往返需要 60~90 HP 的續戰力——Lv4 地標在數學上就到不了。0.10 → 約 13 步一戰,
-// 深入仍有壓力但補給鏈撐得住;點燈後照亮區內再打四折
-const ENCOUNTER_CHANCE = 0.1;
+// §3.7 隨機遭遇。2026-08 依用戶要求上調:未點燈的荒野 0.2(約每 5~6 步一戰,真正的險地),
+// 點燈後 ×0.5 → 0.1,正好等於舊版的基礎值——燈火從「加分項」升格為「必修基建」:
+// 想安全走廊就得鋪燈,鐵軌管水糧、燈火管遇敵的分工更鮮明
+const ENCOUNTER_CHANCE = 0.2;
 const LAMP_OIL_COST = 3; // 點亮一座據點燈柱的燈油
 export const LAMP_RADIUS = 8; // 燈火壓遇敵的範圍(曼哈頓距離);UI 用它把光圈畫在地圖上
-const LAMP_SUPPRESS = 0.4; // 照亮區內的遭遇率倍率
+const LAMP_SUPPRESS = 0.5; // 照亮區內的遭遇率倍率(0.2 × 0.5 = 舊版基礎值 0.1)
 
 export class ExploreEngine {
   /** 這個引擎實例所在的地圖 */
