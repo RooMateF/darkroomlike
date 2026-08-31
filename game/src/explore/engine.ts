@@ -266,6 +266,22 @@ export class ExploreEngine {
       this.depotGrantsUsed.clear(); // 新遠征:各據點的乾糧儲備重新補上
       this.depotHealUsed.clear();
       this.reveal(start.x, start.y);
+
+      // 戰死歸來後的第一次再出門(且已做出大水袋):她的道別多停了一會兒——一次性
+      try {
+        const v = JSON.parse(localStorage.getItem("village-state") ?? "{}");
+        if (
+          localStorage.getItem("died-once") === "1" &&
+          (v.upgrades ?? {}).waterskin === true &&
+          !localStorage.getItem("waterskin-farewell-shown")
+        ) {
+          localStorage.setItem("waterskin-farewell-shown", "1");
+          this.cb.onLog("她幫你把新水袋的繩結繫緊並掛到了你的肩上,手卻停留在那繩結上遲遲不肯放開。");
+          this.cb.onLog("『走遠一點也沒關係了。……但要記得回來。』");
+        }
+      } catch {
+        /* 壞資料忽略 */
+      }
     }
 
     // 邊境據點(入口內側):新加的固定補給點——舊的相鄰地圖存檔載入後補打(冪等)

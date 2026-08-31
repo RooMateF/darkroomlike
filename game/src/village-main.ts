@@ -994,6 +994,7 @@ function startVillage() {
   const deathCause = localStorage.getItem("death-cause");
   if (deathCause) {
     localStorage.removeItem("death-cause");
+    localStorage.setItem("died-once", "1"); // 她看過你被抬回來的樣子——之後的道別會不一樣
     const tips = REVIVAL_TIPS[deathCause] ?? REVIVAL_TIPS.combat;
     const idxKey = `revival-tip-${deathCause}`;
     const idx = Number(localStorage.getItem(idxKey) ?? "0");
