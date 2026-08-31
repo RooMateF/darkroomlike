@@ -1003,9 +1003,8 @@ function startVillage() {
         row.btn.style.display = "none";
         row.cost.textContent = "";
       }
-      const damaged = engine.isWeaponDamaged(row.weapon.id);
-      const durText = damaged ? `(耐 ${engine.weaponDurability[row.weapon.id]}/${row.weapon.durability})` : "";
-      row.name.textContent = (count > 0 ? `${row.weapon.label} ×${count}` : row.weapon.label) + durText;
+      // 打造列只標最大耐久(規格);殘耐久是「這一把」的狀態,看整備頁——受損時修理鈕就是訊號
+      row.name.textContent = `${count > 0 ? `${row.weapon.label} ×${count}` : row.weapon.label}(耐久 ${row.weapon.durability})`;
       row.btn.disabled = !craftable;
       row.btn.classList.toggle("ready", craftable);
 

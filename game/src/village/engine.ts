@@ -186,6 +186,9 @@ export class VillageEngine {
     for (const [id, amount] of Object.entries(weapon.cost)) {
       this.resources[id as ResourceId] -= amount ?? 0;
     }
+    // 幽靈耐久防呆:這一型的舊武器已經全數失去(戰死帶走)時,殘耐久紀錄也該跟著消失——
+    // 新打造的是全新的一把,不繼承亡者之傷
+    if ((this.ownedWeapons[weaponId] ?? 0) <= 0) delete this.weaponDurability[weaponId];
     this.ownedWeapons[weaponId] = (this.ownedWeapons[weaponId] ?? 0) + 1;
     this.saveState();
     this.cb.onLog(`打造了「${weapon.label}」。`);
