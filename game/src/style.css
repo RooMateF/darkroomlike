@@ -102,27 +102,53 @@ body {
   scrollbar-color: var(--fg-faint) transparent;
 }
 
-/* 遠征版頭:標題+狀態數字+工具鈕一列排開,不再各佔一段 */
-.explore-head {
+/* 遠征版型:左=方正地圖,右=側欄(狀態/工具/動作/背包/紀錄)——留白給側欄用 */
+.explore-split {
   display: flex;
-  align-items: baseline;
-  gap: 14px;
-  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.explore-map-col {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.explore-side {
+  flex: 0 0 340px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.explore-title {
+  margin: 0;
   border-bottom: 1px solid var(--fg-faint);
   padding-bottom: 4px;
-  margin-bottom: 6px;
 }
 
-.explore-head h1 {
-  margin: 0;
-}
-
-.explore-head .explore-stats {
-  flex: 1 1 auto;
+.explore-stats-grid {
+  gap: 1px 14px;
 }
 
 .explore-log {
-  height: 7em;
+  height: 13em;
+}
+
+@media (max-width: 760px) {
+  .explore-split {
+    flex-direction: column;
+  }
+
+  .explore-side {
+    flex: none;
+    width: 100%;
+  }
+
+  .explore-log {
+    height: 7em;
+  }
 }
 
 .app-frame .page-content {
@@ -768,7 +794,13 @@ hr {
 /* 「全圖」模式:字級跟著視窗寬度縮放(上限 16px)——
    視窗縮小時整張地圖等比縮小,不出現橫向捲軸;字會小,是規劃路線用的鳥瞰圖 */
 .map-grid-full {
-  font-size: min(16px, calc((100vw - 40px) / 80));
+  font-size: clamp(6px, calc((100vw - 420px) / 110), 16px);
+}
+
+@media (max-width: 760px) {
+  .map-grid-full {
+    font-size: clamp(5px, calc((100vw - 40px) / 110), 16px);
+  }
 }
 
 /* 「視野」模式(預設):攝影機跟隨,固定清晰字級——格子數由視窗大小決定,字級永不縮水 */

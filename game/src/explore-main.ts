@@ -22,22 +22,30 @@ localStorage.setItem("hasExplored", "1");
 
 const app = container;
 app.innerHTML = `
-  <div class="explore-head">
-    <h1 id="explore-title">探索</h1>
-    <span class="explore-stats">HP <b id="hp-text"></b>　水 <b id="water-text"></b>　乾糧 <b id="ration-text"></b>　位置 <b id="pos-text"></b></span>
-    <span class="explore-tools">
-      <button id="auto-pickup-toggle"></button>
-      <button id="pack-toggle">背包</button>
-      <button id="view-toggle">全圖</button>
-    </span>
+  <div class="explore-split">
+    <div class="explore-map-col">
+      <div id="map" class="map-grid map-grid-full"></div>
+    </div>
+    <div class="explore-side">
+      <h1 id="explore-title" class="explore-title">探索</h1>
+      <div class="resource-grid explore-stats-grid">
+        <div class="resource-item"><span class="label">HP</span><span class="value" id="hp-text"></span></div>
+        <div class="resource-item"><span class="label">水</span><span class="value" id="water-text"></span></div>
+        <div class="resource-item"><span class="label">乾糧</span><span class="value" id="ration-text"></span></div>
+        <div class="resource-item"><span class="label">位置</span><span class="value" id="pos-text"></span></div>
+      </div>
+      <div class="button-row explore-tools">
+        <button id="auto-pickup-toggle"></button>
+        <button id="pack-toggle">背包</button>
+        <button id="view-toggle">全圖</button>
+      </div>
+      <div class="status-line" id="status-line"></div>
+      <div class="status-line" id="pickup-panel"></div>
+      <div class="status-line" id="site-action"></div>
+      <div id="pack-panel" style="display:none"></div>
+      <div class="log-panel scrollable explore-log" id="explore-log"></div>
+    </div>
   </div>
-  <div class="status-line" id="status-line"></div>
-  <div class="status-line" id="pickup-panel"></div>
-  <div class="status-line" id="site-action"></div>
-
-  <div id="map" class="map-grid map-grid-full"></div>
-  <div id="pack-panel" class="section" style="display:none"></div>
-  <div class="log-panel scrollable explore-log" id="explore-log"></div>
 `;
 
 const mapEl = app.querySelector<HTMLDivElement>("#map")!;
@@ -122,14 +130,15 @@ function buildGrid() {
     const charW = measureCharWidth();
     const budgetW = mapEl.clientWidth || app.clientWidth;
     // 高度預算:視窗高扣掉上方資訊區與下方日誌保留區(scaleY 0.6 壓縮後每列約 0.6 個字高)
-    const budgetH = Math.max(200, window.innerHeight - mapEl.getBoundingClientRect().top - 150);
+    const budgetH = Math.max(200, window.innerHeight - mapEl.getBoundingClientRect().top - 30);
     const fontPx = 16;
     const colsBudget = Math.max(21, Math.min(MAP_WIDTH, Math.floor(budgetW / charW) - 2));
     const rowsBudget = Math.max(13, Math.min(MAP_HEIGHT, Math.floor(budgetH / (fontPx * 0.6)) - 2));
-    // 視野吃滿可用版面(玩家反饋:留白就該給地圖)——兩軸預算都用好用滿,
-    // 只做軟性比例夾制避免極端長條(寬不超過高的 3 倍、高不超過寬的 1.5 倍)
-    viewRows = Math.max(13, Math.min(rowsBudget, Math.ceil(colsBudget * 1.5)));
-    viewCols = Math.max(21, Math.min(colsBudget, Math.ceil(viewRows * 3.5)));
+    // 方正視野(定案):側欄收編了狀態/工具/紀錄,地圖取兩軸預算的短邊——
+    // 版面的留白給側欄用,地圖自己保持正方
+    const side = Math.min(colsBudget, rowsBudget);
+    viewRows = Math.max(13, side);
+    viewCols = Math.max(21, side + 2);
   } else {
     viewCols = MAP_WIDTH;
     viewRows = MAP_HEIGHT;
