@@ -767,10 +767,9 @@ export class ExploreEngine {
    * - 記錄檢查點
    */
   private refillHere() {
-    // 家門口:只默默把水打滿(井就在旁邊),不套荒野據點的儲備/休整/補給播報——
-    // 站在村口時的主角是「返回村莊(結束遠征)」
+    // 家門口什麼都不給(連水都不補):要補給就正式回村再整備出發——
+    // 那一趟同時把行囊入庫、清出背包,才是完整的回村循環;站在村口的主角只有「返回村莊」
     if (this.isAtHome()) {
-      this.water = this.maxWater;
       this.setCheckpoint();
       return;
     }
