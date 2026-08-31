@@ -37,7 +37,8 @@ app.innerHTML = `
       <div class="button-row explore-tools">
         <button id="auto-pickup-toggle"></button>
         <button id="pack-toggle">背包</button>
-        <button id="view-toggle">全圖</button>
+        <button id="zoom-out" title="縮小(看更大範圍)">−</button>
+        <button id="zoom-in" title="放大(看更清楚)">+</button>
       </div>
       <div class="status-line" id="status-line"></div>
       <div class="status-line" id="pickup-panel"></div>
@@ -91,21 +92,31 @@ const engine = new ExploreEngine({
   },
 });
 
-// ---- 地圖呈現:雙模式 ----
-// 「視野」(預設):攝影機跟著 @ 走,固定 16px 清晰字級,只畫視窗塞得下的範圍——
-//   之前把 105 格整張塞進小視窗,字縮到人眼看不清,完全本末倒置
-// 「全圖」:一覽全貌(字級隨視窗縮小),規劃長途路線時切過來看
-let viewMode: "camera" | "full" = (localStorage.getItem("explore-view") as "camera" | "full") ?? "camera";
+// ---- 地圖呈現:攝影機+縮放(2026-08 取代雙模式)----
+// 格子恆為 1em 正方;縮放改變字級(6~24px),縮到最小≈鳥瞰全圖,放大=看得清楚——
+// 「全圖」按鈕退役,+/− 就是唯一的視距控制
+const ZOOM_LEVELS = [6, 8, 10, 12, 16, 20, 24];
+let zoomPx = Number(localStorage.getItem("explore-zoom") ?? "16");
+if (!ZOOM_LEVELS.includes(zoomPx)) zoomPx = 16;
 let cells: HTMLSpanElement[][] = [];
 let viewCols = MAP_WIDTH;
 let viewRows = MAP_HEIGHT;
 
-const viewToggle = app.querySelector<HTMLButtonElement>("#view-toggle")!;
-viewToggle.addEventListener("click", () => {
-  viewMode = viewMode === "camera" ? "full" : "camera";
-  localStorage.setItem("explore-view", viewMode);
+const zoomOutBtn = app.querySelector<HTMLButtonElement>("#zoom-out")!;
+const zoomInBtn = app.querySelector<HTMLButtonElement>("#zoom-in")!;
+function setZoom(px: number) {
+  zoomPx = px;
+  localStorage.setItem("explore-zoom", String(px));
   buildGrid();
   render();
+}
+zoomOutBtn.addEventListener("click", () => {
+  const i = ZOOM_LEVELS.indexOf(zoomPx);
+  if (i > 0) setZoom(ZOOM_LEVELS[i - 1]);
+});
+zoomInBtn.addEventListener("click", () => {
+  const i = ZOOM_LEVELS.indexOf(zoomPx);
+  if (i < ZOOM_LEVELS.length - 1) setZoom(ZOOM_LEVELS[i + 1]);
 });
 
 /** 量測目前字級下一個等寬字元的實際寬度(px) */
@@ -121,27 +132,30 @@ function measureCharWidth(): number {
   return w || 9.6;
 }
 
-/** 依模式重建地圖 DOM(視野模式的格子數依視窗大小計算) */
+/** 重建地圖 DOM:格子數依縮放檔與視窗大小計算(格子恆方) */
 function buildGrid() {
-  mapEl.className = viewMode === "camera" ? "map-grid map-grid-cam" : "map-grid map-grid-full";
+  mapEl.className = "map-grid map-grid-cam";
+  mapEl.style.fontSize = `${zoomPx}px`;
   mapEl.innerHTML = "";
 
-  if (viewMode === "camera") {
-    // 方格制:每格 1em 正方(=字級 px)——寬高同一把尺
-    const fontPx = 16;
+  {
+    const fontPx = zoomPx;
     // 地圖欄貼內容寬:預算=整個分欄容器寬-側欄下限(300)-間距
     const splitEl = mapEl.closest(".explore-split") as HTMLElement | null;
     const budgetW = Math.max(220, (splitEl?.clientWidth ?? app.clientWidth) - 316);
-    const budgetH = Math.max(200, window.innerHeight - mapEl.getBoundingClientRect().top - 30);
+    const budgetH = Math.max(160, window.innerHeight - mapEl.getBoundingClientRect().top - 30);
     const colsBudget = Math.max(15, Math.min(MAP_WIDTH, Math.floor(budgetW / fontPx) - 2));
     const rowsBudget = Math.max(13, Math.min(MAP_HEIGHT, Math.floor(budgetH / fontPx) - 2));
-    // 方正視野(定案):取兩軸預算的短邊,格方、圖也方
-    const side = Math.min(colsBudget, rowsBudget);
-    viewRows = side;
-    viewCols = side;
-  } else {
-    viewCols = MAP_WIDTH;
-    viewRows = MAP_HEIGHT;
+    if (colsBudget >= MAP_WIDTH && rowsBudget >= MAP_HEIGHT) {
+      // 縮得夠小、整張放得下:直接鳥瞰全圖
+      viewCols = MAP_WIDTH;
+      viewRows = MAP_HEIGHT;
+    } else {
+      // 子視窗:方正視野(取兩軸預算的短邊)
+      const side = Math.min(colsBudget, rowsBudget);
+      viewRows = side;
+      viewCols = side;
+    }
   }
 
   const frameRow = (text: string) => {
@@ -351,11 +365,12 @@ function renderPack() {
 }
 
 function render() {
-  viewToggle.textContent = viewMode === "camera" ? "全圖" : "視野";
+  zoomOutBtn.disabled = zoomPx <= ZOOM_LEVELS[0];
+  zoomInBtn.disabled = zoomPx >= ZOOM_LEVELS[ZOOM_LEVELS.length - 1];
   renderPackButton();
   // 攝影機原點:以 @ 為中心,夾在地圖邊界內
-  const ox = viewMode === "camera" ? Math.max(0, Math.min(MAP_WIDTH - viewCols, engine.playerX - Math.floor(viewCols / 2))) : 0;
-  const oy = viewMode === "camera" ? Math.max(0, Math.min(MAP_HEIGHT - viewRows, engine.playerY - Math.floor(viewRows / 2))) : 0;
+  const ox = Math.max(0, Math.min(MAP_WIDTH - viewCols, engine.playerX - Math.floor(viewCols / 2)));
+  const oy = Math.max(0, Math.min(MAP_HEIGHT - viewRows, engine.playerY - Math.floor(viewRows / 2)));
 
   // 已回收的 Lv2 探勘點:畫成暗色 r(回收場)——「?」是還沒解開的謎,解開了就換臉
   const recycledKeys = new Set(

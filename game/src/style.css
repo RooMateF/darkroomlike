@@ -801,6 +801,10 @@ hr {
 .map-cell.beacon {
   color: var(--fg-bright);
   font-weight: bold;
+  /* 家(⌂)與燃燈(%)是地圖錨點:放大 35% 但不動格線(transform 不影響版面) */
+  display: inline-block;
+  transform: scale(1.35);
+  transform-origin: center;
 }
 
 /* 「全圖」模式:字級跟著視窗寬度縮放(上限 16px)——
