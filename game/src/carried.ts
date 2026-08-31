@@ -39,6 +39,8 @@ export interface Carried {
   oil?: number;
   /** 舊時代藥劑(交易所兌換):戰鬥中飲用,大量回復並解除所有異常 */
   elixirs?: number;
+  /** 醒神鹽(交易所兌換):解除暈眩/遲緩並免疫 6 秒——控制型 Boss 的反制道具 */
+  salts?: number;
   /** 目前 HP:跨探索/戰鬥持續,回村整備才回滿——不會每場戰鬥重置 */
   hp: number;
   /** 途中取得的戰利品(戰鬥掉落/地圖拾獲),活著回村才入庫;死了跟著全丟 */
@@ -70,7 +72,7 @@ export function packUsed(carried: Carried): number {
   // 乾糧輕便 2 份併 1 格;肉乾重,1 份 1 格
   const rationsTotal = carried.rations + (carried.loot?.ration ?? 0);
   used += Math.ceil(rationsTotal / RATIONS_PER_SLOT);
-  used += (carried.jerky ?? 0) + carried.bandages + (carried.scrolls ?? 0) + (carried.oil ?? 0) + (carried.elixirs ?? 0);
+  used += (carried.jerky ?? 0) + carried.bandages + (carried.scrolls ?? 0) + (carried.oil ?? 0) + (carried.elixirs ?? 0) + (carried.salts ?? 0);
   for (const [id, n] of Object.entries(carried.loot ?? {})) {
     if (id === "arrow" || id === "ration" || id === "bullet" || id === "rail") continue; // 已併入各自的格
     used += n;
@@ -153,6 +155,7 @@ export function returnCarriedToVillage() {
   village.resources.scroll = (village.resources.scroll ?? 0) + (leftover.scrolls ?? 0);
   village.resources.oil = (village.resources.oil ?? 0) + (leftover.oil ?? 0);
   village.resources.elixir = (village.resources.elixir ?? 0) + (leftover.elixirs ?? 0);
+  village.resources.salt = (village.resources.salt ?? 0) + (leftover.salts ?? 0);
   for (const [id, n] of Object.entries(leftover.loot ?? {})) {
     village.resources[id] = (village.resources[id] ?? 0) + n;
   }

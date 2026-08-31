@@ -1,4 +1,4 @@
-import { BUILDINGS, CONSUMABLES, HUT_CAP_BONUS, JOBS, TRADES, UPGRADES, WEAPONS, repairCost, isIronTierWeapon } from "./data";
+import { BUILDINGS, CONSUMABLES, HUT_CAP_BONUS, JOBS, TRADES, UPGRADES, WEAPONS, repairCost, isIronTierWeapon , PERK_SLOTS } from "./data";
 import { EVENTS, FOLLOWUP_POOLS, type VillageEvent } from "./events-data";
 import { clearedSiteCount } from "../explore/sites";
 import { RESOURCE_LABEL, type ResourceId } from "./types";
@@ -39,6 +39,7 @@ export class VillageEngine {
     steel: 0,
     bullet: 0,
     rail: 0,
+    salt: 0,
     scroll: 0,
     shard: 0,
     oil: 0,
@@ -61,8 +62,10 @@ export class VillageEngine {
   ownedWeapons: Record<string, number> = {};
   /** 一次性裝備升級(如大水袋) */
   upgrades: Record<string, boolean> = {};
-  /** 稀有訪客交換來的永久被動(潛行/機巧/祝禱) */
+  /** 稀有訪客交換來的永久被動(潛行/機巧/祝禱)——「擁有」不等於「生效」 */
   perks: Record<string, boolean> = {};
+  /** 目前裝備中的被動(上限 PERK_SLOTS 格):只有裝上的才生效,出門前要按 Boss 換裝 */
+  equippedPerks: string[] = [];
   /** 排程中的延遲後續事件(流浪者報恩/引來土匪) */
   scheduledFollowUps: { atTick: number; pool: string }[] = [];
   /** 上一個事件發生在第幾個週期(事件間隔冷卻用) */
@@ -92,6 +95,7 @@ export class VillageEngine {
         ownedWeapons: this.ownedWeapons,
         upgrades: this.upgrades,
         perks: this.perks,
+        equippedPerks: this.equippedPerks,
         scheduledFollowUps: this.scheduledFollowUps,
         lastEventTick: this.lastEventTick,
         weaponDurability: this.weaponDurability,
@@ -115,6 +119,8 @@ export class VillageEngine {
       this.ownedWeapons = s.ownedWeapons ?? {};
       this.upgrades = s.upgrades ?? {};
       this.perks = s.perks ?? {};
+      // 舊存檔遷移:沒有裝備欄資料時,把已擁有的被動依序裝上(維持原「全部生效」的體感)
+      this.equippedPerks = s.equippedPerks ?? Object.keys(this.perks).filter((k) => this.perks[k]).slice(0, PERK_SLOTS);
       this.scheduledFollowUps = s.scheduledFollowUps ?? [];
       this.lastEventTick = s.lastEventTick ?? 0;
       this.weaponDurability = s.weaponDurability ?? {};
@@ -122,6 +128,21 @@ export class VillageEngine {
     } catch {
       /* 壞資料直接忽略,當作全新開局 */
     }
+  }
+
+  /** 裝上/卸下被動:回傳是否成功(格子滿了裝不上) */
+  togglePerk(id: string): boolean {
+    const at = this.equippedPerks.indexOf(id);
+    if (at >= 0) {
+      this.equippedPerks.splice(at, 1);
+      this.saveState();
+      return true;
+    }
+    if (!this.perks[id]) return false;
+    if (this.equippedPerks.length >= PERK_SLOTS) return false;
+    this.equippedPerks.push(id);
+    this.saveState();
+    return true;
   }
 
   get idlePopulation(): number {
@@ -362,7 +383,7 @@ export class VillageEngine {
       grade = "勉強";
     }
     const streakMult = 1 + 0.15 * this.gatherStreak;
-    const perkMult = this.perks.machinist ? 1.25 : 1; // 【機巧】:鐵皮旅人改造過的工具
+    const perkMult = this.equippedPerks.includes("machinist") ? 1.25 : 1; // 【機巧】:鐵皮旅人改造過的工具
     const amount = Math.round(base * (1 + (this.buildingCounts["hut"] ?? 0)) * streakMult * perkMult);
     this.gatherStreak = accuracy >= 0.9 ? Math.min(5, this.gatherStreak + 1) : 0;
 
@@ -486,7 +507,13 @@ export class VillageEngine {
     }
 
     const summary = this.applyEventEffect(effect, populationDelta, effectPct, populationPct);
-    if (option.grantPerk) this.perks[option.grantPerk] = true;
+    if (option.grantPerk) {
+      this.perks[option.grantPerk] = true;
+      // 有空格就直接裝上——玩家不用為第一個被動學一套 UI
+      if (this.equippedPerks.length < PERK_SLOTS && !this.equippedPerks.includes(option.grantPerk)) {
+        this.equippedPerks.push(option.grantPerk);
+      }
+    }
     if (option.followUp) {
       // 幾分鐘後開獎的賭注:排進延遲後續佇列
       const delay = option.followUp.delayMin + Math.floor(Math.random() * (option.followUp.delayMax - option.followUp.delayMin + 1));

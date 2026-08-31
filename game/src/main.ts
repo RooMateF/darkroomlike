@@ -151,6 +151,7 @@ function canUse(subActionId: string): boolean {
   if (subActionId === "jerky") return (carried.jerky ?? 0) > 0;
   if (subActionId === "fire-scroll") return (carried.scrolls ?? 0) > 0;
   if (subActionId === "elixir") return (carried.elixirs ?? 0) > 0;
+  if (subActionId === "salt") return (carried.salts ?? 0) > 0;
   return true; // 徒手等不消耗任何東西的行動
 }
 
@@ -184,6 +185,9 @@ function afterUse(subActionId: string) {
     carried.elixirs = Math.max(0, (carried.elixirs ?? 0) - 1);
     engine.clearStatus("poison"); // 藥劑:解除所有異常
     engine.clearStatus("bleed");
+  } else if (subActionId === "salt") {
+    carried.salts = Math.max(0, (carried.salts ?? 0) - 1);
+    engine.clearControl(6); // 醒神鹽:解控 + 6 秒免疫
   }
   saveCarried(carried);
 }
@@ -204,6 +208,7 @@ function subActionLabel(subActionId: string, baseLabel: string): string {
   if (subActionId === "jerky") return `${baseLabel} ×${carried.jerky ?? 0}`;
   if (subActionId === "fire-scroll") return `${baseLabel} ×${carried.scrolls ?? 0}`;
   if (subActionId === "elixir") return `${baseLabel} ×${carried.elixirs ?? 0}`;
+  if (subActionId === "salt") return `${baseLabel} ×${carried.salts ?? 0}`;
   return baseLabel;
 }
 
@@ -290,7 +295,8 @@ function trimBattleLog() {
 let combatMoves = enemyDef.moves;
 try {
   const v = JSON.parse(localStorage.getItem("village-state") ?? "{}");
-  if (v.perks?.blessing) {
+  const blessingOn = Array.isArray(v.equippedPerks) ? v.equippedPerks.includes("blessing") : v.perks?.blessing === true;
+  if (blessingOn) {
     combatMoves = enemyDef.moves.map((m) => (m.status ? { ...m, status: { ...m.status, amount: Math.ceil(m.status.amount / 2) } } : m));
   }
 } catch {
@@ -438,6 +444,8 @@ function render() {
   if (engine.playerStatus.poison.level > 0) effects.push(`中毒Lv${engine.playerStatus.poison.level}`);
   if (engine.playerStatus.bleed.level > 0) effects.push(`流血Lv${engine.playerStatus.bleed.level}`);
   statusEffectsEl.textContent = effects.length ? `(${effects.join(" ")})` : "";
+    if (engine.stunLeft > 0) statusEffectsEl.textContent += `【暈眩 ${engine.stunLeft.toFixed(1)}s】`;
+    else if (engine.slowLeft > 0) statusEffectsEl.textContent += `【遲緩 ${engine.slowLeft.toFixed(1)}s】`;
 
   // 敵方跑條(§2.9):速度本身就是威脅預告——招式越重跑條越慢,玩家看節奏自行判讀
   const ePct = Math.round(engine.enemy.progress * 100);

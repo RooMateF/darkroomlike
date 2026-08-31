@@ -69,6 +69,7 @@ function canUseSim(carried: Carried, id: string): boolean {
   if (id === "jerky") return (carried.jerky ?? 0) > 0;
   if (id === "fire-scroll") return (carried.scrolls ?? 0) > 0;
   if (id === "elixir") return (carried.elixirs ?? 0) > 0;
+  if (id === "salt") return (carried.salts ?? 0) > 0;
   return true;
 }
 
@@ -91,6 +92,9 @@ function afterUseSim(engine: CombatEngine, carried: Carried, id: string) {
     carried.jerky = Math.max(0, (carried.jerky ?? 0) - 1);
   } else if (id === "fire-scroll") {
     carried.scrolls = Math.max(0, (carried.scrolls ?? 0) - 1);
+  } else if (id === "salt") {
+    carried.salts = Math.max(0, (carried.salts ?? 0) - 1);
+    engine.clearControl(6);
   } else if (id === "elixir") {
     carried.elixirs = Math.max(0, (carried.elixirs ?? 0) - 1);
     engine.clearStatus("poison");
@@ -109,6 +113,9 @@ export function fight(enemyDef: EnemyDef, carried: Carried): FightResult {
   engine.playerHp = Math.min(engine.playerMaxHp, Math.max(1, carried.hp ?? engine.playerMaxHp));
 
   const useScroll = enemyDef.hp >= 26; // 卷軸只對硬仗用
+  // 敵人最大單發傷害:決定「補血線」要抬多高——高爆發敵人必須主動維持血量,
+  // 貪到 35% 才補會被「大招+暈眩」的組合帶走(這就是控制 Boss 教玩家的第一課)
+  const maxHit = Math.max(...enemyDef.moves.map((m) => m.damage));
   let t = 0;
   const step = (engine as unknown as { step: (dt: number) => void }).step.bind(engine);
 
@@ -146,8 +153,20 @@ export function fight(enemyDef: EnemyDef, carried: Carried): FightResult {
     const topUp = engine.enemyHp <= 4 && engine.playerHp <= engine.playerMaxHp - 6 && (carried.jerky ?? 0) > 2;
     // 補血優先:繃帶(重傷/流血)、肉乾(小補)
     const bleeding = engine.playerStatus.bleed.level > 0;
-    const lowHp = engine.playerHp <= engine.playerMaxHp * 0.35 || topUp;
+    const safeLine = Math.min(engine.playerMaxHp - 5, maxHit * 2 + 4);
+    const lowHp = engine.playerHp <= Math.max(engine.playerMaxHp * 0.35, safeLine) || topUp;
     let used = false;
+    // 醒神鹽:帶控制的大招條爬過一半就提前含上,用免疫窗口把暈眩/遲緩擋在門外
+    if ((carried.salts ?? 0) > 0 && engine.controlImmuneLeft <= 0 && engine.enemy.currentMove.control && engine.enemy.progress >= 0.45) {
+      const salt = ready.find((r) => r.id === "salt");
+      if (salt) {
+        if (engine.useSubAction(salt.catId as never, salt.id)) afterUseSim(engine, carried, salt.id);
+        used = true;
+      }
+    }
+    if (used) {
+      /* 這一手用掉了,補血/攻擊留到下一次暫停 */
+    } else
     if (lowHp || bleeding) {
       const elixir = ready.find((r) => r.id === "elixir");
       const bandage = ready.find((r) => r.id === "bandage");
@@ -390,6 +409,7 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
     arrows: number;
     scrolls: number;
     elixirs?: number;
+    salts?: number;
   }
 
   function depart(loadout: Loadout): Carried {
@@ -428,6 +448,8 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
     village.resources.arrow -= carried.arrows;
     carried.scrolls = Math.min(loadout.scrolls, village.resources.scroll);
     village.resources.scroll -= carried.scrolls;
+    carried.salts = Math.min(loadout.salts ?? 0, village.resources.salt ?? 0);
+    village.resources.salt = (village.resources.salt ?? 0) - carried.salts;
     carried.elixirs = Math.min(loadout.elixirs ?? 0, village.resources.elixir);
     village.resources.elixir -= carried.elixirs;
     village.saveState();
@@ -884,8 +906,9 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
   }
   mark(`黑鐵鑰匙=${hasChurchKey()}`);
   for (let attempt = 0; attempt < 8 && !siteProgress(church.key).cleared; attempt++) {
-    // 交易所兒換硬仗底牌:藥劑、卷軸、繃帶
+    // 交易所兌換硬仗底牌:醒神鹽(反制鐘鳴/低語)最優先,再來藥劑、卷軸、繃帶
     if (village.hasBuilding("trading-post")) {
+      while ((village.resources.salt ?? 0) < 5 && village.resources.shard >= 8) village.trade("trade-salt");
       while (village.resources.elixir < 3 && village.resources.shard >= 10) village.trade("trade-elixir");
       while (village.resources.scroll < 2 && village.resources.shard >= 6) village.trade("trade-scroll");
       while (village.resources.bandage < 3 && village.resources.shard >= 3) village.trade("trade-bandage");
@@ -910,6 +933,7 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
       arrows: 18,
       scrolls: Math.min(4, village.resources.scroll),
       elixirs: Math.min(3, village.resources.elixir),
+      salts: Math.min(5, village.resources.salt ?? 0),
     };
     expedition([church], loadout);
     mark(`教堂嘗試 #${attempt + 1}:${siteProgress(church.key).cleared ? "打通!" : "失敗"}(戰死累計 ${stats.deaths})`);

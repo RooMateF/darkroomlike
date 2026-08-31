@@ -98,11 +98,12 @@ export function setAutoPickup(on: boolean) {
   localStorage.setItem("auto-pickup", on ? "1" : "0");
 }
 
-/** 讀村莊的永久被動(稀有訪客交換,如【潛行】) */
+/** 讀村莊「裝備中」的被動(擁有但沒裝上的不生效) */
 function readPerk(id: string): boolean {
   try {
     const v = JSON.parse(localStorage.getItem("village-state") ?? "{}");
-    return v.perks?.[id] === true;
+    if (Array.isArray(v.equippedPerks)) return v.equippedPerks.includes(id);
+    return v.perks?.[id] === true; // 舊存檔還沒經過村莊頁遷移:退回全生效
   } catch {
     return false;
   }

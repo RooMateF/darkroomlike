@@ -35,7 +35,7 @@ export function buildPlayerCategories(carried: Carried | null): CategoryDef[] {
   const items = [];
   if ((carried?.bandages ?? 0) > 0) {
     // 繃帶:第一章只能機率拾取的稀有品,回復量大並止血
-    items.push({ id: "bandage", label: "繃帶", baseCost: 1.2, symbol: "+", damage: 0, heal: 20 });
+    items.push({ id: "bandage", label: "繃帶", baseCost: 0.8, symbol: "+", damage: 0, heal: 20 }); // 出手加快:大傷落地後要補得出來
   }
   if ((carried?.jerky ?? 0) > 0) {
     // 肉乾:重但滋養——戰鬥中唯一能吃的食物(乾糧輕便卻不頂餓,回不了血);統一回 10
@@ -43,7 +43,11 @@ export function buildPlayerCategories(carried: Carried | null): CategoryDef[] {
   }
   if ((carried?.elixirs ?? 0) > 0) {
     // 舊時代藥劑(交易所兌換):大量回復並解除所有異常——打硬仗的底牌
-    items.push({ id: "elixir", label: "舊時代藥劑", baseCost: 1.1, symbol: "+!", damage: 0, heal: 15 });
+    items.push({ id: "elixir", label: "舊時代藥劑", baseCost: 0.9, symbol: "+!", damage: 0, heal: 15 });
+  }
+  if ((carried?.salts ?? 0) > 0) {
+    // 醒神鹽:解除暈眩/遲緩並免疫 6 秒——看著敵方大招條升起時,提前含上一撮
+    items.push({ id: "salt", label: "醒神鹽", baseCost: 0.5, symbol: "+=", damage: 0 });
   }
   if ((carried?.scrolls ?? 0) > 0) {
     // 火焰卷軸:一次性的高傷害——法術系統解鎖前,玩家第一次碰到「不屬於這個時代常識」的力量

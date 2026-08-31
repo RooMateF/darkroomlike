@@ -173,30 +173,35 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     ],
     loot: { meat: 5, hide: 3, shard: 2 },
   },
-  // 北嶺煤礦坑(Lv4):鐵階裝備的攻堅目標——比中央三地標硬一階,毒塵是特色威脅
+  // 北嶺煤礦坑(Lv4):鐵階裝備的攻堅目標——毒塵+崩落暈眩是特色威脅。
+  // 蒙地卡羅:300hp 鐵階滿裝+鹽3 勝率 90%(單場 139 秒);不帶鹽 43%——第一堂「反制道具」教學課
   coalmine: {
     id: "coalmine-guardian",
     label: "煤層深處的掘穴者",
     intro: "煤壁在動。一雙裹滿煤灰的巨螯先探了出來,然後是佈滿環節的身軀——牠鑿穿岩層的聲音,你在坑道外就聽見了。",
-    hp: 260,
+    hp: 300,
     moves: [
       { id: "dig", label: "鑿擊", baseCost: 0.8, symbol: "»»", damage: 6 },
-      { id: "dust", label: "揚塵", baseCost: 0.7, symbol: "…", damage: 0, status: { kind: "poison", amount: 40 } },
-      { id: "collapse", label: "崩落", baseCost: 1.9, symbol: "»»»»»»", damage: 16 },
+      { id: "dust", label: "揚塵", baseCost: 1.4, symbol: "…", damage: 4, status: { kind: "poison", amount: 40 } },
+      // 崩落:高傷+暈眩——被震住的那一秒多,補血條也是凍結的;醒神鹽是針對性的解法
+      { id: "collapse", label: "崩落", baseCost: 2.6, symbol: "»»»»»»", damage: 16, control: { kind: "stun", duration: 1.2 } },
     ],
     loot: { coal: 8, stone: 6, shard: 3 },
   },
-  // Lv5:本章的極限。2026-08 史詩化:Boss 戰要打一分鐘上下、手段盡出(補品/卷軸/換武器)。
-  // 蒙地卡羅:380hp 鋼階頂配勝率 64%(單場 58 秒);鐵階 0%——「先去北嶺煉鋼」的高牆
+  // Lv5:本章的極限。2026-08 控制型設計:數值堆滿也打不過,要靠「針對性準備」——
+  // 醒神鹽擋鐘鳴/低語、藥劑清撕裂的流血、繃帶硬撐血線。
+  // 蒙地卡羅:480hp 鋼階頂配+鹽5 勝率 63%(單場 141 秒,繃帶8/藥劑3 全數耗盡);不帶鹽 0%
   church: {
     id: "church-guardian",
     label: "不再祈禱的東西",
     intro: "祭壇前跪著一個背影,維持著祈禱的姿勢——但那個輪廓不屬於任何還能被稱為人的東西。它緩緩站了起來。站得太高了。",
-    hp: 380,
+    hp: 480,
     moves: [
-      { id: "whisper", label: "低語", baseCost: 0.9, symbol: "…", damage: 0 },
+      // 低語:鑽進骨頭裡的聲音讓手腳發沉(遲緩)——充能減半,補血與輸出一起變慢
+      { id: "whisper", label: "低語", baseCost: 1.6, symbol: "…", damage: 4, control: { kind: "slow", duration: 2.5 } },
       { id: "rend", label: "撕裂", baseCost: 1.2, symbol: "»»»»", damage: 10, status: { kind: "bleed", amount: 40 } },
-      { id: "toll", label: "崩擊", baseCost: 2.4, symbol: "»»»»»»»", damage: 18 },
+      // 鐘鳴:整座教堂共振的一擊——高傷+暈眩;不帶醒神鹽硬扛,補血節奏會被打碎
+      { id: "toll", label: "鐘鳴", baseCost: 3.0, symbol: "»»»»»»»", damage: 20, control: { kind: "stun", duration: 1.5 } },
     ],
     loot: { shard: 5 },
   },

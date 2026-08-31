@@ -1,6 +1,6 @@
 import "./style.css";
 import { VillageEngine, TICK_MS, GATHERABLE } from "./village/engine";
-import { JOBS, BUILDINGS, WEAPONS, CONSUMABLES, UPGRADES, TRADES, repairCost } from "./village/data";
+import { JOBS, BUILDINGS, WEAPONS, CONSUMABLES, UPGRADES, TRADES, repairCost, PERK_SLOTS } from "./village/data";
 import { PERK_LABEL } from "./village/events-data";
 import { clearedSiteCount } from "./explore/sites";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
@@ -822,9 +822,27 @@ function startVillage() {
       const n = Math.floor(engine.resources[id] ?? 0);
       if (n > 0) addArmoryLine(RESOURCE_LABEL[id], `×${n}`);
     }
-    // 稀有訪客交換來的永久被動
-    for (const [perkId, owned] of Object.entries(engine.perks)) {
-      if (owned && PERK_LABEL[perkId]) addArmoryLine(`【${PERK_LABEL[perkId]}】`, "永久");
+    // 稀有訪客交換來的被動:裝備欄制——裝上的才生效,對著遠征目標換裝
+    const ownedPerks = Object.entries(engine.perks).filter(([id, owned]) => owned && PERK_LABEL[id]);
+    if (ownedPerks.length > 0) {
+      addArmoryLine(`被動(生效 ${engine.equippedPerks.length}/${PERK_SLOTS})`, "");
+      for (const [perkId] of ownedPerks) {
+        const line = document.createElement("div");
+        line.className = "resource-item";
+        const label = document.createElement("span");
+        label.className = "label";
+        const equipped = engine.equippedPerks.includes(perkId);
+        label.textContent = `　【${PERK_LABEL[perkId]}】${equipped ? "" : "(未裝備)"}`;
+        const btn = document.createElement("button");
+        btn.textContent = equipped ? "卸下" : "裝備";
+        btn.disabled = !equipped && engine.equippedPerks.length >= PERK_SLOTS;
+        btn.addEventListener("click", () => {
+          engine.togglePerk(perkId);
+          render();
+        });
+        line.append(label, btn);
+        armoryEl.appendChild(line);
+      }
     }
     armorySection.style.display = armoryEl.childElementCount > 0 ? "" : "none";
 

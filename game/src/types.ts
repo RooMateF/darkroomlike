@@ -32,4 +32,6 @@ export interface EnemyMove {
   damage: number;
   /** 命中時疊加異常值(design-notes.md § 2.11.2 累積制,非機率制) */
   status?: { kind: StatusKind; amount: number };
+  /** 控制效果:命中時暈眩(行動條凍結)或遲緩(充能減半)數秒 */
+  control?: { kind: "stun" | "slow"; duration: number };
 }

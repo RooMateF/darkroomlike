@@ -54,6 +54,7 @@ const pick = {
   arrows: 0,
   bullets: 0,
   rails: 0,
+  salts: 0,
   scrolls: 0,
   oil: 0,
   elixirs: 0,
@@ -108,7 +109,7 @@ function packPicked(): number {
     const def = WEAPONS.find((w) => w.id === id);
     used += (def?.packSize ?? 3) * n;
   }
-  used += pick.jerky + pick.bandages + pick.scrolls + pick.oil + pick.elixirs;
+  used += pick.jerky + pick.bandages + pick.scrolls + pick.oil + pick.elixirs + pick.salts;
   used += Math.ceil(pick.rations / RATIONS_PER_SLOT);
   used += Math.ceil(pick.arrows / ARROWS_PER_SLOT);
   used += Math.ceil(pick.bullets / BULLETS_PER_SLOT);
@@ -239,6 +240,7 @@ const supplyDefs = [
   { id: "scroll", label: RESOURCE_LABEL.scroll, extra: "占 1 格・一次性,威力驚人", get: () => pick.scrolls, set: (n: number) => (pick.scrolls = n) },
   { id: "oil", label: RESOURCE_LABEL.oil, extra: "占 1 格・點亮據點燈柱的燃料(每座 3 份)", get: () => pick.oil, set: (n: number) => (pick.oil = n) },
   { id: "elixir", label: RESOURCE_LABEL.elixir, extra: "占 1 格・戰鬥中飲用:大量回復並解除所有異常", get: () => pick.elixirs, set: (n: number) => (pick.elixirs = n) },
+  { id: "salt", label: RESOURCE_LABEL.salt, extra: "占 1 格・解除暈眩/遲緩並免疫 6 秒", get: () => pick.salts, set: (n: number) => (pick.salts = n) },
 ] as const;
 
 for (const def of supplyDefs) {
@@ -271,11 +273,12 @@ try {
     pick.arrows = Math.min(Math.floor(village.resources.arrow ?? 0), last.arrows ?? 0);
     pick.bullets = Math.min(Math.floor(village.resources.bullet ?? 0), last.bullets ?? 0);
     pick.rails = Math.min(Math.floor(village.resources.rail ?? 0), last.rails ?? 0);
+    pick.salts = Math.min(Math.floor(village.resources.salt ?? 0), last.salts ?? 0);
     pick.scrolls = Math.min(Math.floor(village.resources.scroll ?? 0), last.scrolls ?? 0);
     pick.oil = Math.min(Math.floor(village.resources.oil ?? 0), last.oil ?? 0);
     pick.elixirs = Math.min(Math.floor(village.resources.elixir ?? 0), last.elixirs ?? 0);
     // 夾回揹負空間(可能上次是有背包時的配置):先減補給,再減武器
-    const order: ("rails" | "oil" | "elixirs" | "scrolls" | "bullets" | "arrows" | "bandages" | "jerky" | "rations")[] = ["rails", "oil", "elixirs", "scrolls", "bullets", "arrows", "bandages", "jerky", "rations"];
+    const order: ("rails" | "salts" | "oil" | "elixirs" | "scrolls" | "bullets" | "arrows" | "bandages" | "jerky" | "rations")[] = ["rails", "salts", "oil", "elixirs", "scrolls", "bullets", "arrows", "bandages", "jerky", "rations"];
     let oi = 0;
     while (packPicked() > capacity && oi < order.length) {
       if (pick[order[oi]] > 0) pick[order[oi]]--;
@@ -304,6 +307,7 @@ departBtn.addEventListener("click", () => {
   village.resources.arrow = (village.resources.arrow ?? 0) - pick.arrows;
   village.resources.bullet = (village.resources.bullet ?? 0) - pick.bullets;
   village.resources.rail = (village.resources.rail ?? 0) - pick.rails;
+  village.resources.salt = (village.resources.salt ?? 0) - pick.salts;
   village.resources.scroll = (village.resources.scroll ?? 0) - pick.scrolls;
   village.resources.oil = (village.resources.oil ?? 0) - pick.oil;
   village.resources.elixir = (village.resources.elixir ?? 0) - pick.elixirs;
@@ -319,6 +323,7 @@ departBtn.addEventListener("click", () => {
     arrows: pick.arrows,
     bullets: pick.bullets,
     rails: pick.rails,
+    salts: pick.salts,
     scrolls: pick.scrolls,
     oil: pick.oil,
     elixirs: pick.elixirs,

@@ -125,6 +125,12 @@ export class CombatEngine {
     bleed: { gauge: 0, level: 0 },
   };
   private dotTimer = 0;
+  /** 暈眩剩餘秒數:你的所有行動條凍結(敵方照常行動——被壓制的恐懼感) */
+  stunLeft = 0;
+  /** 遲緩剩餘秒數:行動條充能減半 */
+  slowLeft = 0;
+  /** 控制免疫剩餘秒數(醒神鹽):期間不吃暈眩/遲緩 */
+  controlImmuneLeft = 0;
   private logId = 0;
   private rafHandle = 0;
   private lastT = 0;
@@ -137,13 +143,20 @@ export class CombatEngine {
     private readonly cb: EngineCallbacks,
     opts?: { enemyHp?: number; enemyLabel?: string },
   ) {
-    this.playerCategories = categories.map((c) => new CategoryTracker(c, () => this.playerSpeed));
+    this.playerCategories = categories.map((c) => new CategoryTracker(c, () => this.playerSpeed * (this.slowLeft > 0 ? 0.5 : 1)));
     this.enemy = new EnemyTracker(enemyMoves, () => 1);
     if (opts?.enemyHp) {
       this.enemyHp = opts.enemyHp;
       this.enemyMaxHp = opts.enemyHp;
     }
     if (opts?.enemyLabel) this.enemyLabel = opts.enemyLabel;
+  }
+
+  /** 解除控制效果並給予免疫窗口(醒神鹽) */
+  clearControl(immuneSeconds: number) {
+    this.stunLeft = 0;
+    this.slowLeft = 0;
+    this.controlImmuneLeft = Math.max(this.controlImmuneLeft, immuneSeconds);
   }
 
   /** 道具解除異常(如繃帶止血) */
@@ -170,7 +183,14 @@ export class CombatEngine {
     if (this.enemyHp <= 0 || this.playerHp <= 0) return;
 
     if (!this.paused) {
-      for (const cat of this.playerCategories) cat.tick(dt);
+      // 控制效果倒數
+      if (this.stunLeft > 0) this.stunLeft = Math.max(0, this.stunLeft - dt);
+      if (this.slowLeft > 0) this.slowLeft = Math.max(0, this.slowLeft - dt);
+      if (this.controlImmuneLeft > 0) this.controlImmuneLeft = Math.max(0, this.controlImmuneLeft - dt);
+      // 暈眩中:你的行動條全部凍結,敵方照常進逼
+      if (this.stunLeft <= 0) {
+        for (const cat of this.playerCategories) cat.tick(dt);
+      }
       this.enemy.tick(dt);
 
       // 敵方出招不受玩家暫停狀態影響,出招後立刻重選下一招(§2.9)
@@ -215,6 +235,19 @@ export class CombatEngine {
         symbol: move.symbol,
         damage: move.damage,
       });
+
+      // 控制效果:暈眩(行動凍結)/遲緩(充能減半);醒神鹽的免疫窗口可以擋掉
+      if (move.control && this.controlImmuneLeft > 0) {
+        this.cb.onLog({ id: this.logId++, actor: "你", target: "咬牙穩住了身形", symbol: "=", damage: 0 });
+      } else if (move.control) {
+        if (move.control.kind === "stun") {
+          this.stunLeft = Math.max(this.stunLeft, move.control.duration);
+          this.cb.onLog({ id: this.logId++, actor: "你", target: "被震得踉蹌,一時動彈不得", symbol: "!!", damage: 0 });
+        } else {
+          this.slowLeft = Math.max(this.slowLeft, move.control.duration);
+          this.cb.onLog({ id: this.logId++, actor: "你", target: "手腳發沉,動作慢了下來", symbol: "!", damage: 0 });
+        }
+      }
 
       // 命中附帶異常值疊加(累積制,不是機率):滿 100 升一級,最高 3 級
       if (move.status) {

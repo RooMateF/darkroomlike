@@ -18,6 +18,7 @@ export type ResourceId =
   | "steel"
   | "bullet"
   | "rail"
+  | "salt"
   | "scroll"
   | "shard"
   | "oil"
@@ -44,6 +45,8 @@ export const RESOURCE_LABEL: Record<ResourceId, string> = {
   bullet: "子彈",
   // 鐵軌:鋪設在遠征地圖上的永久建設(從村莊連出去;軌上省水糧、不遇敵)
   rail: "鐵軌",
+  // 交易所兌換的反制道具:解除暈眩/遲緩並給予短暫免疫——對付會控制的 Boss 的針對性答案
+  salt: "醒神鹽",
   scroll: "火焰卷軸",
   // 從汙染沾身的生物傷口裡挖出來的半透明晶體:無法自行加工,是交易所的硬通貨(resources.md § 9.4)
   shard: "異晶",
