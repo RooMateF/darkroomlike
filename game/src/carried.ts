@@ -80,28 +80,71 @@ export function packUsed(carried: Carried): number {
   return used;
 }
 
+/** 撿到就能用:這些拾獲直接併入補給欄——壓在戰利品堆裡的東西路上動不了(繃帶不能包、弓矢不能射) */
+const SUPPLY_FIELD = {
+  bandage: "bandages",
+  jerky: "jerky",
+  elixir: "elixirs",
+  salt: "salts",
+  scroll: "scrolls",
+  arrow: "arrows",
+  bullet: "bullets",
+  ration: "rations",
+  oil: "oil",
+  rail: "rails",
+} as const;
+
 /**
  * 拾獲戰利品(受揹負空間限制):一件一件裝,塞得下多少裝多少。
+ * 可用補給(SUPPLY_FIELD)進補給欄,其餘素材進戰利品堆;空間占用同一把尺。
  * 空間不足時 overflow = true,讓 UI 能提示「背包塞不下了」。
  */
 export function addLoot(carried: Carried, gains: Record<string, number>): { added: Record<string, number>; overflow: boolean } {
   carried.loot ??= {};
   const cap = carried.packCap ?? 20;
+  const bag = carried as unknown as Record<string, number | undefined>;
   const added: Record<string, number> = {};
   let overflow = false;
   for (const [id, n] of Object.entries(gains)) {
+    const field = SUPPLY_FIELD[id as keyof typeof SUPPLY_FIELD];
     for (let k = 0; k < n; k++) {
-      carried.loot[id] = (carried.loot[id] ?? 0) + 1;
-      if (packUsed(carried) > cap) {
-        carried.loot[id]--; // 塞不下,退回這一件
-        if (carried.loot[id] === 0) delete carried.loot[id];
-        overflow = true;
-        break;
+      if (field) {
+        const cur = bag[field] ?? 0;
+        bag[field] = cur + 1;
+        if (packUsed(carried) > cap) {
+          bag[field] = cur; // 塞不下,退回這一件
+          overflow = true;
+          break;
+        }
+      } else {
+        carried.loot[id] = (carried.loot[id] ?? 0) + 1;
+        if (packUsed(carried) > cap) {
+          carried.loot[id]--; // 塞不下,退回這一件
+          if (carried.loot[id] === 0) delete carried.loot[id];
+          overflow = true;
+          break;
+        }
       }
       added[id] = (added[id] ?? 0) + 1;
     }
   }
   return { added, overflow };
+}
+
+/** 舊存檔遷移:過去撿到的可用補給被壓在戰利品堆裡(不能用)——搬回補給欄 */
+function migrateLootSupplies(c: Carried) {
+  if (!c.loot) return;
+  const bag = c as unknown as Record<string, number | undefined>;
+  let moved = false;
+  for (const [id, field] of Object.entries(SUPPLY_FIELD)) {
+    const n = c.loot[id] ?? 0;
+    if (n > 0) {
+      bag[field] = (bag[field] ?? 0) + n;
+      delete c.loot[id];
+      moved = true;
+    }
+  }
+  if (moved) saveCarried(c);
 }
 
 const KEY = "carried";
@@ -110,7 +153,9 @@ export function loadCarried(): Carried | null {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as Carried;
+    const c = JSON.parse(raw) as Carried;
+    migrateLootSupplies(c);
+    return c;
   } catch {
     return null;
   }
