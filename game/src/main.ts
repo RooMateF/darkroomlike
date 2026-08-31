@@ -77,7 +77,7 @@ app.innerHTML = `
     </div>
     <div class="combat-side">
       <div class="section" style="margin-bottom:8px;">
-        <div class="section-title">異常狀態</div>
+        <div class="section-title">你的異常狀態</div>
         <div id="status-panel"></div>
       </div>
       <div class="section-title">戰鬥紀錄</div>
@@ -582,7 +582,7 @@ function render() {
     if (engine.stunLeft > 0) spRow("暈眩", engine.stunTotal > 0 ? engine.stunLeft / engine.stunTotal : 1, `${engine.stunLeft.toFixed(1)}s`);
     if (engine.slowLeft > 0) spRow("遲緩", engine.slowTotal > 0 ? engine.slowLeft / engine.slowTotal : 1, `${engine.slowLeft.toFixed(1)}s`);
     if (engine.controlImmuneLeft > 0) spRow("免疫(鹽)", engine.controlImmuneTotal > 0 ? engine.controlImmuneLeft / engine.controlImmuneTotal : 1, `${engine.controlImmuneLeft.toFixed(1)}s`);
-    statusPanelEl.innerHTML = rows.length ? rows.join("") : `<div class="hint-line">目前沒有異常。</div>`;
+    statusPanelEl.innerHTML = rows.length ? rows.join("") : `<div class="hint-line">你目前沒有異常。</div>`;
   }
 
   // 敵方跑條(§2.9):速度本身就是威脅預告——招式越重跑條越慢,玩家看節奏自行判讀
