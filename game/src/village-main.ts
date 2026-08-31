@@ -654,6 +654,8 @@ function startVillage() {
       population: engine.population,
       populationCap: engine.populationCap,
       farmBuilt: engine.hasBuilding("farm"),
+      backpackDone: engine.upgrades["backpack"] === true,
+      armorDone: engine.upgrades["leather-armor"] === true,
       tanneryBuilt: engine.hasBuilding("tannery"),
       smithyBuilt: engine.hasBuilding("smithy"),
       mineCleared: engine.isSmithyIronCapable(),
@@ -664,7 +666,7 @@ function startVillage() {
       if (!firedMilestones.has(m.id) && m.check(state)) {
         firedMilestones.add(m.id);
         localStorage.setItem("milestones-fired", JSON.stringify([...firedMilestones]));
-        appendLog(m.text);
+        for (const line of Array.isArray(m.text) ? m.text : [m.text]) appendLog(line);
       }
     }
   }

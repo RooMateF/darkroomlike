@@ -38,8 +38,8 @@ export function buildPlayerCategories(carried: Carried | null): CategoryDef[] {
     items.push({ id: "bandage", label: "繃帶", baseCost: 1.2, symbol: "+", damage: 0, heal: 20 });
   }
   if ((carried?.jerky ?? 0) > 0) {
-    // 肉乾:重但滋養——戰鬥中唯一能吃的食物(乾糧輕便卻不頂餓,回不了血)
-    items.push({ id: "jerky", label: "肉乾", baseCost: 0.9, symbol: "+", damage: 0, heal: 5 });
+    // 肉乾:重但滋養——戰鬥中唯一能吃的食物(乾糧輕便卻不頂餓,回不了血);統一回 10
+    items.push({ id: "jerky", label: "肉乾", baseCost: 0.9, symbol: "+", damage: 0, heal: 10 });
   }
   if ((carried?.elixirs ?? 0) > 0) {
     // 舊時代藥劑(交易所兌換):大量回復並解除所有異常——打硬仗的底牌

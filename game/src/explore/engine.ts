@@ -157,6 +157,8 @@ export class ExploreEngine {
   private encounterGrace = 0;
   /** 這趟遠征已領過乾糧儲備的據點("x,y"):每個據點每趟只給一次,新遠征重置 */
   private depotGrantsUsed = new Set<string>();
+  /** 這趟遠征已在哪些據點休整過(同上,防止進出刷血) */
+  private depotHealUsed = new Set<string>();
   /** 腳邊還沒做決定的拾獲物(手動拾取模式):走開就留在身後 */
   pendingPickup: Record<string, number> | null = null;
   /** 這份地圖狀態屬於第幾趟遠征(據點儲備的重置依據) */
@@ -186,6 +188,7 @@ export class ExploreEngine {
       this.revealedSinceCheckpoint = restored.revealedSinceCheckpoint;
       this.collectedSinceCheckpoint = restored.collectedSinceCheckpoint;
       this.depotGrantsUsed = restored.depotGrantsUsed;
+      this.depotHealUsed = restored.depotHealUsed;
       this.pendingPickup = restored.pendingPickup;
       this.stateSerial = restored.serial;
     } else {
@@ -227,6 +230,7 @@ export class ExploreEngine {
     if (this.stateSerial !== serial) {
       this.stateSerial = serial;
       this.depotGrantsUsed.clear();
+      this.depotHealUsed.clear();
     }
 
     // 新遠征(整備頁出發):人回到出發點、補滿水、重設檢查點,但保留已探索的迷霧
@@ -242,6 +246,7 @@ export class ExploreEngine {
       this.revealedSinceCheckpoint.clear();
       this.collectedSinceCheckpoint = [];
       this.depotGrantsUsed.clear(); // 新遠征:各據點的乾糧儲備重新補上
+      this.depotHealUsed.clear();
       this.reveal(start.x, start.y);
     }
 
@@ -349,6 +354,7 @@ export class ExploreEngine {
         revealedSince: [...this.revealedSinceCheckpoint],
         collectedSince: this.collectedSinceCheckpoint,
         depotGrantsUsed: [...this.depotGrantsUsed],
+        depotHealUsed: [...this.depotHealUsed],
         pendingPickup: this.pendingPickup,
         litRows,
       }),
@@ -380,6 +386,7 @@ export class ExploreEngine {
         revealedSinceCheckpoint: new Set<string>(s.revealedSince ?? []),
         collectedSinceCheckpoint: (s.collectedSince ?? []) as CollectedItem[],
         depotGrantsUsed: new Set<string>(s.depotGrantsUsed ?? []),
+        depotHealUsed: new Set<string>(s.depotHealUsed ?? []),
         pendingPickup: (s.pendingPickup ?? null) as Record<string, number> | null,
         serial: (s.serial ?? -1) as number,
       };
@@ -517,8 +524,8 @@ export class ExploreEngine {
       } else if ((this.carried.jerky ?? 0) > 0) {
         this.carried.jerky = (this.carried.jerky ?? 0) - 1;
         ateThisStep = true;
-        this.carried.hp = Math.min(playerMaxHp(), (this.carried.hp ?? playerMaxHp()) + 2);
-        this.cb.onLog("你咬了口肉乾——鹹得發苦,但力氣回來了一點。");
+        this.carried.hp = Math.min(playerMaxHp(), (this.carried.hp ?? playerMaxHp()) + 10);
+        this.cb.onLog("你咬了口肉乾——鹹得發苦,但力氣實實在在地回來了。");
       }
       saveCarried(this.carried);
     }
@@ -596,6 +603,36 @@ export class ExploreEngine {
     return (this.carried?.oil ?? 0) >= LAMP_OIL_COST;
   }
 
+  /** 站在據點上嗎(補給點或已解放地標)——休息類動作的前提 */
+  private atRestPoint(): boolean {
+    const tile = this.grid[this.playerY]?.[this.playerX];
+    if (!tile) return false;
+    if (tile.type === "depot") return true;
+    if (tile.type === "landmark" && this.mapId === "A") {
+      const site = siteAt(this.playerX, this.playerY);
+      return !!site && siteProgress(site.key).cleared;
+    }
+    return false;
+  }
+
+  /** 據點上可以坐下來吃肉乾補血(玩家自己決定要不要花這口糧) */
+  canEatJerky(): boolean {
+    if (!this.atRestPoint() || !this.carried) return false;
+    return (this.carried.jerky ?? 0) > 0 && (this.carried.hp ?? playerMaxHp()) < playerMaxHp();
+  }
+
+  /** 吃一份肉乾:+10 HP */
+  eatJerky(): boolean {
+    if (!this.canEatJerky() || !this.carried) return false;
+    this.carried.jerky = (this.carried.jerky ?? 0) - 1;
+    const before = this.carried.hp ?? playerMaxHp();
+    this.carried.hp = Math.min(playerMaxHp(), before + 10);
+    saveCarried(this.carried);
+    this.saveState();
+    this.cb.onLog(`你靠著據點坐下,慢慢嚼完一條肉乾。(HP +${this.carried.hp - before})`);
+    return true;
+  }
+
   /** 點亮據點的燈柱:消耗燈油,永久壓低周圍的遭遇率 */
   lightLamp(): boolean {
     if (!this.canLightLamp() || !this.carried) return false;
@@ -635,18 +672,18 @@ export class ExploreEngine {
         packWasFull = true; // 背包塞不下:儲備保留,不算拿過
       }
     }
-    // 據點休整:傷得重的話,靠著牆啃肉乾喘口氣(每份 +4,最多回到八成,並保留 2 份救命用)——
-    // 沒有這一手,殘血抵達據點只是「補了水的殘血」,走出去照樣是死亡螺旋
+    // 據點休整:安全的地方能好好包紮喘口氣——自動回復「缺損血量的一半」,
+    // 每個據點每趟遠征一次(否則在據點旁進進出出就能免費磨到滿血);要更多就自己吃肉乾(UI 按鈕)
     let restHeal = 0;
-    if (this.carried) {
+    if (this.carried && !this.depotHealUsed.has(grantKey)) {
       const cap = playerMaxHp();
-      while ((this.carried.hp ?? cap) < cap * 0.8 && (this.carried.jerky ?? 0) > 2) {
-        this.carried.jerky = (this.carried.jerky ?? 0) - 1;
-        const before = this.carried.hp ?? cap;
-        this.carried.hp = Math.min(cap, before + 4);
-        restHeal += this.carried.hp - before;
+      const hp = this.carried.hp ?? cap;
+      restHeal = Math.ceil((cap - hp) / 2);
+      if (restHeal > 0) {
+        this.carried.hp = hp + restHeal;
+        this.depotHealUsed.add(grantKey);
+        saveCarried(this.carried);
       }
-      if (restHeal > 0) saveCarried(this.carried);
     }
 
     this.setCheckpoint();
@@ -654,7 +691,7 @@ export class ExploreEngine {
     const parts: string[] = [];
     if (waterGain > 0) parts.push(`水 +${waterGain}`);
     if (rationGain > 0) parts.push(`乾糧 +${rationGain}`);
-    if (restHeal > 0) parts.push(`HP +${restHeal}(肉乾)`);
+    if (restHeal > 0) parts.push(`HP +${restHeal}(休整)`);
     let tail = "";
     if (packWasFull) tail = "儲藏格裡還有乾糧,但你的背包塞不下了——騰出空間再來拿。";
     else if (alreadyLooted && this.carried) tail = "儲備這趟已經拿過了,只剩水還能補。";

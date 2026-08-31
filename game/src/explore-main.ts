@@ -443,6 +443,17 @@ function render() {
     siteActionEl.appendChild(homeBtn);
   }
 
+  // 站在據點上、身上有肉乾且沒滿血 → 顯示「吃肉乾」(要不要花這口糧,玩家自己決定)
+  if (engine.canEatJerky()) {
+    const eatBtn = document.createElement("button");
+    eatBtn.className = "btn";
+    eatBtn.textContent = `吃肉乾 +10(剩 ${engine.carried?.jerky ?? 0})`;
+    eatBtn.addEventListener("click", () => {
+      if (engine.eatJerky()) render();
+    });
+    siteActionEl.appendChild(eatBtn);
+  }
+
   // 站在據點上且帶著燈油 → 顯示「點亮燈柱」(照亮區的遭遇率大幅下降)
   if (engine.canLightLamp()) {
     const lampBtn = document.createElement("button");

@@ -13,6 +13,8 @@ export interface MilestoneState {
   population: number;
   populationCap: number;
   farmBuilt: boolean;
+  backpackDone: boolean;
+  armorDone: boolean;
   tanneryBuilt: boolean;
   smithyBuilt: boolean;
   mineCleared: boolean;
@@ -23,7 +25,8 @@ export interface MilestoneState {
 export interface Milestone {
   id: string;
   check: (state: MilestoneState) => boolean;
-  text: string;
+  /** 一段或多段台詞(多段會逐行寫進紀錄) */
+  text: string | string[];
 }
 
 /** 里程碑事件觸發一次性的敘事台詞,不重複出現。全部走「她」(代行者)的視角,語氣一致:溫和、務實,偶爾有一絲說不清的了然 */
@@ -74,9 +77,28 @@ export const MILESTONES: Milestone[] = [
     text: "她幫你把新水袋的繩結繫緊,動作熟練得不像第一次做。『走遠一點也沒關係了。……但要記得回來。』",
   },
   {
-    // 呼應 village-main.ts 的外出解鎖門檻(人口上限 20),用台詞暗示而不是寫成 UI 提示
+    // 人手夠了、卻還沒有田:她點出缺口(玩家唯一一次接近「提示」的台詞,包在情理裡)
+    id: "need-farm",
+    check: (s) => s.populationCap >= 20 && !s.farmBuilt,
+    text: "『人手是夠了。』她掀開存糧的木蓋,裡面空得能聽見回音。『但一支餓著肚子的隊伍,連半天的路都走不完。想出去看看的話——先開一塊田吧。』",
+  },
+  {
+    // 呼應 village-main.ts 的外出解鎖門檻(人口上限 20 + 田),她在這裡第一次透露自己的「不能遠行」
     id: "ready-to-explore",
-    check: (s) => s.populationCap >= 20,
-    text: "『你已經站穩腳步了。』她望向村子外的黑暗。『外面到底有什麼,連我也說不清楚。但總要有人先踏出第一步。』",
+    check: (s) => s.populationCap >= 20 && s.farmBuilt,
+    text: [
+      "『你已經站穩腳步了。』她望向村子外的黑暗,沉默了好一陣,才回過頭來看你——那眼神很複雜,像是欣慰,又像是別的什麼。『就連我也說不清楚,外面到底有什麼。但總得有人,先踏出第一步。』",
+      "她伸出雙手,把你的手緊緊裹進掌心。她的手很暖,暖得不太尋常。『因為一些原因……我還沒辦法離開這裡太遠。但我會為你的每一次遠征,獻上祈禱。』",
+    ],
+  },
+  {
+    id: "backpack-done",
+    check: (s) => s.backpackDone,
+    text: "新背包的針腳密得驚人,一夜之間就縫好了。『側袋我多加了兩層。』她把背包遞過來,像在交付什麼重要的東西。『裝得下更多收穫——也要記得,把自己完整地裝回來。』",
+  },
+  {
+    id: "armor-done",
+    check: (s) => s.armorDone,
+    text: "她把皮甲的繫帶一條一條替你拉緊,動作慢,像是在確認每一個結。最後她在你肩上拍了拍:『合身。』她說。『別讓它白白挨刀。』",
   },
 ];
