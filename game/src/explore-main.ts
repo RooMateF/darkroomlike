@@ -126,11 +126,10 @@ function buildGrid() {
     const fontPx = 16;
     const colsBudget = Math.max(21, Math.min(MAP_WIDTH, Math.floor(budgetW / charW) - 2));
     const rowsBudget = Math.max(13, Math.min(MAP_HEIGHT, Math.floor(budgetH / (fontPx * 0.6)) - 2));
-    // 方正視野(玩家反饋):格子視覺上約 1:1,取兩軸預算的短邊為基準——
-    // 不做橫向長條,也不做縱向長條
-    const side = Math.min(colsBudget, rowsBudget);
-    viewRows = Math.max(13, Math.min(rowsBudget, side));
-    viewCols = Math.max(21, Math.min(colsBudget, side + 4));
+    // 視野吃滿可用版面(玩家反饋:留白就該給地圖)——兩軸預算都用好用滿,
+    // 只做軟性比例夾制避免極端長條(寬不超過高的 3 倍、高不超過寬的 1.5 倍)
+    viewRows = Math.max(13, Math.min(rowsBudget, Math.ceil(colsBudget * 1.5)));
+    viewCols = Math.max(21, Math.min(colsBudget, Math.ceil(viewRows * 3.5)));
   } else {
     viewCols = MAP_WIDTH;
     viewRows = MAP_HEIGHT;
