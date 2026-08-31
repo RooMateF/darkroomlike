@@ -3,6 +3,7 @@
   --fg: #d8d8d8;
   --fg-dim: #707070;
   --fg-faint: #454545;
+  --map-ground: #5f5f5f; /* 地圖地面層:比 faint 亮一級,黑暗模式下仍清楚可辨 */
   --fg-bright: #ffffff;
   font-family: ui-monospace, "Cascadia Mono", "Consolas", "SF Mono", "Courier New", monospace;
 }
@@ -12,6 +13,7 @@
   --fg: #1c1c1c;
   --fg-dim: #8a8a8a;
   --fg-faint: #c9c9c9;
+  --map-ground: #9f9f9f;
   --fg-bright: #000000;
 }
 
@@ -758,9 +760,10 @@ hr {
   color: var(--fg);
   margin: 2px 0;
   cursor: pointer;
-  /* 等寬字元「高比寬窄」,原本 line-height:1 的格子看起來會是長方形而不是正方形,
-     這裡把整個地圖垂直壓縮,讓格子的視覺比例接近 1:1,菱形視野才會看起來真的是菱形 */
-  transform: scaleY(0.6);
+  /* 方格制(2026-08 用戶定案):不再垂直壓扁字形——格子固定 1em 正方,
+     字形正常、橫向間距自然拉開,點位不再擠成一團;
+     邊框文字列用字距(1em-1ch)跟格子對齊 */
+  letter-spacing: calc(1em - 1ch);
   transform-origin: top left;
 }
 
@@ -771,7 +774,11 @@ hr {
 
 .map-cell {
   display: inline-block;
-  width: 1ch;
+  width: 1em;
+  height: 1em;
+  line-height: 1;
+  text-align: center;
+  letter-spacing: normal;
 }
 
 /* 拿空的補給點(s)/已回收的 Lv2(r):淡化——一眼看出「這裡處理過了」 */
@@ -779,9 +786,9 @@ hr {
   color: var(--fg-faint);
 }
 
-/* 地形紋理(. ; :):暗灰退底但仍可辨——地圖的底色,讓據點/探勘點/地標自然浮出 */
+/* 地面層(. ; : # ~):退底但清楚可辨——地圖的底色,讓據點/探勘點/地標自然浮出 */
 .map-cell.faint {
-  color: var(--fg-faint);
+  color: var(--map-ground);
 }
 
 /* 燈火的光圈:照亮區內的格子整體提亮,把「點燈壓遇敵」的範圍畫成看得見的光 */

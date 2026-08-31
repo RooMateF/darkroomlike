@@ -127,20 +127,18 @@ function buildGrid() {
   mapEl.innerHTML = "";
 
   if (viewMode === "camera") {
-    const charW = measureCharWidth();
+    // 方格制:每格 1em 正方(=字級 px)——寬高同一把尺
+    const fontPx = 16;
     // 地圖欄貼內容寬:預算=整個分欄容器寬-側欄下限(300)-間距
     const splitEl = mapEl.closest(".explore-split") as HTMLElement | null;
     const budgetW = Math.max(220, (splitEl?.clientWidth ?? app.clientWidth) - 316);
-    // 高度預算:視窗高扣掉上方資訊區與下方日誌保留區(scaleY 0.6 壓縮後每列約 0.6 個字高)
     const budgetH = Math.max(200, window.innerHeight - mapEl.getBoundingClientRect().top - 30);
-    const fontPx = 16;
-    const colsBudget = Math.max(21, Math.min(MAP_WIDTH, Math.floor(budgetW / charW) - 2));
-    const rowsBudget = Math.max(13, Math.min(MAP_HEIGHT, Math.floor(budgetH / (fontPx * 0.6)) - 2));
-    // 方正視野(定案):側欄收編了狀態/工具/紀錄,地圖取兩軸預算的短邊——
-    // 版面的留白給側欄用,地圖自己保持正方
+    const colsBudget = Math.max(15, Math.min(MAP_WIDTH, Math.floor(budgetW / fontPx) - 2));
+    const rowsBudget = Math.max(13, Math.min(MAP_HEIGHT, Math.floor(budgetH / fontPx) - 2));
+    // 方正視野(定案):取兩軸預算的短邊,格方、圖也方
     const side = Math.min(colsBudget, rowsBudget);
-    viewRows = Math.max(13, side);
-    viewCols = Math.max(21, side + 2);
+    viewRows = side;
+    viewCols = side;
   } else {
     viewCols = MAP_WIDTH;
     viewRows = MAP_HEIGHT;
@@ -171,10 +169,6 @@ function buildGrid() {
     cells.push(rowCells);
   }
   frameRow(`+${"-".repeat(viewCols)}+`);
-
-  // scaleY(0.6) 只縮視覺、不縮版面——把多出來的 40% 幽靈高度吃回來,地圖下方不再是一片留白
-  mapEl.style.transformOrigin = "top center";
-  mapEl.style.marginBottom = `${-Math.round(mapEl.offsetHeight * 0.4) + 8}px`;
 }
 
 buildGrid();
