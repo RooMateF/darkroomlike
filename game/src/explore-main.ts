@@ -1,7 +1,7 @@
 import "./style.css";
 import { ExploreEngine, MAP_WIDTH, MAP_HEIGHT, LAMP_RADIUS, isAutoPickup, setAutoPickup } from "./explore/engine";
 import { MAP_DEFS } from "./explore/map-gen";
-import { hasChurchKey } from "./explore/sites";
+import { hasChurchKey, siteProgress, specialSites } from "./explore/sites";
 import { LANDMARKS, TILE_SYMBOL } from "./explore/types";
 import { playerMaxHp, packUsed, saveCarried } from "./carried";
 import { WEAPONS, ARROWS_PER_SLOT, RATIONS_PER_SLOT, BULLETS_PER_SLOT, RAILS_PER_SLOT } from "./village/data";
@@ -348,6 +348,13 @@ function render() {
   const ox = viewMode === "camera" ? Math.max(0, Math.min(MAP_WIDTH - viewCols, engine.playerX - Math.floor(viewCols / 2))) : 0;
   const oy = viewMode === "camera" ? Math.max(0, Math.min(MAP_HEIGHT - viewRows, engine.playerY - Math.floor(viewRows / 2))) : 0;
 
+  // 已回收的 Lv2 探勘點:畫成暗色 r(回收場)——「?」是還沒解開的謎,解開了就換臉
+  const recycledKeys = new Set(
+    specialSites()
+      .filter((st) => (st.mapId ?? "A") === engine.mapId && st.level === 2 && siteProgress(st.key).cleared)
+      .map((st) => `${st.x},${st.y}`),
+  );
+
   // 收集燃著的燈柱位置,把光圈(曼哈頓 LAMP_RADIUS 格)畫成提亮的區域
   const lamps: [number, number][] = [];
   for (let y = 0; y < MAP_HEIGHT; y++) {
@@ -375,6 +382,10 @@ function render() {
       if (tile.revealed && tile.type === "depot") {
         symbol = tile.lit ? "%" : engine.isDepotLooted(x, y) ? "s" : "S";
       }
+      // 已回收的 Lv2:? → r(回收場,村莊每週期被動回收木石)
+      if (tile.revealed && tile.type === "site" && recycledKeys.has(`${x},${y}`)) {
+        symbol = "r";
+      }
       // 出口依方位畫箭頭(北^ 南v 西< 東>),暗示「路通往地圖之外」
       if (tile.revealed && tile.type === "exit") {
         symbol = y === 0 ? "^" : y === MAP_HEIGHT - 1 ? "v" : x === 0 ? "<" : ">";
@@ -387,12 +398,15 @@ function render() {
       if (engine.mapId === "A" && tile.revealed && x === homePos.x && y === homePos.y) symbol = "⌂";
       cell.textContent = isPlayer ? "@" : symbol;
 
-      // 顏色層:拿空的補給點淡化;燈火光圈提亮;村莊與燃著的燈柱高亮加粗
+      // 顏色分層(玩家反饋:全圖同亮度太密太累)——
+      // 高亮:村莊/燃燈;退場:拿空據點 s、回收場 r;光圈:提亮;地形紋理(. ; :)最暗,特殊點自然浮出
       cell.className = "map-cell";
       if (!isPlayer && tile.revealed) {
+        const isTexture = tile.type === "plain" || tile.type === "brush" || tile.type === "rubble";
         if (symbol === "⌂" || symbol === "%") cell.classList.add("beacon");
-        else if (symbol === "s") cell.classList.add("dim");
+        else if (symbol === "s" || symbol === "r") cell.classList.add("dim");
         else if (lamps.length > 0 && inGlow(x, y)) cell.classList.add("glow");
+        else if (isTexture && symbol !== "=") cell.classList.add("faint");
       }
     }
   }
