@@ -97,8 +97,32 @@ body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden; /* 全圖模式字級隨視窗縮放、視野模式按預算生格——不允許水平捲 */
   scrollbar-width: thin;
   scrollbar-color: var(--fg-faint) transparent;
+}
+
+/* 遠征版頭:標題+狀態數字+工具鈕一列排開,不再各佔一段 */
+.explore-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--fg-faint);
+  padding-bottom: 4px;
+  margin-bottom: 6px;
+}
+
+.explore-head h1 {
+  margin: 0;
+}
+
+.explore-head .explore-stats {
+  flex: 1 1 auto;
+}
+
+.explore-log {
+  height: 7em;
 }
 
 .app-frame .page-content {
@@ -706,7 +730,7 @@ hr {
   font-family: inherit;
   font-size: 14px;
   color: var(--fg);
-  margin: 4px 0;
+  margin: 2px 0;
   cursor: pointer;
   /* 等寬字元「高比寬窄」,原本 line-height:1 的格子看起來會是長方形而不是正方形,
      這裡把整個地圖垂直壓縮,讓格子的視覺比例接近 1:1,菱形視野才會看起來真的是菱形 */
@@ -750,6 +774,7 @@ hr {
 /* 「視野」模式(預設):攝影機跟隨,固定清晰字級——格子數由視窗大小決定,字級永不縮水 */
 .map-grid-cam {
   font-size: 16px;
+  width: fit-content; /* 依用戶取向:靠左對齊,不置中 */
 }
 
 /* ---------- 事件全螢幕遮罩(反正時間已經暫停,就讓玩家專心做決定) ---------- */

@@ -1073,7 +1073,6 @@ function startVillage() {
       system: true,
     };
     const activeVillageTab: VillageTab = tabHas[villageTab] ? villageTab : onExpedition ? "expedition" : "build";
-    syncMountedView(activeVillageTab);
     for (const { t, b } of villageTabBtns) {
       b.style.display = tabHas[t.id] ? "" : "none";
       b.classList.toggle("ready", t.id === activeVillageTab);
@@ -1091,6 +1090,8 @@ function startVillage() {
     prepSectionEl.style.display = activeVillageTab === "prep" ? "" : "none";
     systemSectionEl.style.display = activeVillageTab === "system" ? "" : "none";
     marketShardsEl.textContent = `異晶存量:${Math.floor(engine.resources.shard ?? 0)}`;
+    // 掛載放在顯示之後:遠征視圖初始化要量測容器尺寸,容器必須已經可見
+    syncMountedView(activeVillageTab);
 
     // 外出探索:人口上限達 20(靠不斷擴建小木屋)且蓋出田才開放——
     // 沒有田就沒有穀物、沒有乾糧,空著肚子出門是送死;條件不寫提示,讓玩家自行摸索

@@ -22,26 +22,22 @@ localStorage.setItem("hasExplored", "1");
 
 const app = container;
 app.innerHTML = `
-  <div class="top-row">
+  <div class="explore-head">
     <h1 id="explore-title">探索</h1>
-    <span>
+    <span class="explore-stats">HP <b id="hp-text"></b>　水 <b id="water-text"></b>　乾糧 <b id="ration-text"></b>　位置 <b id="pos-text"></b></span>
+    <span class="explore-tools">
       <button id="auto-pickup-toggle"></button>
       <button id="pack-toggle">背包</button>
       <button id="view-toggle">全圖</button>
     </span>
   </div>
-  <div class="section">
-    <div class="hp-line">HP <b id="hp-text"></b>　　水 <b id="water-text"></b>　　乾糧 <b id="ration-text"></b>　　位置 <b id="pos-text"></b></div>
-    <div class="hint-line">方向鍵 / WASD,或點擊 @ 的某一側往該方向走一步</div>
-    <div class="status-line" id="status-line"></div>
-    <div class="status-line" id="pickup-panel"></div>
-    <div class="status-line" id="site-action"></div>
-  </div>
+  <div class="status-line" id="status-line"></div>
+  <div class="status-line" id="pickup-panel"></div>
+  <div class="status-line" id="site-action"></div>
 
   <div id="map" class="map-grid map-grid-full"></div>
   <div id="pack-panel" class="section" style="display:none"></div>
-  <hr />
-  <div class="log-panel scrollable" id="explore-log"></div>
+  <div class="log-panel scrollable explore-log" id="explore-log"></div>
 `;
 
 const mapEl = app.querySelector<HTMLDivElement>("#map")!;
@@ -58,6 +54,7 @@ autoPickupToggle.addEventListener("click", () => {
 });
 const siteActionEl = app.querySelector<HTMLElement>("#site-action")!;
 const logEl = app.querySelector<HTMLDivElement>("#explore-log")!;
+statusEl.textContent = "方向鍵 / WASD 移動,或點擊 @ 的某一側往該方向走一步";
 
 function appendLog(text: string) {
   const line = document.createElement("div");
@@ -125,10 +122,15 @@ function buildGrid() {
     const charW = measureCharWidth();
     const budgetW = mapEl.clientWidth || app.clientWidth;
     // 高度預算:視窗高扣掉上方資訊區與下方日誌保留區(scaleY 0.6 壓縮後每列約 0.6 個字高)
-    const budgetH = Math.max(200, window.innerHeight - mapEl.getBoundingClientRect().top - 170);
+    const budgetH = Math.max(200, window.innerHeight - mapEl.getBoundingClientRect().top - 150);
     const fontPx = 16;
-    viewCols = Math.max(21, Math.min(MAP_WIDTH, Math.floor(budgetW / charW) - 2));
-    viewRows = Math.max(13, Math.min(MAP_HEIGHT, Math.floor(budgetH / (fontPx * 0.6)) - 2));
+    const colsBudget = Math.max(21, Math.min(MAP_WIDTH, Math.floor(budgetW / charW) - 2));
+    const rowsBudget = Math.max(13, Math.min(MAP_HEIGHT, Math.floor(budgetH / (fontPx * 0.6)) - 2));
+    // 方正視野(玩家反饋):格子視覺上約 1:1,取兩軸預算的短邊為基準——
+    // 不做橫向長條,也不做縱向長條
+    const side = Math.min(colsBudget, rowsBudget);
+    viewRows = Math.max(13, Math.min(rowsBudget, side));
+    viewCols = Math.max(21, Math.min(colsBudget, side + 4));
   } else {
     viewCols = MAP_WIDTH;
     viewRows = MAP_HEIGHT;
@@ -141,8 +143,8 @@ function buildGrid() {
     mapEl.appendChild(row);
   };
 
-  frameRow(`+${"-".repeat(viewCols)}+`);
   cells = [];
+  frameRow(`+${"-".repeat(viewCols)}+`);
   for (let y = 0; y < viewRows; y++) {
     const row = document.createElement("div");
     row.className = "map-row";
@@ -159,6 +161,10 @@ function buildGrid() {
     cells.push(rowCells);
   }
   frameRow(`+${"-".repeat(viewCols)}+`);
+
+  // scaleY(0.6) 只縮視覺、不縮版面——把多出來的 40% 幽靈高度吃回來,地圖下方不再是一片留白
+  mapEl.style.transformOrigin = "top center";
+  mapEl.style.marginBottom = `${-Math.round(mapEl.offsetHeight * 0.4) + 8}px`;
 }
 
 buildGrid();
