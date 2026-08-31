@@ -67,7 +67,7 @@ export const TRADES: TradeDef[] = [
   { id: "trade-bandage", get: "bandage", qty: 1, shards: 3, flavor: "織得極密的繃帶,這個時代沒有這種織法。" },
   { id: "trade-scroll", get: "scroll", qty: 1, shards: 6, flavor: "紙面溫熱的卷軸,和祭壇裡收著的那兩卷一模一樣。" },
   { id: "trade-elixir", get: "elixir", qty: 1, shards: 10, flavor: "小玻璃瓶裡的透明藥劑,瓶身刻著看不懂的小字。" },
-  { id: "trade-salt", get: "salt", qty: 1, shards: 8, flavor: "一小瓶嗆得人流淚的結晶鹽——聞一口,骨頭裡的寒意都會被逼出去。" },
+  { id: "trade-salt", get: "salt", qty: 1, shards: 6, flavor: "一小瓶嗆得人流淚的結晶鹽——聞一口,骨頭裡的寒意都會被逼出去。" },
 ];
 
 /** 這把武器是否屬於鐵製以上(配方吃鐵/鋼)——修理它需要升格後的鐵匠鋪 */

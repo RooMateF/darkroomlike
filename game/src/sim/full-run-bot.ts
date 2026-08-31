@@ -14,7 +14,7 @@ import { MAP_WIDTH, MAP_HEIGHT, startPosition } from "../explore/map-gen";
 import { specialSites, siteProgress, saveSiteProgress, churchKeySiteKey, hasChurchKey, grantChurchKey, type SpecialSite } from "../explore/sites";
 import { pickRandomEnemy, pickMidEnemy, GUARDIANS, LANDMARK_REWARDS, LV3_BOSS, type EnemyDef } from "../enemies";
 import { addLoot, saveCarried, clearCarried, loadCarried, returnCarriedToVillage, playerMaxHp, packUsed, type Carried } from "../carried";
-import { markLandmarkCleared } from "../explore/engine";
+import { markLandmarkCleared, currentMapId, markFreshExpedition } from "../explore/engine";
 
 const VILLAGE_TICK_SEC = 10;
 const STEP_SEC = 0.5; // 按方向鍵走一格的真實時間
@@ -168,13 +168,19 @@ export function fight(enemyDef: EnemyDef, carried: Carried): FightResult {
       /* 這一手用掉了,補血/攻擊留到下一次暫停 */
     } else
     if (lowHp || bleeding) {
-      const elixir = ready.find((r) => r.id === "elixir");
-      const bandage = ready.find((r) => r.id === "bandage");
+      // 囤貨紀律:繃帶/藥劑是 Boss 戰資源——雜魚戰(hp<80)只用肉乾撐,流血例外(繃帶止血)
+      const bossFight = enemyDef.hp >= 80;
+      const elixir = bossFight ? ready.find((r) => r.id === "elixir") : undefined;
+      const bandage = bossFight || bleeding ? ready.find((r) => r.id === "bandage") : undefined;
       const jerky = ready.find((r) => r.id === "jerky");
       const deficit = engine.playerMaxHp - engine.playerHp;
       const anyStatus = engine.playerStatus.bleed.level > 0 || engine.playerStatus.poison.level > 0;
+      // 肉乾見底時解除囤貨紀律——垂死之際抱著繃帶不用才是真的浪費
+      const jerkyOut = (carried.jerky ?? 0) <= 0;
+      const bandageAny = jerkyOut ? ready.find((r) => r.id === "bandage") : bandage;
+      const elixirAny = jerkyOut ? ready.find((r) => r.id === "elixir") : elixir;
       const pick =
-        elixir && (deficit >= 15 || anyStatus) ? elixir : deficit >= 20 && bandage ? bandage : bleeding && bandage ? bandage : jerky;
+        elixirAny && (deficit >= 15 || anyStatus) ? elixirAny : deficit >= 20 && bandageAny ? bandageAny : bleeding && bandageAny ? bandageAny : jerky ?? bandageAny ?? elixirAny;
       if (pick) {
         if (engine.useSubAction(pick.catId as never, pick.id)) afterUseSim(engine, carried, pick.id);
         used = true;
@@ -201,9 +207,14 @@ export function fight(enemyDef: EnemyDef, carried: Carried): FightResult {
   return { outcome: "win", seconds: t };
 }
 
+/** 輕裝紀律(攻堅/農晶行程):大宗戰利品(木石皮肉)當場放棄,背包留給補品與異晶 */
+let leanLoot = false;
+const LEAN_DROP = ["wood", "stone", "hide", "meat", "grain", "arrow"];
+
 /** 勝利後套用戰利品(含異晶機率),回傳掉落 */
 function applyVictoryLoot(carried: Carried, enemyDef: EnemyDef, extra?: Record<string, number>) {
   const gains: Record<string, number> = { ...enemyDef.loot };
+  if (leanLoot) for (const k of LEAN_DROP) delete gains[k];
   if (enemyDef.shardChance && Math.random() < enemyDef.shardChance) gains.shard = (gains.shard ?? 0) + 1;
   if (extra) for (const [id, n] of Object.entries(extra)) gains[id] = (gains[id] ?? 0) + n;
   addLoot(carried, gains);
@@ -249,28 +260,87 @@ function bfsFrom(grid: Grid, sx: number, sy: number): Int32Array {
   return dist;
 }
 
-/** 回溯出從 (sx,sy) 到 (tx,ty) 的逐步路徑 */
+/**
+ * 回溯出從 (sx,sy) 到 (tx,ty) 的逐步路徑。
+ * 軌道加權(rail=1、非 rail=4):真人會沿著自己鋪的鐵軌走——軌上水 1/4、糧 1/8、不遇敵,
+ * 稍微繞路也遠比荒地直線便宜;沒有軌的地圖等同一般 BFS。
+ */
 function pathTo(grid: Grid, sx: number, sy: number, tx: number, ty: number): [number, number][] | null {
-  const dist = bfsFrom(grid, tx, ty); // 從目標反向算,回溯時走遞減方向
-  if (dist[sy * MAP_WIDTH + sx] === -1) return null;
-  const path: [number, number][] = [];
-  let cx = sx;
-  let cy = sy;
-  while (cx !== tx || cy !== ty) {
-    let next: [number, number] | null = null;
+  const N = MAP_WIDTH * MAP_HEIGHT;
+  const dist = new Int32Array(N).fill(-1);
+  const prev = new Int32Array(N).fill(-1);
+  const startIdx = sy * MAP_WIDTH + sx;
+  const targetIdx = ty * MAP_WIDTH + tx;
+  // 小根堆(cost, idx)
+  const heap: number[][] = [[0, startIdx]];
+  dist[startIdx] = 0;
+  const push = (item: number[]) => {
+    heap.push(item);
+    let i = heap.length - 1;
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (heap[p][0] <= heap[i][0]) break;
+      [heap[p], heap[i]] = [heap[i], heap[p]];
+      i = p;
+    }
+  };
+  const pop = (): number[] | undefined => {
+    if (heap.length === 0) return undefined;
+    const top = heap[0];
+    const last = heap.pop()!;
+    if (heap.length > 0) {
+      heap[0] = last;
+      let i = 0;
+      for (;;) {
+        const l = i * 2 + 1;
+        const r = l + 1;
+        let m = i;
+        if (l < heap.length && heap[l][0] < heap[m][0]) m = l;
+        if (r < heap.length && heap[r][0] < heap[m][0]) m = r;
+        if (m === i) break;
+        [heap[m], heap[i]] = [heap[i], heap[m]];
+        i = m;
+      }
+    }
+    return top;
+  };
+  while (heap.length > 0) {
+    const [cost, cur] = pop()!;
+    if (cost > dist[cur]) continue;
+    if (cur === targetIdx) break;
+    const cx = cur % MAP_WIDTH;
+    const cy = Math.floor(cur / MAP_WIDTH);
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
       const nx = cx + dx;
       const ny = cy + dy;
       if (nx < 0 || ny < 0 || nx >= MAP_WIDTH || ny >= MAP_HEIGHT) continue;
-      if (dist[ny * MAP_WIDTH + nx] === dist[cy * MAP_WIDTH + cx] - 1) {
-        next = [dx, dy];
-        break;
-      }
+      const tile = grid[ny][nx] as { type: string; rail?: boolean };
+      if ((BLOCKED as readonly string[]).includes(tile.type)) continue;
+      const idx = ny * MAP_WIDTH + nx;
+      const stepCost = tile.rail ? 1 : 4;
+      if (dist[idx] !== -1 && dist[idx] <= cost + stepCost) continue;
+      dist[idx] = cost + stepCost;
+      prev[idx] = cur;
+      push([dist[idx], idx]);
     }
-    if (!next) return null;
-    path.push(next);
-    cx += next[0];
-    cy += next[1];
+  }
+  if (dist[targetIdx] === -1) return null;
+  // 從目標回溯到起點,再翻成前進方向序列
+  const cells: number[] = [];
+  for (let cur = targetIdx; cur !== startIdx; cur = prev[cur]) {
+    cells.push(cur);
+    if (prev[cur] === -1) return null;
+  }
+  cells.reverse();
+  const path: [number, number][] = [];
+  let px = sx;
+  let py = sy;
+  for (const cell of cells) {
+    const nx = cell % MAP_WIDTH;
+    const ny = Math.floor(cell / MAP_WIDTH);
+    path.push([nx - px, ny - py]);
+    px = nx;
+    py = ny;
   }
   return path;
 }
@@ -292,6 +362,9 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
   const trace: string[] = [];
   (stats as unknown as { trace: string[] }).trace = trace;
   let tracing = false;
+  // 診斷開關:northExpedition 進北嶺時開細節追蹤(console 先設 window.__traceNorth = true)
+  const traceNorthWanted = typeof window !== "undefined" && (window as unknown as { __traceNorth?: boolean }).__traceNorth === true;
+  const traceChurchWanted = typeof window !== "undefined" && (window as unknown as { __traceChurch?: boolean }).__traceChurch === true;
   const tr = (msg: string) => {
     if (tracing && trace.length < 400) {
       const c = loadCarried();
@@ -301,7 +374,7 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
   const snap = (expl: ExploreEngine, tag: string) => {
     if (!tracing || trace.length >= 400) return;
     const c = expl.carried;
-    trace.push(`${tag} @(${expl.playerX},${expl.playerY}) 水${expl.water} 糧${c?.rations ?? "-"} 肉${c?.jerky ?? "-"} 繃${c?.bandages ?? "-"} hp${c?.hp ?? "-"} 包${c ? packUsed(c) : "-"}/${c?.packCap ?? "-"}`);
+    trace.push(`${tag} @(${expl.playerX},${expl.playerY}) 水${expl.water} 糧${c?.rations ?? "-"} 肉${c?.jerky ?? "-"} 繃${c?.bandages ?? "-"} 鹽${c?.salts ?? "-"} 藥${c?.elixirs ?? "-"} 彈${c?.bullets ?? "-"} hp${c?.hp ?? "-"} 包${c ? packUsed(c) : "-"}/${c?.packCap ?? "-"}`);
   };
   const village = new VillageEngine(noopVillageCb);
   const mark = (label: string) => {
@@ -313,7 +386,7 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
   // -- 村莊政策 --
   const gatherAccuracy = () => (Math.random() < 0.75 ? 0.92 : 0.7);
 
-  function rebalanceJobs(goal: { leather?: boolean; jerky?: boolean; iron?: boolean; grain?: boolean }) {
+  function rebalanceJobs(goal: { leather?: boolean; jerky?: boolean; iron?: boolean; grain?: boolean; steel?: boolean }) {
     for (const key of Object.keys(village.assignments)) village.assignments[key] = 0;
     let free = village.population;
     const put = (job: string, n: number) => {
@@ -323,18 +396,30 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
         free -= actual;
       }
     };
-    if (goal.iron) {
-      put("miner", 5);
+    // 肉乾是礦工的口糧:戰備庫存 500 才收手;肉乾見底時礦工也要節流(不然整條產線鎖死)
+    const smokerCap = (n: number) => ((village.resources.jerky ?? 0) >= 500 ? 0 : n);
+    // 節奏化開採:肉乾囤到 60 才全員下坑,吃完就收隊回獵場——庫存振盪而不是貼著零死鎖
+    const minerCap = (n: number) => ((village.resources.jerky ?? 0) >= 60 ? n : 0);
+    if (goal.steel) {
+      // 鋼產線:鐵礦→鐵→(+煤)→鋼,一條龍;肉乾是礦工的口糧,燻肉必須跟上
+      put("miner", minerCap(4));
+      put("smelter", 2);
+      put("coalminer", minerCap(2));
+      put("steelworker", 1);
+      put("smoker", smokerCap(4));
+      put("hunter", 10);
+    } else if (goal.iron) {
+      put("miner", minerCap(5));
       put("smelter", 3); // 冶金:鐵礦 → 鐵(鐵階武器的原料)
-      put("smoker", 3);
+      put("smoker", smokerCap(3));
       put("hunter", 9);
     } else if (goal.jerky) {
-      put("smoker", 2);
+      put("smoker", smokerCap(2));
       put("hunter", 6);
     }
     if (goal.leather) {
       put("tanner", 4);
-      if ((village.assignments["hunter"] ?? 0) < 8) put("hunter", 8 - (village.assignments["hunter"] ?? 0));
+      if ((village.assignments["hunter"] ?? 0) < 10) put("hunter", 10 - (village.assignments["hunter"] ?? 0));
     }
     if (goal.grain) put("farmer", 2);
     // 其餘人力砍柴/採石(木頭需求大約是石頭兩倍)
@@ -352,12 +437,6 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
     if (phase.canSmithy && !village.hasBuilding("smithy") && village.canBuild("smithy")) village.build("smithy");
     if (!village.hasBuilding("trading-post") && village.seenResources.has("shard") && localStorage.getItem("hasExplored") === "1" && village.canBuild("trading-post")) {
       village.build("trading-post");
-    }
-    if (!village.hasBuilding("railway")) {
-      try {
-        const lms = JSON.parse(localStorage.getItem("landmarks-cleared") ?? "[]") as string[];
-        if (lms.includes("mine") && village.canBuild("railway")) village.build("railway");
-      } catch { /* ignore */ }
     }
     // 一次性升級:水袋 → 背包 → 皮甲
     for (const up of UPGRADES) {
@@ -381,8 +460,8 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
         village.gatherReadyAt = 0;
         const canHunt = village.availableGathers().includes("meat");
         let target: "wood" | "stone" | "meat" | "hide";
-        if (opts.jobs?.leather && canHunt && village.resources.hide < 80) target = "hide";
-        else if ((opts.jobs?.jerky || opts.jobs?.iron) && canHunt && village.resources.meat < 40) target = "meat";
+        if (opts.jobs?.leather && canHunt && village.resources.hide < 200) target = "hide";
+        else if ((opts.jobs?.jerky || opts.jobs?.iron || opts.jobs?.steel) && canHunt && village.resources.meat < 200) target = "meat";
         else target = village.resources.wood <= village.resources.stone * 2 ? "wood" : "stone";
         village.gatherResult(target, gatherAccuracy());
       }
@@ -410,6 +489,9 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
     scrolls: number;
     elixirs?: number;
     salts?: number;
+    bullets?: number;
+    rails?: number;
+    oil?: number;
   }
 
   function depart(loadout: Loadout): Carried {
@@ -450,12 +532,18 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
     village.resources.scroll -= carried.scrolls;
     carried.salts = Math.min(loadout.salts ?? 0, village.resources.salt ?? 0);
     village.resources.salt = (village.resources.salt ?? 0) - carried.salts;
+    carried.bullets = Math.min(loadout.bullets ?? 0, Math.floor(village.resources.bullet ?? 0));
+    village.resources.bullet = (village.resources.bullet ?? 0) - carried.bullets;
+    carried.rails = Math.min(loadout.rails ?? 0, Math.floor(village.resources.rail ?? 0));
+    village.resources.rail = (village.resources.rail ?? 0) - carried.rails;
+    carried.oil = Math.min(loadout.oil ?? 0, Math.floor(village.resources.oil ?? 0));
+    village.resources.oil = (village.resources.oil ?? 0) - carried.oil;
     carried.elixirs = Math.min(loadout.elixirs ?? 0, village.resources.elixir);
     village.resources.elixir -= carried.elixirs;
     village.saveState();
     saveCarried(carried);
     localStorage.setItem("hasExplored", "1");
-    localStorage.setItem("expedition-fresh", "1");
+    markFreshExpedition(); // 設 fresh + 回中央地圖 + 遠征序號 +1(據點儲備重置)
     stats.time.village += PREP_SEC;
     stats.expeditions++;
     return carried;
@@ -494,7 +582,7 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
    * 沿路徑走;處理遭遇戰與力竭死亡。
    * 回傳 "arrived" | "dead"(戰死或力竭)| "aborted"(路不通)
    */
-  function walkTo(expl: ExploreEngine, tx: number, ty: number, abortIf?: () => boolean): "arrived" | "dead" | "aborted" | "turnback" {
+  function walkTo(expl: ExploreEngine, tx: number, ty: number, abortIf?: () => boolean, onStep?: () => void, stepAbortIf?: () => boolean): "arrived" | "dead" | "aborted" | "turnback" {
     for (let replan = 0; replan < 8; replan++) {
       if (expl.playerX === tx && expl.playerY === ty) return "arrived";
       const path = pathTo(expl.grid as unknown as Grid, expl.playerX, expl.playerY, tx, ty);
@@ -502,6 +590,7 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
       for (const [dx, dy] of path) {
         expl.move(dx, dy);
         stats.time.explore += STEP_SEC;
+        onStep?.();
         if (deathFlag) {
           stats.deaths++;
           note("力竭(水/糧)");
@@ -512,7 +601,7 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
         }
         if (encounterFlag) {
           encounterFlag = false;
-          const enemy = pickRandomEnemy();
+          const enemy = currentMapId() !== "A" && Math.random() < 0.5 ? pickMidEnemy() : pickRandomEnemy();
           const carried = expl.carried!;
           const result = fight(enemy, carried);
           stats.battles++;
@@ -530,6 +619,8 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
           // 真人的紀律:一場戰鬥打完發現狀態不對,立刻折返,不硬走
           if (abortIf && abortIf()) return "turnback";
         }
+        // 每步檢查(僅特殊任務用,如鋪軌的「軌用光了」)
+        if (stepAbortIf && stepAbortIf()) return "turnback";
       }
       if (expl.playerX === tx && expl.playerY === ty) return "arrived";
     }
@@ -538,12 +629,15 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
 
   /** 目前地圖上所有補給據點(含村口與解放後的地標——地標解放後可補給) */
   function depots(expl: ExploreEngine): [number, number][] {
-    const s0 = startPosition();
-    const list: [number, number][] = [[s0.x, s0.y]];
+    const list: [number, number][] = [];
+    if (expl.mapId === "A") {
+      const s0 = startPosition();
+      list.push([s0.x, s0.y]);
+    }
     for (let y = 0; y < MAP_HEIGHT; y++)
       for (let x = 0; x < MAP_WIDTH; x++) if (expl.grid[y][x].type === "depot") list.push([x, y]);
     for (const s of specialSites()) {
-      if (s.level >= 4 && siteProgress(s.key).cleared) list.push([s.x, s.y]);
+      if ((s.mapId ?? "A") === expl.mapId && s.level >= 4 && siteProgress(s.key).cleared) list.push([s.x, s.y]);
     }
     return list;
   }
@@ -552,7 +646,7 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
    * 有水量意識的長途移動:一段一段經補給點跳島。
    * 這是真人玩家的走法——水不夠就先繞去補給點,而不是硬走到渴死。
    */
-  function travelTo(expl: ExploreEngine, tx: number, ty: number, abortIf?: () => boolean): "arrived" | "dead" | "aborted" | "turnback" {
+  function travelTo(expl: ExploreEngine, tx: number, ty: number, abortIf?: () => boolean, onStep?: () => void): "arrived" | "dead" | "aborted" | "turnback" {
     const MARGIN = 4;
     let lastBestToTarget = Infinity; // 防鬼打牆:每一段中繼都必須讓「離目標的剩餘距離」變短
     for (let leg = 0; leg < 30; leg++) {
@@ -562,7 +656,7 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
       const direct = dHere[ty * MAP_WIDTH + tx];
       if (direct === -1) return "aborted";
       snap(expl, `[leg] 目標(${tx},${ty}) 直線${direct}`);
-      if (expl.water >= direct + MARGIN) return walkTo(expl, tx, ty, abortIf);
+      if (expl.water >= direct + MARGIN) return walkTo(expl, tx, ty, abortIf, onStep);
 
       // 需要中繼:挑「目前水量走得到、且離目標最近」的補給點
       const dTarget = bfsFrom(grid, tx, ty);
@@ -583,7 +677,7 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
         // 水夠就賭一把直衝(可能是單程票),不夠就承認到不了
         if (expl.water + 2 >= direct) {
           snap(expl, `[dash] 網路盡頭直衝(${tx},${ty}) 距${direct}`);
-          return walkTo(expl, tx, ty, abortIf);
+          return walkTo(expl, tx, ty, abortIf, onStep);
         }
         note("水路不通");
         snap(expl, "[水路不通]");
@@ -592,10 +686,10 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
       lastBestToTarget = bestToTarget; // 沒有中繼點:目前的水量網路到不了這個目標
       if (bestToTarget >= direct && expl.water >= direct - 2) {
         snap(expl, `[dash] 直衝(${tx},${ty}) 距${direct}`);
-        return walkTo(expl, tx, ty, abortIf);
+        return walkTo(expl, tx, ty, abortIf, onStep);
       }
       snap(expl, `[hop] 經補給(${best[0]},${best[1]}) 再${bestToTarget}到目標`);
-      const r = walkTo(expl, best[0], best[1], abortIf);
+      const r = walkTo(expl, best[0], best[1], abortIf, onStep);
       if (r !== "arrived") return r;
     }
     return "aborted";
@@ -650,8 +744,12 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
       const carried = expl.carried!;
       // 攔截線放寬:守衛戰有肉乾/繃帶續戰力就打得動(蒙地卡羅顯示滿血勝率 100%,血量六成+補品也夠)
       const hp = carried.hp ?? 0;
-      const okToFight =
-        site.level >= 4
+      // 控制型 Boss(煤礦/教堂):八成血+補品儲備才開打——殘血進場的實測勝率是 7%,先休整;
+      // 中央三地標守衛沒有控制技,維持原本的寬鬆門檻(滿血勝率 100%,六成血+補品也打得動)
+      const strictBoss = site.landmarkId === "coalmine" || site.landmarkId === "church";
+      const okToFight = strictBoss
+        ? hp >= playerMaxHp() * 0.7 && ((carried.jerky ?? 0) >= 8 || carried.bandages >= 3)
+        : site.level >= 4
           ? hp >= playerMaxHp() * 0.6 || (hp >= playerMaxHp() * 0.45 && (carried.jerky ?? 0) >= 5)
           : hp >= playerMaxHp() * 0.4 || (carried.jerky ?? 0) >= 3 || carried.bandages >= 1;
       if (!okToFight) {
@@ -704,8 +802,9 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
   /**
    * 一趟遠征:依序嘗試打通目標清單;體力不支/水路不通就回村。
    */
-  function expedition(targets: SpecialSite[], loadout: Loadout): number {
+  function expedition(targets: SpecialSite[], loadout: Loadout, lean = false): number {
     depart(loadout);
+    leanLoot = lean;
     let expl = newExplore();
     let cleared = 0;
     for (const site of targets) {
@@ -715,6 +814,18 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
       if (walk === "dead") return cleared;
       if (walk === "turnback") break;
       if (walk === "aborted") continue;
+      // 控制 Boss(教堂)開打前的休整紀律:先到鄰近據點補血吃肉乾再回來
+      if ((site.landmarkId === "church" || site.landmarkId === "coalmine") && (expl.carried?.hp ?? 0) < playerMaxHp() * 0.85) {
+        const near = depots(expl)
+          .map(([ax, ay]) => ({ ax, ay, d: Math.abs(ax - expl.playerX) + Math.abs(ay - expl.playerY) }))
+          .filter((c) => c.d > 0 && c.d <= 10)
+          .sort((a, b) => a.d - b.d)[0];
+        if (near) {
+          if (walkTo(expl, near.ax, near.ay) === "dead") return cleared;
+          while ((expl.carried?.hp ?? 0) < playerMaxHp() - 5 && (expl.carried?.jerky ?? 0) > 6 && expl.canEatJerky()) expl.eatJerky();
+          if (walkTo(expl, site.x, site.y) === "dead") return cleared;
+        }
+      }
       const res = clearSite(expl, site);
       persistExplore(expl);
       if (res === "dead") return cleared;
@@ -727,8 +838,137 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
     return cleared;
   }
 
+  /** 鋪軌遠征:沿村莊→目標的路徑鋪鐵軌(永久建設);回傳這趟鋪了幾根 */
+  function railExpedition(target: [number, number], railsToCarry: number): number {
+    depart({
+      weapons: { "iron-knife": 1, "iron-sword": 1 },
+      rations: 14,
+      jerky: Math.min(8, village.resources.jerky),
+      bandages: Math.min(2, village.resources.bandage),
+      arrows: 0,
+      scrolls: 0,
+      rails: railsToCarry,
+    });
+    const expl = newExplore();
+    const before = expl.carried?.rails ?? 0;
+    const lay = () => {
+      if (expl.canLayRail()) expl.layRail();
+    };
+    lay(); // 村口第一格
+    const r = walkTo(expl, target[0], target[1], undefined, lay, () => (expl.carried?.rails ?? 0) <= 0);
+    const laid = before - (expl.carried?.rails ?? 0);
+    persistExplore(expl);
+    if (r !== "dead") goHome(expl);
+    return laid;
+  }
+
+  /** 農晶行程:鋼裝去北嶺獵場繞一圈——雜魚一擊必殺,異晶入袋(反制道具的財源) */
+  function shardFarmTrip(): void {
+    depart({
+      weapons: { "steel-sword": 1, "steel-knife": 1 },
+      rations: 20,
+      jerky: Math.min(12, village.resources.jerky),
+      bandages: 0,
+      arrows: 0,
+      scrolls: 0,
+    });
+    leanLoot = true;
+    let expl = newExplore();
+    const cx = Math.floor(MAP_WIDTH / 2);
+    if (travelTo(expl, cx, 0) !== "arrived") {
+      goHome(expl);
+      return;
+    }
+    persistExplore(expl);
+    expl.travelThroughExit();
+    expl = newExplore();
+    for (const [tx, ty] of [[52, 44], [43, 33], [52, 24]] as const) {
+      if (travelTo(expl, tx, ty, () => shouldTurnBack(expl)) !== "arrived") break;
+    }
+    let back = travelTo(expl, cx, MAP_HEIGHT - 1);
+    if (back === "aborted") back = walkTo(expl, cx, MAP_HEIGHT - 1);
+    if (back !== "arrived") return;
+    persistExplore(expl);
+    expl.travelThroughExit();
+    expl = newExplore();
+    goHome(expl);
+  }
+
+  /**
+   * 北嶺遠征:中央地圖北緣出口 → 北嶺哨站鏈(由南往北)→ 煤礦坑 → 原路折返。
+   * 跨圖是單線深入:水量網路要靠沿路打通的哨站一段段修出去(哨站打通即升格補給點)。
+   */
+  function northExpedition(loadout: Loadout): void {
+    if (traceNorthWanted) tracing = true;
+    depart(loadout);
+    leanLoot = true;
+    let expl = newExplore(); // 中央地圖
+    const cx = Math.floor(MAP_WIDTH / 2);
+    let r = travelTo(expl, cx, 0, () => shouldTurnBack(expl));
+    if (r === "dead") return;
+    if (r !== "arrived") {
+      goHome(expl);
+      return;
+    }
+    persistExplore(expl);
+    expl.travelThroughExit();
+    expl = newExplore(); // 北嶺,落在南緣入口
+    snap(expl, "[北嶺] 進入");
+
+    // 燈火紀律:路過據點順手點燈(壓遭遇率 ×0.4)——北回廊的戰耗稅就靠這個降
+    const lampStep = () => {
+      if (expl.canLightLamp()) expl.lightLamp();
+    };
+    const nTargets = specialSites()
+      .filter((st) => (st.mapId ?? "A") === "N" && !siteProgress(st.key).cleared)
+      .sort((a, b) => b.y - a.y); // 由南往北推
+    for (const site of nTargets) {
+      if (!fitToFight(expl.carried)) break;
+      const walk = travelTo(expl, site.x, site.y, () => shouldTurnBack(expl), lampStep);
+      if (walk === "dead") return;
+      if (walk !== "arrived") break;
+      // 守衛戰的休整紀律:血沒養滿先到鄰近據點補給+吃肉乾再開打(殘血進場勝率 7%);
+      // 層間被門檻擋下也一樣——去據點休整回來續打(層數進度有保存),不必整趟放棄
+      const restNearby = (): "ok" | "dead" => {
+        const near = depots(expl)
+          .map(([ax, ay]) => ({ ax, ay, d: Math.abs(ax - expl.playerX) + Math.abs(ay - expl.playerY) }))
+          .filter((c) => c.d > 0 && c.d <= 8)
+          .sort((a, b) => a.d - b.d)[0];
+        if (!near) return "ok";
+        if (walkTo(expl, near.ax, near.ay, undefined, lampStep) === "dead") return "dead";
+        while ((expl.carried?.hp ?? 0) < playerMaxHp() - 5 && (expl.carried?.jerky ?? 0) > 6 && expl.canEatJerky()) expl.eatJerky();
+        if (walkTo(expl, site.x, site.y, undefined, lampStep) === "dead") return "dead";
+        return "ok";
+      };
+      let res: "cleared" | "dead" | "aborted" = "aborted";
+      for (let tryN = 0; tryN < 3; tryN++) {
+        if (site.level >= 4 && (expl.carried?.hp ?? 0) < playerMaxHp() * 0.85) {
+          if (restNearby() === "dead") return;
+        }
+        res = clearSite(expl, site);
+        persistExplore(expl);
+        if (res !== "aborted") break;
+        // 門檻不打/地城撤退:休整能救的就救,救不了(肉乾也見底)就收隊
+        if ((expl.carried?.jerky ?? 0) <= 6 && expl.carried!.bandages <= 0) break;
+      }
+      if (res === "dead") return;
+      if (res !== "cleared") break;
+      expl = newExplore(); // 哨站升格補給點
+    }
+
+    // 折返:北嶺南緣出口 → 中央地圖 → 村莊
+    let back = travelTo(expl, cx, MAP_HEIGHT - 1);
+    if (back === "aborted") back = walkTo(expl, cx, MAP_HEIGHT - 1); // 水路斷了也只能硬走
+    if (back !== "arrived") return; // 倒在北嶺(walkTo 內已結算死亡)
+    persistExplore(expl);
+    expl.travelThroughExit();
+    expl = newExplore(); // 中央地圖北緣內側
+    goHome(expl);
+    leanLoot = false;
+  }
+
   // 安全打造:craftConsumable 在配方不可見時會靜默不動作,直接 while 會死迴圈——確認數量真的有增加才繼續
-  const craftUpTo = (id: "ration" | "arrow", target: number) => {
+  const craftUpTo = (id: "ration" | "arrow" | "bullet" | "rail" | "oil", target: number) => {
     for (let i = 0; i < 200; i++) {
       if (village.resources[id] >= target) break;
       const before = village.resources[id];
@@ -746,7 +986,7 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
   // ============ 劇本 ============
 
   mark("開局");
-  const sites = specialSites();
+  const sites = specialSites().filter((st) => (st.mapId ?? "A") === "A"); // 中央戰役只看中央的點
   const start = startPosition();
   const near = (a: SpecialSite, b: SpecialSite) =>
     Math.hypot(a.x - start.x, a.y - start.y) - Math.hypot(b.x - start.x, b.y - start.y);
@@ -801,10 +1041,10 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
   );
   mark(`製革場+燻製棚+獵弓(人口 ${village.population})`);
   villageUntil(() => village.upgrades["waterskin"] && village.upgrades["backpack"] && village.upgrades["leather-armor"], 6000, {
-    jobs: { leather: true, jerky: true, grain: true },
+    jobs: { leather: true, grain: true }, // 不派燻肉:這一段的木頭全數留給三件升級(smoker 每人吃木 30/tick)
     canTannery: true,
   });
-  mark(`水袋+背包+皮甲齊備(人口 ${village.population})`);
+  mark(`水袋+背包+皮甲齊備(人口 ${village.population};木${Math.floor(village.resources.wood)} 石${Math.floor(village.resources.stone)} 皮革${Math.floor(village.resources.leather)} 生皮${Math.floor(village.resources.hide)} 水袋=${village.upgrades.waterskin === true} 背包=${village.upgrades.backpack === true} 皮甲=${village.upgrades["leather-armor"] === true})`);
 
   // Phase 4:Lv3 遺跡(水 32+補給跳島;打通變前線基地)→ 工匠鋪
   const midLoadout = (): Loadout => ({
@@ -876,18 +1116,113 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
     if (!siteProgress(site.key).cleared) landmarkCampaign(lmId);
   }
 
-  // Phase 6:鐵產線 → 鐵槍;修裝;教堂決戰(礦坑沒解放就沒有鐵,直接跳過等待)
+  // Phase 6:鐵產線 → 鐵刀/鐵劍/鐵槍三件(北嶺攻堅的門票)
   const mineCleared = siteProgress(sites.find((s) => s.landmarkId === "mine")!.key).cleared;
+  const IRON_TRIO = ["iron-knife", "iron-sword", "iron-spear"] as const;
   if (mineCleared) villageUntil(
     () => {
-      if ((village.ownedWeapons["iron-spear"] ?? 0) < 1 && village.canAfford(WEAPONS.find((w) => w.id === "iron-spear")!.cost)) village.craftWeapon("iron-spear");
+      for (const id of IRON_TRIO) {
+        if ((village.ownedWeapons[id] ?? 0) < 1 && village.canAfford(WEAPONS.find((w) => w.id === id)!.cost)) village.craftWeapon(id);
+      }
       if (village.canRepairWeapon("bayonet")) village.repairWeapon("bayonet");
-      return (village.ownedWeapons["iron-spear"] ?? 0) >= 1;
+      return IRON_TRIO.every((id) => (village.ownedWeapons[id] ?? 0) >= 1);
     },
-    3000,
+    4000,
     { jobs: { iron: true, leather: true, grain: true }, canTannery: true, canSmithy: true },
   );
-  mark(`鐵槍=${(village.ownedWeapons["iron-spear"] ?? 0) >= 1},鐵儲備 ${village.resources.iron},卷軸 ${village.resources.scroll}`);
+  mark(`鐵三件=${IRON_TRIO.every((id) => (village.ownedWeapons[id] ?? 0) >= 1)},鐵儲備 ${Math.floor(village.resources.iron)},水壺=${village.upgrades["iron-flask"] === true} 鐵甲=${village.upgrades["iron-armor"] === true}`);
+
+  // Phase 6.4:鋪軌北上——鐵軌從村莊一路鋪到北緣出口內側:
+  // 軌上水 1/4、糧 1/8、完全不遇敵,北嶺長征的水量帳才算得平(這正是鐵軌系統的設計目的)
+  if (mineCleared) {
+    let totalLaid = 0;
+    for (let trip = 0; trip < 4; trip++) {
+      villageUntil(
+        () => {
+          craftUpTo("rail", 20);
+          craftUpTo("ration", 14);
+          return village.resources.rail >= 12 && village.resources.ration >= 12;
+        },
+        3000,
+        { jobs: { iron: true, jerky: true, grain: true }, canTannery: true, canSmithy: true },
+      );
+      const laid = railExpedition([Math.floor(MAP_WIDTH / 2), 1], Math.min(20, Math.floor(village.resources.rail)));
+      totalLaid += laid;
+      if (laid === 0) break;
+    }
+    mark(`鐵軌鋪設 ${totalLaid} 根(村莊→北緣出口)`);
+  }
+
+  // Phase 6.5:北嶺攻堅——哨站鏈+煤礦坑(鋼時代的入場考;帶醒神鹽反制崩落暈眩)
+  const coalSite = specialSites().find((st) => st.landmarkId === "coalmine")!;
+  if (mineCleared) {
+    for (let attempt = 0; attempt < 6 && !siteProgress(coalSite.key).cleared; attempt++) {
+      villageUntil(
+        () => {
+          ensureCraft();
+          for (const id of IRON_TRIO) {
+            if (village.canRepairWeapon(id)) village.repairWeapon(id);
+          }
+          craftUpTo("ration", 24);
+          craftUpTo("oil", 6);
+          // 北嶺是中期梯隊的主場:鐵甲(50 血)+推車(70 格)+足量肉乾是門票,不是奢侈品
+          return (
+            village.upgrades["iron-flask"] === true &&
+            village.upgrades["iron-armor"] === true &&
+            village.upgrades["iron-cart"] === true &&
+            village.resources.ration >= 20 &&
+            (village.resources.jerky ?? 0) >= 20
+          );
+        },
+        6000,
+        { jobs: { iron: true, leather: true, jerky: true, grain: true }, canTannery: true, canSmithy: true },
+      );
+      if (village.hasBuilding("trading-post")) {
+        while ((village.resources.salt ?? 0) < 3 && village.resources.shard >= 6) village.trade("trade-salt");
+        while (village.resources.bandage < 4 && village.resources.shard >= 3) village.trade("trade-bandage");
+        while (village.resources.elixir < 2 && village.resources.shard >= 10) village.trade("trade-elixir");
+      }
+      const saltsCarried = Math.min(3, Math.floor(village.resources.salt ?? 0));
+      northExpedition({
+        weapons: { "iron-knife": 1, "iron-sword": 1, "iron-spear": 1 },
+        rations: 20,
+        jerky: Math.min(20, village.resources.jerky),
+        bandages: Math.min(6, village.resources.bandage),
+        arrows: 0,
+        scrolls: Math.min(2, village.resources.scroll),
+        elixirs: Math.min(2, village.resources.elixir),
+        salts: saltsCarried,
+        oil: Math.min(6, Math.floor(village.resources.oil ?? 0)),
+      });
+      mark(
+        `北嶺嘗試 #${attempt + 1}:煤礦${siteProgress(coalSite.key).cleared ? "解放!" : "未破"}(帶鹽 ${saltsCarried},戰死累計 ${stats.deaths};壺${village.upgrades["iron-flask"] === true} 甲${village.upgrades["iron-armor"] === true} 車${village.upgrades["iron-cart"] === true} 鐵${Math.floor(village.resources.iron)} 錠${Math.floor(village.resources.ingot ?? 0)} 皮${Math.floor(village.resources.leather)} 肉${Math.floor(village.resources.jerky)} 糧${Math.floor(village.resources.ration)})`,
+      );
+    }
+  }
+  const coalCleared = siteProgress(coalSite.key).cleared;
+
+  // Phase 6.6:鋼鐵產線——採煤/煉鋼;鋼三件+散彈槍+子彈+鋼甲
+  const STEEL_KIT = ["steel-knife", "steel-sword", "steel-spear", "shotgun"] as const;
+  if (coalCleared) {
+    villageUntil(
+      () => {
+        for (const id of STEEL_KIT) {
+          if ((village.ownedWeapons[id] ?? 0) < 1 && village.canAfford(WEAPONS.find((w) => w.id === id)!.cost)) village.craftWeapon(id);
+        }
+        craftUpTo("bullet", 24);
+        return (
+          STEEL_KIT.every((id) => (village.ownedWeapons[id] ?? 0) >= 1) &&
+          village.resources.bullet >= 24 &&
+          village.upgrades["steel-armor"] === true
+        );
+      },
+      9000,
+      { jobs: { steel: true, leather: true, jerky: true, grain: true }, canTannery: true, canSmithy: true },
+    );
+    mark(
+      `鋼裝=${STEEL_KIT.map((id) => ((village.ownedWeapons[id] ?? 0) >= 1 ? "O" : "X")).join("")} 子彈 ${Math.floor(village.resources.bullet)} 鋼甲=${village.upgrades["steel-armor"] === true} 鋼壺=${village.upgrades["steel-flask"] === true}`,
+    );
+  }
 
   const church = sites.find((s) => s.landmarkId === "church")!;
   // 先拿黑鐵鑰匙(離教堂最近的 Lv3 遺跡)
@@ -905,37 +1240,50 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
     expedition([keySite], midLoadout());
   }
   mark(`黑鐵鑰匙=${hasChurchKey()}`);
-  for (let attempt = 0; attempt < 8 && !siteProgress(church.key).cleared; attempt++) {
+  const steelReady = () => (village.ownedWeapons["steel-sword"] ?? 0) >= 1 || (village.ownedWeapons["steel-spear"] ?? 0) >= 1;
+  for (let attempt = 0; attempt < 8 && coalCleared && !siteProgress(church.key).cleared; attempt++) {
     // 交易所兌換硬仗底牌:醒神鹽(反制鐘鳴/低語)最優先,再來藥劑、卷軸、繃帶
     if (village.hasBuilding("trading-post")) {
-      while ((village.resources.salt ?? 0) < 5 && village.resources.shard >= 8) village.trade("trade-salt");
+      while ((village.resources.salt ?? 0) < 5 && village.resources.shard >= 6) village.trade("trade-salt");
       while (village.resources.elixir < 3 && village.resources.shard >= 10) village.trade("trade-elixir");
+      while (village.resources.bandage < 8 && village.resources.shard >= 3) village.trade("trade-bandage");
       while (village.resources.scroll < 2 && village.resources.shard >= 6) village.trade("trade-scroll");
-      while (village.resources.bandage < 3 && village.resources.shard >= 3) village.trade("trade-bandage");
     }
     villageUntil(
       () => {
         ensureCraft();
-        craftUpTo("arrow", 20);
-        if (village.canRepairWeapon("bayonet")) village.repairWeapon("bayonet");
-        if (village.canRepairWeapon("iron-spear")) village.repairWeapon("iron-spear");
+        // 戰死掉裝後的重整:鋼武器重新打造(鋼產線還在),修理堪用的
+        for (const id of STEEL_KIT) {
+          if ((village.ownedWeapons[id] ?? 0) < 1 && village.canAfford(WEAPONS.find((w) => w.id === id)!.cost)) village.craftWeapon(id);
+          if (village.canRepairWeapon(id)) village.repairWeapon(id);
+        }
+        craftUpTo("bullet", 24);
         craftUpTo("ration", 20);
-        return village.resources.ration >= 18 && (village.resources.jerky ?? 0) >= 14;
+        return steelReady() && village.resources.ration >= 18 && (village.resources.jerky ?? 0) >= 16 && village.resources.bullet >= 12;
       },
-      1500,
-      { jobs: { iron: true, jerky: true, grain: true }, canTannery: true, canSmithy: true },
+      4000,
+      { jobs: { steel: true, jerky: true, grain: true }, canTannery: true, canSmithy: true },
     );
+    // 異晶攢不出反制套組(鹽5+藥3+繃8 ≈ 84 晶)→ 先去北嶺獵場農晶,攢夠再開打
+    for (let farm = 0; farm < 5 && village.resources.shard < 75; farm++) {
+      shardFarmTrip();
+      villageUntil(() => { craftUpTo("ration", 20); return village.resources.ration >= 16; }, 400, { jobs: { steel: true, jerky: true, grain: true }, canTannery: true, canSmithy: true });
+    }
+    if (traceChurchWanted) tracing = true;
+    tr(`[教堂備戰] 繃${village.resources.bandage} 鹽${Math.floor(village.resources.salt ?? 0)} 藥${village.resources.elixir} 晶${Math.floor(village.resources.shard)} 子彈${Math.floor(village.resources.bullet)} 肉${Math.floor(village.resources.jerky)}`);
     const loadout: Loadout = {
-      weapons: { bayonet: 1, "iron-spear": 1, "hunting-bow": 1 },
+      weapons: { "steel-knife": 1, "steel-sword": 1, "steel-spear": 1, shotgun: 1 },
       rations: 18,
-      jerky: Math.min(14, village.resources.jerky),
-      bandages: Math.min(5, village.resources.bandage),
-      arrows: 18,
-      scrolls: Math.min(4, village.resources.scroll),
+      jerky: Math.min(16, village.resources.jerky),
+      bandages: Math.min(8, village.resources.bandage),
+      arrows: 0,
+      bullets: Math.min(24, Math.floor(village.resources.bullet)),
+      scrolls: Math.min(2, village.resources.scroll),
       elixirs: Math.min(3, village.resources.elixir),
       salts: Math.min(5, village.resources.salt ?? 0),
     };
-    expedition([church], loadout);
+    expedition([church], loadout, true);
+    leanLoot = false;
     mark(`教堂嘗試 #${attempt + 1}:${siteProgress(church.key).cleared ? "打通!" : "失敗"}(戰死累計 ${stats.deaths})`);
   }
 

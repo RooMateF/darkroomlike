@@ -40,7 +40,7 @@ export const ENEMIES: EnemyDef[] = [
       { id: "lunge", label: "撲咬", baseCost: 1.8, symbol: "»»»", damage: 6 },
     ],
     loot: { bandage: 1 },
-    shardChance: 0.25,
+    shardChance: 0.3,
   },
   {
     id: "spawn",
@@ -49,7 +49,7 @@ export const ENEMIES: EnemyDef[] = [
     hp: 6,
     moves: [{ id: "swarm", label: "啃咬", baseCost: 0.5, symbol: "·»", damage: 1, status: { kind: "poison", amount: 25 } }],
     loot: { meat: 1 },
-    shardChance: 0.35,
+    shardChance: 0.4,
   },
   {
     id: "mutant-hound",
@@ -58,7 +58,7 @@ export const ENEMIES: EnemyDef[] = [
     hp: 14,
     moves: [{ id: "pounce", label: "撲咬", baseCost: 0.9, symbol: "»»»", damage: 3, status: { kind: "bleed", amount: 30 } }],
     loot: { hide: 2, meat: 2 },
-    shardChance: 0.3,
+    shardChance: 0.35,
   },
   {
     id: "raider",
@@ -88,8 +88,8 @@ export const MID_ENEMIES: EnemyDef[] = [
       { id: "swarm", label: "圍咬", baseCost: 0.5, symbol: "·»", damage: 2, status: { kind: "poison", amount: 20 } },
       { id: "surge", label: "湧上", baseCost: 1.2, symbol: "»»", damage: 4 },
     ],
-    loot: { meat: 3 },
-    shardChance: 0.5,
+    loot: { meat: 3, shard: 1 },
+    shardChance: 0.65,
   },
   {
     id: "veteran",
@@ -111,8 +111,8 @@ export const MID_ENEMIES: EnemyDef[] = [
       { id: "ambush", label: "突襲", baseCost: 0.8, symbol: "»»»", damage: 4, status: { kind: "bleed", amount: 25 } },
       { id: "drag", label: "拖咬", baseCost: 1.6, symbol: "»»»»", damage: 7 },
     ],
-    loot: { hide: 4, meat: 3 },
-    shardChance: 0.4,
+    loot: { hide: 4, meat: 3, shard: 1 },
+    shardChance: 0.55,
   },
 ];
 
@@ -130,7 +130,7 @@ export const LV3_BOSS: EnemyDef = {
     { id: "sweep", label: "橫掃", baseCost: 1.1, symbol: "»»»", damage: 4 },
     { id: "slam", label: "重擊", baseCost: 2.2, symbol: "»»»»»", damage: 9, tell: "牠的輪廓在黑暗裡拔高,雙臂舉過了頭頂。" },
   ],
-  loot: { hide: 4, meat: 4, shard: 2 },
+  loot: { hide: 4, meat: 4, shard: 3 },
 };
 
 /**
@@ -148,7 +148,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
       { id: "swipe", label: "拍擊", baseCost: 1.1, symbol: "»»»", damage: 3 },
       { id: "crush", label: "重壓", baseCost: 2.4, symbol: "»»»»»»", damage: 8, tell: "巨獸壓低了身子,肩胛高高聳起——鼻息忽然停了。" },
     ],
-    loot: { hide: 6, meat: 6, shard: 3 },
+    loot: { hide: 6, meat: 6, shard: 4 },
   },
   observatory: {
     id: "observatory-guardian",
@@ -160,7 +160,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
       { id: "swing", label: "揮舞", baseCost: 1.0, symbol: "»»", damage: 3 },
       { id: "shriek", label: "撲抓", baseCost: 1.7, symbol: "»»»»", damage: 6, tell: "他的十指扣成爪狀,慢慢舉了起來。" },
     ],
-    loot: { bandage: 2, ration: 2, shard: 2 },
+    loot: { bandage: 2, ration: 2, shard: 3 },
   },
   shrine: {
     id: "shrine-guardian",
@@ -171,39 +171,41 @@ export const GUARDIANS: Record<string, EnemyDef> = {
       { id: "skitter", label: "亂刺", baseCost: 0.6, symbol: "·»", damage: 2, status: { kind: "poison", amount: 20 } },
       { id: "pincer", label: "鉗擊", baseCost: 1.7, symbol: "»»»»", damage: 7, tell: "細足全部停住了。甲殼下的巨鉗張到了最開。" },
     ],
-    loot: { meat: 5, hide: 3, shard: 2 },
+    loot: { meat: 5, hide: 3, shard: 3 },
   },
   // 北嶺煤礦坑(Lv4):鐵階裝備的攻堅目標——毒塵+崩落暈眩是特色威脅。
-  // 蒙地卡羅:300hp 鐵階滿裝+鹽3 勝率 90%(單場 139 秒);不帶鹽 43%——第一堂「反制道具」教學課
+  // 蒙地卡羅(現實補給:繃2/藥1/肉16/鹽3,滿血進場):勝率 60%(單場 100 秒);
+  // 不帶鹽 4%、殘血(40/50)進場 7%——鹽是反制、礦旁據點休整是紀律;囤到繃6藥2則 100%
   coalmine: {
     id: "coalmine-guardian",
     label: "煤層深處的掘穴者",
     intro: "煤壁在動。一雙裹滿煤灰的巨螯先探了出來,然後是佈滿環節的身軀——牠鑿穿岩層的聲音,你在坑道外就聽見了。",
-    hp: 300,
+    hp: 220,
     moves: [
-      { id: "dig", label: "鑿擊", baseCost: 0.8, symbol: "»»", damage: 6 },
-      { id: "dust", label: "揚塵", baseCost: 1.4, symbol: "…", damage: 4, status: { kind: "poison", amount: 40 }, tell: "牠的環節一節節收緊,甲縫裡滲出灰黑色的粉末。" },
+      { id: "dig", label: "鑿擊", baseCost: 0.8, symbol: "»»", damage: 5 },
+      { id: "dust", label: "揚塵", baseCost: 1.4, symbol: "…", damage: 3, status: { kind: "poison", amount: 40 }, tell: "牠的環節一節節收緊,甲縫裡滲出灰黑色的粉末。" },
       // 崩落:高傷+暈眩——被震住的那一秒多,補血條也是凍結的;醒神鹽是針對性的解法
-      { id: "collapse", label: "崩落", baseCost: 2.6, symbol: "»»»»»»", damage: 16, control: { kind: "stun", duration: 1.2 }, tell: "牠高高抬起了雙螯——坑道頂上簌簌落下灰來。" },
+      { id: "collapse", label: "崩落", baseCost: 2.6, symbol: "»»»»»»", damage: 14, control: { kind: "stun", duration: 1.2 }, tell: "牠高高抬起了雙螯——坑道頂上簌簌落下灰來。" },
     ],
-    loot: { coal: 8, stone: 6, shard: 3 },
+    loot: { coal: 8, stone: 6, shard: 6 },
   },
   // Lv5:本章的極限。2026-08 控制型設計:數值堆滿也打不過,要靠「針對性準備」——
   // 醒神鹽擋鐘鳴/低語、藥劑清撕裂的流血、繃帶硬撐血線。
-  // 蒙地卡羅:480hp 鋼階頂配+鹽5 勝率 63%(單場 141 秒,繃帶8/藥劑3 全數耗盡);不帶鹽 0%
+  // 蒙地卡羅(鋼階滿血):頂配(繃8藥3鹽5,120 秒全數耗盡)100%;同配無鹽 16%;
+  // 次級配(繃5藥2鹽4)28%;鐵階即使帶鹽也是 0%——「先去北嶺煉鋼」的高牆
   church: {
     id: "church-guardian",
     label: "不再祈禱的東西",
     intro: "祭壇前跪著一個背影,維持著祈禱的姿勢——但那個輪廓不屬於任何還能被稱為人的東西。它緩緩站了起來。站得太高了。",
-    hp: 480,
+    hp: 440,
     moves: [
       // 低語:鑽進骨頭裡的聲音讓手腳發沉(遲緩)——充能減半,補血與輸出一起變慢
       { id: "whisper", label: "低語", baseCost: 1.6, symbol: "…", damage: 4, control: { kind: "slow", duration: 2.5 }, tell: "那個高大的輪廓朝你微微傾了過來。" },
-      { id: "rend", label: "撕裂", baseCost: 1.2, symbol: "»»»»", damage: 10, status: { kind: "bleed", amount: 40 } },
+      { id: "rend", label: "撕裂", baseCost: 1.2, symbol: "»»»»", damage: 9, status: { kind: "bleed", amount: 40 } },
       // 鐘鳴:整座教堂共振的一擊——高傷+暈眩;不帶醒神鹽硬扛,補血節奏會被打碎
-      { id: "toll", label: "鐘鳴", baseCost: 3.0, symbol: "»»»»»»»", damage: 20, control: { kind: "stun", duration: 1.5 }, tell: "它緩緩抬起了手,指向頭頂的鐘。空氣忽地緊繃。" },
+      { id: "toll", label: "鐘鳴", baseCost: 3.0, symbol: "»»»»»»»", damage: 18, control: { kind: "stun", duration: 1.5 }, tell: "它緩緩抬起了手,指向頭頂的鐘。空氣忽地緊繃。" },
     ],
-    loot: { shard: 5 },
+    loot: { shard: 8 },
   },
 };
 

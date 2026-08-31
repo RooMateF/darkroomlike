@@ -302,6 +302,9 @@ function finishNeighborMap(grid: Tile[][], mapId: MapId): Tile[][] {
     const t = grid[ey + ddy * i]?.[ex + ddx * i];
     if (t && (t.type === "wall" || t.type === "water")) grid[ey + ddy * i][ex + ddx * i] = { type: "plain", revealed: false };
   }
+  // 邊境據點:入口內側三格必有一座補給點——跨圖長征本身就會把水袋耗得見底,
+  // 沒有這一站,初訪者連「進來看一眼再活著回家」都做不到(回程 30+ 步是死亡行軍)
+  grid[ey + ddy * 3][ex + ddx * 3] = { type: "depot", revealed: false };
 
   // 這張地圖自己的探勘點/地標(如北嶺的哨站與煤礦坑)
   for (const s of specialSites().filter((s2) => s2.mapId === mapId)) {
@@ -326,6 +329,21 @@ function finishNeighborMap(grid: Tile[][], mapId: MapId): Tile[][] {
   }
 
   return grid;
+}
+
+/** 邊境據點座標(入口內側三格):相鄰地圖限定;引擎載入舊存檔時也用它補打 */
+export function borderDepotFor(mapId: MapId): { x: number; y: number } | null {
+  if (mapId === "A") return null;
+  const cx = Math.floor(MAP_WIDTH / 2);
+  const cy = Math.floor(MAP_HEIGHT / 2);
+  const backExit: Record<string, [number, number, number, number]> = {
+    N: [cx, MAP_HEIGHT - 1, 0, -1],
+    S: [cx, 0, 0, 1],
+    W: [MAP_WIDTH - 1, cy, -1, 0],
+    E: [0, cy, 1, 0],
+  };
+  const [ex, ey, ddx, ddy] = backExit[mapId];
+  return { x: ex + ddx * 3, y: ey + ddy * 3 };
 }
 
 export function startPosition(): { x: number; y: number } {

@@ -1,5 +1,5 @@
 import { BLOCKED, LANDMARKS, TILE_SYMBOL, type Checkpoint, type Tile, type TileType } from "./types";
-import { generateMap, startPosition, exitLinkAt, MAP_DEFS, MAP_WIDTH, MAP_HEIGHT, type MapId, type ExitLink } from "./map-gen";
+import { generateMap, startPosition, exitLinkAt, borderDepotFor, MAP_DEFS, MAP_WIDTH, MAP_HEIGHT, type MapId, type ExitLink } from "./map-gen";
 import { loadCarried, saveCarried, clearCarried, addLoot, packUsed, playerMaxHp, type Carried } from "../carried";
 import { RESOURCE_LABEL, type ResourceId } from "../village/types";
 import { siteAt, siteProgress, specialSites, hasChurchKey, DUNGEON_KEY, SITE_ARRIVAL_TEXT, type DungeonRun } from "./sites";
@@ -256,6 +256,12 @@ export class ExploreEngine {
       this.depotGrantsUsed.clear(); // 新遠征:各據點的乾糧儲備重新補上
       this.depotHealUsed.clear();
       this.reveal(start.x, start.y);
+    }
+
+    // 邊境據點(入口內側):新加的固定補給點——舊的相鄰地圖存檔載入後補打(冪等)
+    const border = borderDepotFor(this.mapId);
+    if (border && this.grid[border.y]?.[border.x] && this.grid[border.y][border.x].type !== "depot") {
+      this.grid[border.y][border.x] = { ...this.grid[border.y][border.x], type: "depot" };
     }
 
     // 打通的 Lv1/Lv3 探勘點升格為前線補給基地(各地圖處理自己的點)
