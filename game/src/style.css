@@ -683,6 +683,20 @@ hr {
   white-space: normal;
 }
 
+/* ---------- 戰後拾取面板 ---------- */
+
+.loot-panel {
+  border: 1px solid var(--fg-faint);
+  padding: 10px 14px;
+  margin: 12px 0;
+}
+
+.loot-panel .button-row {
+  margin-top: 8px;
+  display: flex;
+  gap: 16px;
+}
+
 /* ---------- 開場敘事 ---------- */
 
 .narrative-text {

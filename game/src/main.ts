@@ -5,7 +5,7 @@ import { WEAPONS } from "./village/data";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
 import { loadCarried, saveCarried, clearCarried, addLoot, playerMaxHp } from "./carried";
 import { pickRandomEnemy, pickMidEnemy, GUARDIANS, LANDMARK_REWARDS, LV3_BOSS, type EnemyDef } from "./enemies";
-import { markLandmarkCleared, currentMapId } from "./explore/engine";
+import { markLandmarkCleared, currentMapId, isAutoPickup } from "./explore/engine";
 import { DUNGEON_KEY, siteProgress, saveSiteProgress, churchKeySiteKey, hasChurchKey, grantChurchKey, type DungeonRun } from "./explore/sites";
 import type { CategoryId } from "./types";
 
@@ -400,18 +400,25 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
         }
       }
 
-      let lootText = "";
       if (carried) {
         carried.hp = engine.playerHp;
-        // 戰利品同樣受揹負空間限制,塞不下的只能放棄
+        saveCarried(carried);
+      }
+      if (!carried || Object.keys(gains).length === 0) {
+        endCombat(`${message}。`, "explore.html", delay);
+      } else if (isAutoPickup()) {
+        // 自動拾取開啟:照舊直接入包(與探索頁的開關一致)
         const { added, overflow } = addLoot(carried, gains);
         saveCarried(carried);
-        lootText = Object.entries(added)
+        let lootText = Object.entries(added)
           .map(([id, n]) => `${RESOURCE_LABEL[id as ResourceId]} +${n}`)
           .join("、");
         if (overflow) lootText += "(背包塞不下,部分只能放棄)";
+        endCombat(lootText ? `${message} 拾獲:${lootText}` : `${message}。`, "explore.html", delay);
+      } else {
+        // 手動拾取(預設):敵人的掉落一件件由玩家決定撿不撿——和探索拾獲同一套規則
+        showLootPanel(message, gains, "explore.html");
       }
-      endCombat(lootText ? `${message} 拾獲:${lootText}` : `${message}。`, "explore.html", delay);
     }
   },
 }, { enemyHp: enemyDef.hp, enemyLabel: enemyDef.label });
@@ -425,6 +432,99 @@ if (carried) {
 }
 appendSystemLog(enemyDef.intro);
 if (engine.enemy.currentMove.tell) appendSystemLog(engine.enemy.currentMove.tell);
+
+// ?dev:測試鉤子——console 可直接驅動戰鬥時鐘(嵌入式瀏覽器 rAF 不穩時,自動化測試用)
+if (new URLSearchParams(window.location.search).has("dev")) {
+  (window as unknown as { __combat?: unknown }).__combat = {
+    engine,
+    step: (dt: number) => (engine as unknown as { step: (dt: number) => void }).step(dt),
+  };
+}
+
+/** 勝利掉落的手動拾取面板:一件件決定撿不撿;背包空間把關與探索頁一致 */
+function showLootPanel(message: string, gains: Record<string, number>, href: string) {
+  engine.stop();
+  statusEl.textContent = message;
+  skipBtn.style.display = "none";
+  retreatBtn.style.display = "none";
+
+  const panel = document.createElement("div");
+  panel.className = "loot-panel";
+  const title = document.createElement("div");
+  title.className = "hint-line";
+  title.textContent = "牠身上留下了一些東西:";
+  panel.appendChild(title);
+
+  const leave = () => {
+    if (carried) saveCarried(carried);
+    window.location.href = href;
+  };
+
+  const itemRows: { id: string; n: number; line: HTMLDivElement }[] = [];
+  const leaveIfEmpty = () => {
+    if (itemRows.every((r) => r.line.style.display === "none")) window.setTimeout(leave, 500);
+  };
+
+  for (const [id, n] of Object.entries(gains)) {
+    const line = document.createElement("div");
+    line.className = "row-grid";
+    const name = document.createElement("span");
+    name.className = "row-name";
+    name.textContent = `${RESOURCE_LABEL[id as ResourceId] ?? id} ×${n}`;
+    const controls = document.createElement("span");
+    controls.className = "row-controls";
+    const btn = document.createElement("button");
+    btn.className = "use-link ready";
+    btn.textContent = "[撿]";
+    btn.addEventListener("click", () => {
+      if (!carried) return;
+      const { added, overflow } = addLoot(carried, { [id]: n });
+      saveCarried(carried);
+      const got = Object.values(added)[0] ?? 0;
+      if (got <= 0) {
+        appendSystemLog("背包塞不下了。");
+        return;
+      }
+      appendSystemLog(`拾獲:${RESOURCE_LABEL[id as ResourceId] ?? id} +${got}${overflow ? "(塞不下的只能放棄)" : ""}`);
+      line.style.display = "none";
+      leaveIfEmpty();
+    });
+    controls.appendChild(btn);
+    line.append(name, controls);
+    panel.appendChild(line);
+    itemRows.push({ id, n, line });
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "button-row";
+  const allBtn = document.createElement("button");
+  allBtn.className = "use-link ready";
+  allBtn.textContent = "[全部拾取]";
+  allBtn.addEventListener("click", () => {
+    if (!carried) return leave();
+    let anyOverflow = false;
+    const gotAll: string[] = [];
+    for (const r of itemRows) {
+      if (r.line.style.display === "none") continue;
+      const { added, overflow } = addLoot(carried, { [r.id]: r.n });
+      if (overflow) anyOverflow = true;
+      const got = Object.values(added)[0] ?? 0;
+      if (got > 0) gotAll.push(`${RESOURCE_LABEL[r.id as ResourceId] ?? r.id} +${got}`);
+    }
+    saveCarried(carried);
+    if (gotAll.length > 0) appendSystemLog(`拾獲:${gotAll.join("、")}`);
+    if (anyOverflow) appendSystemLog("背包塞不下,剩下的只能放棄。");
+    leave();
+  });
+  const leaveBtn = document.createElement("button");
+  leaveBtn.className = "use-link ready";
+  leaveBtn.textContent = "[放棄並離開]";
+  leaveBtn.addEventListener("click", leave);
+  actions.append(allBtn, leaveBtn);
+  panel.appendChild(actions);
+
+  logEl.parentElement?.insertBefore(panel, logEl);
+}
 
 /** 戰鬥結束:停下引擎,短暫停留後自動離開,不需要按鈕 */
 function endCombat(message: string, href: string, delayMs: number) {

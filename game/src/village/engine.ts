@@ -5,10 +5,11 @@ import { RESOURCE_LABEL, type ResourceId } from "./types";
 
 export const TICK_MS = 10000; // 每個生產週期的真實時間長度
 export const GATHER_COOLDOWN_MS = 10000; // 手動採集的冷卻時間,與生產週期一致
-/** 每隔幾個生產週期補充一位村民(6 × 10 秒 = 60 秒)——
- * 20 秒/人時 15 分鐘就滿編、產能瞬間起飛,中期完全沒有「村子慢慢長大」的過程;
- * 60 秒/人讓人力本身成為前中期最重要的成長軸(2026-08 全流程模擬校準) */
+/** 村民抵達的節奏:計量器每週期 +GROWTH_SPEED,滿 GROWTH_CHECK_EVERY 來一位。
+ * 基準 60 秒/人(20 秒/人時 15 分鐘就滿編,沒有「村子慢慢長大」的過程);
+ * 2026-08 依用戶要求加快 30%:1.3/tick → 約 46 秒/人 */
 const GROWTH_CHECK_EVERY = 6;
+const GROWTH_SPEED = 1.3;
 const EVENT_CHANCE_PER_TICK = 0.15;
 /** 兩個事件之間至少隔幾個生產週期(12 × 10 秒 = 2 分鐘)——事件是節奏的標點,不是連環轟炸 */
 const EVENT_COOLDOWN_TICKS = 12;
@@ -56,6 +57,8 @@ export class VillageEngine {
   pendingEvent: VillageEvent | null = null;
   /** 人口自然成長觸發過幾次,UI 用來判斷「第一次成長」的敘事時機(village/narrative.ts) */
   growthEventCount = 0;
+  /** 村民抵達計量器(每週期 +GROWTH_SPEED,滿 GROWTH_CHECK_EVERY 觸發) */
+  private growthMeter = 0;
   /** 曾經持有過的資源種類——武器配方要等玩家「見過」所有材料後才浮現(不寫解鎖提示,讓玩家自行摸索) */
   seenResources = new Set<ResourceId>();
   /** 已打造的武器數量(可重複打造,備用武器帶出門才有意義) */
@@ -91,6 +94,7 @@ export class VillageEngine {
         populationCap: this.populationCap,
         assignments: this.assignments,
         growthEventCount: this.growthEventCount,
+        growthMeter: this.growthMeter,
         seenResources: [...this.seenResources],
         ownedWeapons: this.ownedWeapons,
         upgrades: this.upgrades,
@@ -115,6 +119,7 @@ export class VillageEngine {
       this.populationCap = s.populationCap ?? this.populationCap;
       Object.assign(this.assignments, s.assignments ?? {});
       this.growthEventCount = s.growthEventCount ?? 0;
+      this.growthMeter = s.growthMeter ?? 0;
       for (const id of s.seenResources ?? []) this.seenResources.add(id as ResourceId);
       this.ownedWeapons = s.ownedWeapons ?? {};
       this.upgrades = s.upgrades ?? {};
@@ -598,7 +603,9 @@ export class VillageEngine {
       this.resources.stone += 1 * lv2;
     }
 
-    if (this.tickCount % GROWTH_CHECK_EVERY === 0) {
+    this.growthMeter += GROWTH_SPEED;
+    if (this.growthMeter >= GROWTH_CHECK_EVERY) {
+      this.growthMeter -= GROWTH_CHECK_EVERY;
       this.checkPopulationGrowth();
     }
 
