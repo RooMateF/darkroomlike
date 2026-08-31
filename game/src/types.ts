@@ -34,4 +34,6 @@ export interface EnemyMove {
   status?: { kind: StatusKind; amount: number };
   /** 控制效果:命中時暈眩(行動條凍結)或遲緩(充能減半)數秒 */
   control?: { kind: "stun" | "slow"; duration: number };
+  /** 蓄力描寫:敵人開始準備這一招時的一句敘述(「牠抬起了手」)——招式不取名,用動作預告 */
+  tell?: string;
 }

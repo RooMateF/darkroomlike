@@ -102,6 +102,8 @@ export interface EngineCallbacks {
   onLog: (entry: LogEntry) => void;
   onPauseChange: (paused: boolean) => void;
   onHpChange: () => void;
+  /** 敵方開始蓄力大招時的敘述(可選;模擬器不接) */
+  onTell?: (text: string) => void;
 }
 
 /**
@@ -268,6 +270,8 @@ export class CombatEngine {
       this.cb.onLog({ id: this.logId++, actor: this.enemyLabel, target: move.label, symbol: move.symbol, damage: 0 });
     }
     this.enemy.rollNextMove();
+    // 大招才有蓄力描寫:「牠抬起了手」比招式名更能讓玩家學會判讀
+    if (this.enemy.currentMove.tell) this.cb.onTell?.(this.enemy.currentMove.tell);
   }
 
   /** 玩家選擇使用某個已就緒的子行動;回傳是否真的執行了(未就緒時 false) */

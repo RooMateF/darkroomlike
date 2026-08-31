@@ -324,6 +324,7 @@ window.addEventListener("keydown", (e) => {
 
 const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
   onLog: appendLog,
+  onTell: appendSystemLog,
   onPauseChange: (paused) => {
     statusEl.textContent = paused ? "▍等待你的指示…" : "";
     skipBtn.disabled = !paused;
@@ -423,6 +424,7 @@ if (carried) {
   engine.playerHp = engine.playerMaxHp;
 }
 appendSystemLog(enemyDef.intro);
+if (engine.enemy.currentMove.tell) appendSystemLog(engine.enemy.currentMove.tell);
 
 /** 戰鬥結束:停下引擎,短暫停留後自動離開,不需要按鈕 */
 function endCombat(message: string, href: string, delayMs: number) {

@@ -128,7 +128,7 @@ export const LV3_BOSS: EnemyDef = {
   hp: 80,
   moves: [
     { id: "sweep", label: "橫掃", baseCost: 1.1, symbol: "»»»", damage: 4 },
-    { id: "slam", label: "重擊", baseCost: 2.2, symbol: "»»»»»", damage: 9 },
+    { id: "slam", label: "重擊", baseCost: 2.2, symbol: "»»»»»", damage: 9, tell: "牠的輪廓在黑暗裡拔高,雙臂舉過了頭頂。" },
   ],
   loot: { hide: 4, meat: 4, shard: 2 },
 };
@@ -146,7 +146,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     hp: 110,
     moves: [
       { id: "swipe", label: "拍擊", baseCost: 1.1, symbol: "»»»", damage: 3 },
-      { id: "crush", label: "重壓", baseCost: 2.4, symbol: "»»»»»»", damage: 8 },
+      { id: "crush", label: "重壓", baseCost: 2.4, symbol: "»»»»»»", damage: 8, tell: "巨獸壓低了身子,肩胛高高聳起——鼻息忽然停了。" },
     ],
     loot: { hide: 6, meat: 6, shard: 3 },
   },
@@ -158,7 +158,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     moves: [
       { id: "stare", label: "凝視", baseCost: 0.7, symbol: "…", damage: 0 },
       { id: "swing", label: "揮舞", baseCost: 1.0, symbol: "»»", damage: 3 },
-      { id: "shriek", label: "撲抓", baseCost: 1.7, symbol: "»»»»", damage: 6 },
+      { id: "shriek", label: "撲抓", baseCost: 1.7, symbol: "»»»»", damage: 6, tell: "他的十指扣成爪狀,慢慢舉了起來。" },
     ],
     loot: { bandage: 2, ration: 2, shard: 2 },
   },
@@ -169,7 +169,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     hp: 100,
     moves: [
       { id: "skitter", label: "亂刺", baseCost: 0.6, symbol: "·»", damage: 2, status: { kind: "poison", amount: 20 } },
-      { id: "pincer", label: "鉗擊", baseCost: 1.7, symbol: "»»»»", damage: 7 },
+      { id: "pincer", label: "鉗擊", baseCost: 1.7, symbol: "»»»»", damage: 7, tell: "細足全部停住了。甲殼下的巨鉗張到了最開。" },
     ],
     loot: { meat: 5, hide: 3, shard: 2 },
   },
@@ -182,9 +182,9 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     hp: 300,
     moves: [
       { id: "dig", label: "鑿擊", baseCost: 0.8, symbol: "»»", damage: 6 },
-      { id: "dust", label: "揚塵", baseCost: 1.4, symbol: "…", damage: 4, status: { kind: "poison", amount: 40 } },
+      { id: "dust", label: "揚塵", baseCost: 1.4, symbol: "…", damage: 4, status: { kind: "poison", amount: 40 }, tell: "牠的環節一節節收緊,甲縫裡滲出灰黑色的粉末。" },
       // 崩落:高傷+暈眩——被震住的那一秒多,補血條也是凍結的;醒神鹽是針對性的解法
-      { id: "collapse", label: "崩落", baseCost: 2.6, symbol: "»»»»»»", damage: 16, control: { kind: "stun", duration: 1.2 } },
+      { id: "collapse", label: "崩落", baseCost: 2.6, symbol: "»»»»»»", damage: 16, control: { kind: "stun", duration: 1.2 }, tell: "牠高高抬起了雙螯——坑道頂上簌簌落下灰來。" },
     ],
     loot: { coal: 8, stone: 6, shard: 3 },
   },
@@ -198,10 +198,10 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     hp: 480,
     moves: [
       // 低語:鑽進骨頭裡的聲音讓手腳發沉(遲緩)——充能減半,補血與輸出一起變慢
-      { id: "whisper", label: "低語", baseCost: 1.6, symbol: "…", damage: 4, control: { kind: "slow", duration: 2.5 } },
+      { id: "whisper", label: "低語", baseCost: 1.6, symbol: "…", damage: 4, control: { kind: "slow", duration: 2.5 }, tell: "那個高大的輪廓朝你微微傾了過來。" },
       { id: "rend", label: "撕裂", baseCost: 1.2, symbol: "»»»»", damage: 10, status: { kind: "bleed", amount: 40 } },
       // 鐘鳴:整座教堂共振的一擊——高傷+暈眩;不帶醒神鹽硬扛,補血節奏會被打碎
-      { id: "toll", label: "鐘鳴", baseCost: 3.0, symbol: "»»»»»»»", damage: 20, control: { kind: "stun", duration: 1.5 } },
+      { id: "toll", label: "鐘鳴", baseCost: 3.0, symbol: "»»»»»»»", damage: 20, control: { kind: "stun", duration: 1.5 }, tell: "它緩緩抬起了手,指向頭頂的鐘。空氣繃緊了。" },
     ],
     loot: { shard: 5 },
   },
