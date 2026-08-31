@@ -916,6 +916,31 @@ hr {
   flex: 0 0 auto;
 }
 
+/* 異常狀態的圖形條列:名稱|█░條|數值 */
+.sp-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 0;
+}
+
+.sp-row .sp-label {
+  flex: 0 0 auto;
+  min-width: 6.5em;
+}
+
+.sp-row .sp-bar {
+  color: var(--fg);
+  letter-spacing: -1px;
+}
+
+.sp-row .sp-val {
+  margin-left: auto;
+  color: var(--fg-dim);
+  font-size: 12px;
+}
+
 /* ---------- 戰鬥頁分欄:左=行動區,右=整欄戰鬥紀錄 ---------- */
 
 .combat-split {

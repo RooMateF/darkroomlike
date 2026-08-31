@@ -560,21 +560,29 @@ function render() {
   if (engine.playerStatus.bleed.level > 0) effects.push(`流血Lv${engine.playerStatus.bleed.level}`);
   statusEffectsEl.textContent = effects.length ? `(${effects.join(" ")})` : "";
   {
-    const st: string[] = [];
+    // 圖形化(用戶提案):累積條會漲、倒數條會消——沿用戰鬥的 █░ 條語言
+    const SBAR = 12;
+    const sbar = (frac: number) => {
+      const f = Math.max(0, Math.min(SBAR, Math.round(frac * SBAR)));
+      return `${"█".repeat(f)}${"░".repeat(SBAR - f)}`;
+    };
+    const rows: string[] = [];
+    const spRow = (label: string, frac: number, val: string) =>
+      rows.push(`<div class="sp-row"><span class="sp-label">${label}</span><span class="sp-bar">${sbar(frac)}</span><span class="sp-val">${val}</span></div>`);
     const po = engine.playerStatus.poison;
     const bl = engine.playerStatus.bleed;
-    const fmtStatus = (label: string, x: { level: number; gauge: number }) =>
-      x.level >= 3 ? `${label} Lv3(已滿級)` : x.level > 0 ? `${label} Lv${x.level}(累積 ${Math.round(x.gauge)}/100)` : `${label}累積 ${Math.round(x.gauge)}/100(尚未成立)`;
-    if (po.level > 0 || po.gauge > 0) st.push(fmtStatus("中毒", po));
-    if (bl.level > 0 || bl.gauge > 0) st.push(fmtStatus("流血", bl));
+    const gaugeRow = (label: string, x: { level: number; gauge: number }) => {
+      if (x.level >= 3) spRow(`${label} Lv3`, 1, "滿級");
+      else spRow(x.level > 0 ? `${label} Lv${x.level}` : label, x.gauge / 100, `${Math.round(x.gauge)}/100`);
+    };
+    if (po.level > 0 || po.gauge > 0) gaugeRow("中毒", po);
+    if (bl.level > 0 || bl.gauge > 0) gaugeRow("流血", bl);
     const dot = po.level + bl.level;
-    if (dot > 0) st.push(`持續傷害 每 2 秒 -${dot}`);
-    if (engine.stunLeft > 0) st.push(`暈眩 剩 ${engine.stunLeft.toFixed(1)} 秒(行動條凍結)`);
-    if (engine.slowLeft > 0) st.push(`遲緩 剩 ${engine.slowLeft.toFixed(1)} 秒(充能減半)`);
-    if (engine.controlImmuneLeft > 0) st.push(`控制免疫 剩 ${engine.controlImmuneLeft.toFixed(1)} 秒(醒神鹽)`);
-    statusPanelEl.innerHTML = st.length
-      ? st.map((t) => `<div class="status-line">${t}</div>`).join("")
-      : `<div class="hint-line">目前沒有異常。</div>`;
+    if (dot > 0) rows.push(`<div class="status-line">持續傷害 每 2 秒 -${dot}</div>`);
+    if (engine.stunLeft > 0) spRow("暈眩", engine.stunTotal > 0 ? engine.stunLeft / engine.stunTotal : 1, `${engine.stunLeft.toFixed(1)}s`);
+    if (engine.slowLeft > 0) spRow("遲緩", engine.slowTotal > 0 ? engine.slowLeft / engine.slowTotal : 1, `${engine.slowLeft.toFixed(1)}s`);
+    if (engine.controlImmuneLeft > 0) spRow("免疫(鹽)", engine.controlImmuneTotal > 0 ? engine.controlImmuneLeft / engine.controlImmuneTotal : 1, `${engine.controlImmuneLeft.toFixed(1)}s`);
+    statusPanelEl.innerHTML = rows.length ? rows.join("") : `<div class="hint-line">目前沒有異常。</div>`;
   }
 
   // 敵方跑條(§2.9):速度本身就是威脅預告——招式越重跑條越慢,玩家看節奏自行判讀

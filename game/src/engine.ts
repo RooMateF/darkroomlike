@@ -133,6 +133,10 @@ export class CombatEngine {
   slowLeft = 0;
   /** 控制免疫剩餘秒數(醒神鹽):期間不吃暈眩/遲緩 */
   controlImmuneLeft = 0;
+  /** 各計時的總量(UI 畫倒數條用:剩餘/總量) */
+  stunTotal = 0;
+  slowTotal = 0;
+  controlImmuneTotal = 0;
   private logId = 0;
   private rafHandle = 0;
   private lastT = 0;
@@ -159,6 +163,7 @@ export class CombatEngine {
     this.stunLeft = 0;
     this.slowLeft = 0;
     this.controlImmuneLeft = Math.max(this.controlImmuneLeft, immuneSeconds);
+    this.controlImmuneTotal = Math.max(this.controlImmuneTotal, this.controlImmuneLeft);
   }
 
   /** 道具解除異常(如繃帶止血) */
@@ -244,9 +249,11 @@ export class CombatEngine {
       } else if (move.control) {
         if (move.control.kind === "stun") {
           this.stunLeft = Math.max(this.stunLeft, move.control.duration);
+          this.stunTotal = Math.max(this.stunTotal, this.stunLeft);
           this.cb.onLog({ id: this.logId++, actor: "你", target: "被震得踉蹌,一時動彈不得", symbol: "!!", damage: 0 });
         } else {
           this.slowLeft = Math.max(this.slowLeft, move.control.duration);
+          this.slowTotal = Math.max(this.slowTotal, this.slowLeft);
           this.cb.onLog({ id: this.logId++, actor: "你", target: "手腳發沉,動作慢了下來", symbol: "!", damage: 0 });
         }
       }
