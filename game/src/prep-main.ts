@@ -136,7 +136,7 @@ let capPackValue: HTMLElement;
     ["水", `${waterCap}/${waterCap}${flaskTag}`],
     ["揹負空間", `0/${capacity}`, "cap-pack"],
     ["每步消耗", "水 1"],
-    ["每 2 步消耗", "乾糧 1(不回血;乾糧見底改咬肉乾,咬一口 +10 HP)"],
+    ["每 2 步消耗", "乾糧 1"],
   ];
   for (const [label, value, id] of stats) {
     const item = document.createElement("div");
@@ -231,8 +231,8 @@ if (rows.length === 0) {
 }
 
 const supplyDefs = [
-  { id: "ration", label: RESOURCE_LABEL.ration, extra: `${RATIONS_PER_SLOT} 份占 1 格・行路的口糧,不回血`, get: () => pick.rations, set: (n: number) => (pick.rations = n) },
-  { id: "jerky", label: RESOURCE_LABEL.jerky, extra: "占 1 格・重但滋養,關鍵時刻能回血", get: () => pick.jerky, set: (n: number) => (pick.jerky = n) },
+  { id: "ration", label: RESOURCE_LABEL.ration, extra: `${RATIONS_PER_SLOT} 份占 1 格・行路口糧,每 2 步吃 1 份(不回血)`, get: () => pick.rations, set: (n: number) => (pick.rations = n) },
+  { id: "jerky", label: RESOURCE_LABEL.jerky, extra: "占 1 格・咬一口 +10 HP;乾糧見底時拿來充飢", get: () => pick.jerky, set: (n: number) => (pick.jerky = n) },
   { id: "bandage", label: RESOURCE_LABEL.bandage, extra: "占 1 格・稀有,大量回復並止血", get: () => pick.bandages, set: (n: number) => (pick.bandages = n) },
   { id: "arrow", label: RESOURCE_LABEL.arrow, extra: `${ARROWS_PER_SLOT} 支占 1 格・獵弓的彈藥`, get: () => pick.arrows, set: (n: number) => (pick.arrows = n) },
   { id: "bullet", label: RESOURCE_LABEL.bullet, extra: `${BULLETS_PER_SLOT} 發占 1 格・左輪/散彈通用`, get: () => pick.bullets, set: (n: number) => (pick.bullets = n) },
