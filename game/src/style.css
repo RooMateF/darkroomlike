@@ -369,7 +369,7 @@ h1 {
   border: 1px solid var(--fg-faint);
   color: var(--fg-dim);
   padding: 3px 10px;
-  cursor: not-allowed;
+  cursor: pointer; /* 可點的就是 pointer;「禁止」只留給真正 disabled 的按鈕 */
   white-space: nowrap;
   border-radius: 2px;
   transition: background 90ms linear, color 90ms linear, border-color 90ms linear;
@@ -378,6 +378,17 @@ h1 {
 .btn.ready {
   border-color: var(--fg-dim);
   color: var(--fg);
+}
+
+/* 真正按不下去的按鈕(disabled)才顯示禁止游標 */
+.btn:disabled,
+.btn-tiny:disabled,
+.use-link:disabled {
+  cursor: not-allowed;
+}
+
+/* 頁首的功能鈕(切換底色/DEV 等)也是可點的 */
+.top-row button {
   cursor: pointer;
 }
 
@@ -402,7 +413,7 @@ h1 {
   height: 20px;
   line-height: 1;
   padding: 0;
-  cursor: not-allowed;
+  cursor: pointer;
   border-radius: 2px;
   transition: background 90ms linear, color 90ms linear, border-color 90ms linear;
 }
