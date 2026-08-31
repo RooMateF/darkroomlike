@@ -724,6 +724,29 @@ hr {
   white-space: normal;
 }
 
+/* 單行打造列(武器/物資):名稱|成本|按鈕——一頁放得下,不用捲 */
+.craft-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 0;
+  border-bottom: 1px dotted var(--fg-faint);
+}
+
+.craft-line .building-name {
+  flex: 0 0 auto;
+}
+
+.craft-line .building-cost {
+  flex: 1 1 auto;
+  color: var(--fg-dim);
+  text-align: right;
+}
+
+.craft-line .btn {
+  flex: 0 0 auto;
+}
+
 /* ---------- 戰後拾取面板 ---------- */
 
 .loot-panel {

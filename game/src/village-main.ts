@@ -67,23 +67,23 @@ function startVillage() {
 
     <div class="page-content">
     <div class="dashboard">
-      <div class="section" id="affairs-resources">
+      <div class="section full-width" id="affairs-resources">
         <div class="section-title">資源</div>
         <div id="resource-grid" class="resource-grid"></div>
         <div id="resource-empty" class="hint-line">火堆旁還沒有任何存料。</div>
         <div id="manual" class="button-row" style="margin-top:8px;"></div>
         <div id="gather-slot"></div>
+        <div id="depart" class="status-line" style="margin-top:10px;"></div>
       </div>
 
-      <div class="section" id="affairs-jobs">
+      <div class="section full-width" id="affairs-jobs" style="display:none;">
         <div class="section-title">工作</div>
         <div id="jobs"></div>
       </div>
 
-      <div class="section" id="affairs-buildings">
+      <div class="section full-width" id="affairs-buildings" style="display:none;">
         <div class="section-title">建築</div>
         <div id="buildings"></div>
-        <div id="depart" class="status-line" style="margin-top:8px;"></div>
       </div>
 
       <div class="section" id="armory-section" style="display:none;">
@@ -488,14 +488,18 @@ function startVillage() {
   const weaponsEl = document.querySelector<HTMLDivElement>("#weapons")!;
 
   // 頁面主分頁:村務(生產+建造)/工房(裝備庫+打造)/交易所——紀錄常駐上方(玩家反饋:紀錄太低看不到)
-  type VillageTab = "affairs" | "workshop" | "market" | "system";
+  // 一個畫面一個功能(玩家反饋:不想捲動,選單直達)——村況是首頁,出門按鈕在這裡
+  type VillageTab = "status" | "jobs" | "build" | "workshop" | "market" | "system";
   const VILLAGE_TABS: { id: VillageTab; label: string }[] = [
-    { id: "affairs", label: "村務" },
+    { id: "status", label: "村況" },
+    { id: "jobs", label: "工作" },
+    { id: "build", label: "建築" },
     { id: "workshop", label: "工房" },
     { id: "market", label: "交易所" },
     { id: "system", label: "系統" },
   ];
-  let villageTab = (localStorage.getItem("village-tab") as VillageTab) ?? "affairs";
+  const storedTab = localStorage.getItem("village-tab");
+  let villageTab = (VILLAGE_TABS.some((t) => t.id === storedTab) ? storedTab : "status") as VillageTab;
   const villageTabsEl = document.querySelector<HTMLSpanElement>("#village-tabs")!;
   const villageTabBtns = VILLAGE_TABS.map((t) => {
     const b = document.createElement("button");
@@ -509,7 +513,9 @@ function startVillage() {
     villageTabsEl.appendChild(b);
     return { t, b };
   });
-  const affairsEls = ["#affairs-resources", "#affairs-jobs", "#affairs-buildings"].map((sel) => document.querySelector<HTMLDivElement>(sel)!);
+  const statusSectionEl = document.querySelector<HTMLDivElement>("#affairs-resources")!;
+  const jobsSectionEl = document.querySelector<HTMLDivElement>("#affairs-jobs")!;
+  const buildSectionEl = document.querySelector<HTMLDivElement>("#affairs-buildings")!;
   const systemSectionEl = document.querySelector<HTMLDivElement>("#system-section")!;
   const marketSectionEl = document.querySelector<HTMLDivElement>("#market-section")!;
   const marketShardsEl = document.querySelector<HTMLDivElement>("#market-shards")!;
@@ -536,13 +542,12 @@ function startVillage() {
     craftTabsEl.appendChild(b);
     return { t, b };
   });
+  // 武器列壓成單行(名稱|成本|修理/打造):12 把武器一頁放得下,不用捲(玩家反饋:畫面要乾淨)
   const weaponRows = WEAPONS.map((weapon) => {
     const row = document.createElement("div");
-    row.className = "building-row";
+    row.className = "craft-line";
     row.style.display = "none";
 
-    const head = document.createElement("div");
-    head.className = "building-head";
     const name = document.createElement("span");
     name.className = "building-name";
     name.textContent = weapon.label;
@@ -551,13 +556,6 @@ function startVillage() {
     cost.textContent = Object.entries(weapon.cost)
       .map(([id, n]) => `${RESOURCE_LABEL[id as ResourceId]} ${n}`)
       .join("　");
-    head.append(name, cost);
-
-    const foot = document.createElement("div");
-    foot.className = "building-foot";
-    const effect = document.createElement("span");
-    effect.className = "building-effect";
-    effect.textContent = weapon.category === "melee" ? "近戰武器" : "遠程武器";
     const btn = document.createElement("button");
     btn.className = "btn";
     btn.textContent = "打造";
@@ -573,9 +571,8 @@ function startVillage() {
       engine.repairWeapon(weapon.id);
       render();
     });
-    foot.append(effect, repairBtn, btn);
 
-    row.append(head, foot);
+    row.append(name, cost, repairBtn, btn);
     weaponsEl.appendChild(row);
     return { weapon, row, name, cost, btn, repairBtn };
   });
@@ -583,11 +580,9 @@ function startVillage() {
   // 消耗品打造(乾糧/繃帶/弓矢),同樣依「見過材料 + 前置建築/武器」浮現
   const consumableRows = CONSUMABLES.map((def) => {
     const row = document.createElement("div");
-    row.className = "building-row";
+    row.className = "craft-line";
     row.style.display = "none";
 
-    const head = document.createElement("div");
-    head.className = "building-head";
     const name = document.createElement("span");
     name.className = "building-name";
     name.textContent = def.label;
@@ -597,13 +592,6 @@ function startVillage() {
       Object.entries(def.cost)
         .map(([id, n]) => `${RESOURCE_LABEL[id as ResourceId]} ${n}`)
         .join("　") + ` → x${def.yield}`;
-    head.append(name, cost);
-
-    const foot = document.createElement("div");
-    foot.className = "building-foot";
-    const effect = document.createElement("span");
-    effect.className = "building-effect";
-    effect.textContent = "消耗品";
     const btn = document.createElement("button");
     btn.className = "btn";
     btn.textContent = "製作";
@@ -611,9 +599,8 @@ function startVillage() {
       engine.craftConsumable(def.id);
       render();
     });
-    foot.append(effect, btn);
 
-    row.append(head, foot);
+    row.append(name, cost, btn);
     weaponsEl.appendChild(row);
     return { def, row, btn };
   });
@@ -1000,13 +987,15 @@ function startVillage() {
 
     // 主分頁顯示:分頁鈕常駐標題列;各分頁「有無內容」+ 當前選擇決定區塊開關
     const workshopHas = armoryEl.childElementCount > 0 || anyCraftVisible;
-    const tabHas: Record<VillageTab, boolean> = { affairs: true, workshop: workshopHas, market: tradeOpen, system: true };
-    const activeVillageTab: VillageTab = tabHas[villageTab] ? villageTab : "affairs";
+    const tabHas: Record<VillageTab, boolean> = { status: true, jobs: true, build: true, workshop: workshopHas, market: tradeOpen, system: true };
+    const activeVillageTab: VillageTab = tabHas[villageTab] ? villageTab : "status";
     for (const { t, b } of villageTabBtns) {
       b.style.display = tabHas[t.id] ? "" : "none";
       b.classList.toggle("ready", t.id === activeVillageTab);
     }
-    for (const el of affairsEls) el.style.display = activeVillageTab === "affairs" ? "" : "none";
+    statusSectionEl.style.display = activeVillageTab === "status" ? "" : "none";
+    jobsSectionEl.style.display = activeVillageTab === "jobs" ? "" : "none";
+    buildSectionEl.style.display = activeVillageTab === "build" ? "" : "none";
     armorySection.style.display = activeVillageTab === "workshop" && armoryEl.childElementCount > 0 ? "" : "none";
     craftSectionEl.style.display = activeVillageTab === "workshop" && anyCraftVisible ? "" : "none";
     marketSectionEl.style.display = activeVillageTab === "market" && tradeOpen ? "" : "none";
