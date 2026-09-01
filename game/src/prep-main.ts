@@ -158,7 +158,7 @@ let capPackValue: HTMLElement;
   capPackValue = app.querySelector<HTMLElement>("#cap-pack")!;
 }
 
-/** 一列「名稱 [-] n/總量 [+]」的通用挑選列;canAdd 是容量上限的守門 */
+/** 一列「名稱 [-] n/總量 [+] [丟]」的通用挑選列;canAdd 是容量守門,onDrop 丟村莊庫存 */
 function makePickRow(
   label: string,
   extra: string,
@@ -166,6 +166,7 @@ function makePickRow(
   getPicked: () => number,
   setPicked: (n: number) => void,
   canAdd: () => boolean = () => true,
+  onDrop?: () => void,
 ) {
   const line = document.createElement("div");
   line.className = "row-grid";
@@ -199,6 +200,21 @@ function makePickRow(
   });
 
   controls.append(minus, count, plus);
+  if (onDrop) {
+    // 丟棄村莊庫存(2026-09:倉庫管理統一收進整備頁)——丟掉的拿不回來
+    const dropBtn = document.createElement("button");
+    dropBtn.className = "btn-tiny";
+    dropBtn.textContent = "丟";
+    dropBtn.title = "丟棄一件(從村莊倉庫;拿不回來)";
+    dropBtn.addEventListener("click", () => {
+      if (getStock() <= 0) return;
+      onDrop();
+      saveVillage(village);
+      setPicked(Math.min(getPicked(), getStock()));
+      render();
+    });
+    controls.append(dropBtn);
+  }
 
   const info = document.createElement("span");
   info.className = "row-info";
@@ -218,12 +234,15 @@ for (const w of WEAPONS) {
   const normalTotal = total - fineTotal;
   const ammoText = w.ammo === "arrow" ? "・需要弓矢" : w.ammo === "bullet" ? `・需要子彈(每擊 ${w.ammoPerUse ?? 1} 發)` : "";
   // 普通與精工分列各自挑(2026-09 用戶要求);戰鬥中普通優先消耗、精工墊後
+  // 丟棄用可變庫存(丟一把 → 兩列的分母即時變)
+  let normalStock = normalTotal;
+  let fineStock = fineTotal;
   if (normalTotal > 0) {
     const remainingDur = village.weaponDurability?.[w.id] ?? w.durability;
     const row = makePickRow(
       w.label,
       `占 ${w.packSize} 格・耐久 ${remainingDur}/${w.durability}${ammoText}`,
-      () => normalTotal,
+      () => normalStock,
       () => pick.weapons[w.id] ?? 0,
       (n) => (pick.weapons[w.id] = n),
       () =>
@@ -231,6 +250,13 @@ for (const w of WEAPONS) {
           () => (pick.weapons[w.id] = (pick.weapons[w.id] ?? 0) + 1),
           () => (pick.weapons[w.id] = (pick.weapons[w.id] ?? 1) - 1),
         ),
+      () => {
+        // 丟普通品:視為丟「耗損的那把」——殘耐久紀錄跟著消失
+        normalStock -= 1;
+        village.ownedWeapons[w.id] = (village.ownedWeapons[w.id] ?? 0) - 1;
+        if (village.ownedWeapons[w.id] <= 0) delete village.ownedWeapons[w.id];
+        if (village.weaponDurability) delete village.weaponDurability[w.id];
+      },
     );
     weaponListEl.appendChild(row.line);
     rows.push(row);
@@ -241,7 +267,7 @@ for (const w of WEAPONS) {
     const row = makePickRow(
       `精工${w.label}`,
       `占 ${w.packSize} 格・耐久 ${fineDur}/${fineMax}(精工:上限 +25%)${ammoText}`,
-      () => fineTotal,
+      () => fineStock,
       () => pick.fineW[w.id] ?? 0,
       (n) => (pick.fineW[w.id] = n),
       () =>
@@ -249,6 +275,14 @@ for (const w of WEAPONS) {
           () => (pick.fineW[w.id] = (pick.fineW[w.id] ?? 0) + 1),
           () => (pick.fineW[w.id] = (pick.fineW[w.id] ?? 1) - 1),
         ),
+      () => {
+        fineStock -= 1;
+        village.fineWeapons ??= {};
+        village.fineWeapons[w.id] = (village.fineWeapons[w.id] ?? 0) - 1;
+        if (village.fineWeapons[w.id] <= 0) delete village.fineWeapons[w.id];
+        village.ownedWeapons[w.id] = (village.ownedWeapons[w.id] ?? 0) - 1;
+        if (village.ownedWeapons[w.id] <= 0) delete village.ownedWeapons[w.id];
+      },
     );
     weaponListEl.appendChild(row.line);
     rows.push(row);
@@ -274,11 +308,20 @@ const supplyDefs = [
 for (const def of supplyDefs) {
   const stock = () => Math.floor(village.resources[def.id] ?? 0);
   if (stock() <= 0) continue;
-  const row = makePickRow(def.label, def.extra, stock, def.get, def.set, () =>
-    fitsAfterAdd(
-      () => def.set(def.get() + 1),
-      () => def.set(def.get() - 1),
-    ),
+  const row = makePickRow(
+    def.label,
+    def.extra,
+    stock,
+    def.get,
+    def.set,
+    () =>
+      fitsAfterAdd(
+        () => def.set(def.get() + 1),
+        () => def.set(def.get() - 1),
+      ),
+    () => {
+      village.resources[def.id] = Math.max(0, (village.resources[def.id] ?? 0) - 1);
+    },
   );
   supplyListEl.appendChild(row.line);
   rows.push(row);

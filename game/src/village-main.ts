@@ -747,27 +747,9 @@ function startVillage() {
       render();
     });
 
-    // 丟棄鈕:持有時可扔(有備用且使用中那把受損時分成兩顆:丟耗損的/丟全新的)
-    const dropWornBtn = document.createElement("button");
-    dropWornBtn.className = "btn";
-    dropWornBtn.style.display = "none";
-    dropWornBtn.addEventListener("click", () => {
-      // 受損時=丟耗損的那把;未受損時視同丟備用(先丟普通品,別把精工扔了)
-      engine.dropWeapon(weapon.id, engine.isWeaponDamaged(weapon.id));
-      render();
-    });
-    const dropNewBtn = document.createElement("button");
-    dropNewBtn.className = "btn";
-    dropNewBtn.style.display = "none";
-    dropNewBtn.textContent = "丟全新的";
-    dropNewBtn.addEventListener("click", () => {
-      engine.dropWeapon(weapon.id, false);
-      render();
-    });
-
-    row.append(name, cost, repairBtn, btn, dropWornBtn, dropNewBtn);
+    row.append(name, cost, repairBtn, btn);
     weaponsEl.appendChild(row);
-    return { weapon, row, name, cost, btn, repairBtn, dropWornBtn, dropNewBtn };
+    return { weapon, row, name, cost, btn, repairBtn };
   });
 
   // 消耗品打造(乾糧/繃帶/弓矢),同樣依「見過材料 + 前置建築/武器」浮現
@@ -1249,22 +1231,7 @@ function startVillage() {
         delete row.repairBtn.dataset.brokenRepair;
       }
 
-      // 丟棄鈕:持有才出現;有備用且使用中那把受損 → 挑丟哪一把,否則單顆「丟棄」
-      const damaged = engine.isWeaponDamaged(row.weapon.id);
-      if (count > 0) {
-        row.dropWornBtn.style.display = "";
-        if (count > 1 && damaged) {
-          const worn = engine.weaponDurability[row.weapon.id];
-          row.dropWornBtn.textContent = `丟耗損的(耐久 ${worn})`;
-          row.dropNewBtn.style.display = "";
-        } else {
-          row.dropWornBtn.textContent = damaged ? `丟棄(耐久 ${engine.weaponDurability[row.weapon.id]})` : "丟棄";
-          row.dropNewBtn.style.display = "none";
-        }
-      } else {
-        row.dropWornBtn.style.display = "none";
-        row.dropNewBtn.style.display = "none";
-      }
+      // 丟棄改到整備頁的倉庫管理(2026-09 用戶反饋:打造列擠爆版面)
     }
 
     // 消耗品:乾糧/繃帶/弓矢
