@@ -134,6 +134,36 @@ exploreDevBtn.addEventListener("click", () => {
 });
 renderExploreDevBtn();
 
+// ---- 滾輪縮放(用戶要求):以游標指到的格子為錨點——放大時湊近看那裡,不會跳回 @ ----
+// camCenter 是暫時的攝影機焦點;玩家一移動就交還給 @(render 裡偵測位置變化歸還)
+let camCenter: { x: number; y: number } | null = null;
+let lastOx = 0;
+let lastOy = 0;
+let lastPlayerKey = "";
+
+mapEl.addEventListener(
+  "wheel",
+  (e) => {
+    e.preventDefault();
+    const i = ZOOM_LEVELS.indexOf(zoomPx);
+    const ni = e.deltaY < 0 ? Math.min(ZOOM_LEVELS.length - 1, i + 1) : Math.max(0, i - 1);
+    if (ni === i) return;
+    // 錨點:游標下的格子,連同它在視窗裡的相對位置(縮放後盡量停在原地)
+    const cell = (e.target as HTMLElement).closest?.(".map-cell") as HTMLElement | null;
+    const tx = cell?.dataset.x !== undefined ? Number(cell.dataset.x) : lastOx + Math.floor(viewCols / 2);
+    const ty = cell?.dataset.y !== undefined ? Number(cell.dataset.y) : lastOy + Math.floor(viewRows / 2);
+    const fx = viewCols > 0 ? (tx - lastOx) / viewCols : 0.5;
+    const fy = viewRows > 0 ? (ty - lastOy) / viewRows : 0.5;
+    setZoom(ZOOM_LEVELS[ni]); // 重建格線(viewCols/viewRows 已更新)
+    camCenter = {
+      x: Math.round(tx + (0.5 - fx) * viewCols),
+      y: Math.round(ty + (0.5 - fy) * viewRows),
+    };
+    render();
+  },
+  { passive: false },
+);
+
 /** 量測目前字級下一個等寬字元的實際寬度(px) */
 function measureCharWidth(): number {
   const probe = document.createElement("div");
@@ -504,9 +534,18 @@ function render() {
   zoomOutBtn.disabled = zoomPx <= ZOOM_LEVELS[0];
   zoomInBtn.disabled = zoomPx >= ZOOM_LEVELS[ZOOM_LEVELS.length - 1];
   renderPackButton();
-  // 攝影機原點:以 @ 為中心,夾在地圖邊界內
-  const ox = Math.max(0, Math.min(MAP_WIDTH - viewCols, engine.playerX - Math.floor(viewCols / 2)));
-  const oy = Math.max(0, Math.min(MAP_HEIGHT - viewRows, engine.playerY - Math.floor(viewRows / 2)));
+  // 攝影機原點:預設以 @ 為中心;滾輪縮放時暫時鎖在游標錨點,玩家一移動就交還
+  const playerKey = `${engine.playerX},${engine.playerY},${engine.mapId}`;
+  if (playerKey !== lastPlayerKey) {
+    lastPlayerKey = playerKey;
+    camCenter = null;
+  }
+  const focusX = camCenter?.x ?? engine.playerX;
+  const focusY = camCenter?.y ?? engine.playerY;
+  const ox = Math.max(0, Math.min(MAP_WIDTH - viewCols, focusX - Math.floor(viewCols / 2)));
+  const oy = Math.max(0, Math.min(MAP_HEIGHT - viewRows, focusY - Math.floor(viewRows / 2)));
+  lastOx = ox;
+  lastOy = oy;
 
   // 已回收的 Lv2 探勘點:畫成暗色 r(回收場)——「?」是還沒解開的謎,解開了就換臉
   const recycledKeys = new Set(
