@@ -4,7 +4,7 @@ import { MAP_DEFS } from "./explore/map-gen";
 import { hasChurchKey, siteProgress, specialSites } from "./explore/sites";
 import { LANDMARKS, TILE_SYMBOL } from "./explore/types";
 import { playerMaxHp, packUsed, saveCarried } from "./carried";
-import { WEAPONS, ARROWS_PER_SLOT, RATIONS_PER_SLOT, BULLETS_PER_SLOT, RAILS_PER_SLOT } from "./village/data";
+import { WEAPONS, ARROWS_PER_SLOT, RATIONS_PER_SLOT, BULLETS_PER_SLOT, RAILS_PER_SLOT , OIL_SLOTS} from "./village/data";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
 
 // 2026-08 併入村莊單頁:改為可掛載的視圖(mountExplore),殼層負責分頁、寬版切換與引擎暫停
@@ -296,17 +296,52 @@ function renderPack() {
   title.textContent = `行囊整理(${packUsed(c)}/${c.packCap ?? 20} 格)——丟棄的東西會留在原地,拿不回來`;
   packPanel.appendChild(title);
 
-  // 武器(各有占格;丟了就沒了)
+  // 武器(各有占格;丟了就沒了)——備用皆全新,殘耐久屬於「使用中那一把」;
+  // 有備用且用舊了時可以挑:丟耗損的(換上備用)或丟全新的備用
   for (const w of WEAPONS) {
     const n = c.weapons[w.id] ?? 0;
     if (n <= 0) continue;
-    packRow(`${w.label} ×${n}`, `占 ${w.packSize * n} 格`, () => {
+    const worn = c.durability[w.id] ?? w.durability;
+    const line = document.createElement("div");
+    line.className = "row-grid";
+    const name = document.createElement("span");
+    name.className = "row-name";
+    name.textContent = `${w.label} ×${n}(耐久 ${worn}/${w.durability})`;
+    const mid = document.createElement("span");
+    mid.className = "row-controls";
+    mid.textContent = `占 ${w.packSize * n} 格`;
+    const btns = document.createElement("span");
+    const dropWeapon = (dropWorn: boolean) => {
       c.weapons[w.id] = n - 1;
       if (c.weapons[w.id] <= 0) {
         delete c.weapons[w.id];
         delete c.durability[w.id];
+      } else if (dropWorn) {
+        delete c.durability[w.id]; // 耗損的扔了,備用的頂上(全新)
       }
-    });
+      saveCarried(c);
+      renderPack();
+      render();
+    };
+    if (n > 1 && worn < w.durability) {
+      const b1 = document.createElement("button");
+      b1.className = "btn";
+      b1.textContent = `丟耗損的(耐久 ${worn})`;
+      b1.addEventListener("click", () => dropWeapon(true));
+      const b2 = document.createElement("button");
+      b2.className = "btn";
+      b2.textContent = "丟全新的";
+      b2.addEventListener("click", () => dropWeapon(false));
+      btns.append(b1, b2);
+    } else {
+      const b = document.createElement("button");
+      b.className = "btn";
+      b.textContent = "丟棄";
+      b.addEventListener("click", () => dropWeapon(true));
+      btns.appendChild(b);
+    }
+    line.append(name, mid, btns);
+    packPanel.appendChild(line);
   }
 
   // 補給品(乾糧 2 併 1 格、弓矢 3 併 1 格,其餘 1 格 1 件)
@@ -327,7 +362,7 @@ function renderPack() {
   for (const def of supplies) {
     const n = (c[def.key] as number | undefined) ?? 0;
     if (n <= 0) continue;
-    const slots = Math.ceil(n / def.perSlot);
+    const slots = def.key === "oil" ? n * OIL_SLOTS : Math.ceil(n / def.perSlot);
     const kind = usableKind[def.key];
     packRow(
       `${RESOURCE_LABEL[def.id]} ×${n}`,
@@ -538,7 +573,7 @@ function render() {
   if (engine.canLightLamp()) {
     const lampBtn = document.createElement("button");
     lampBtn.className = "btn";
-    lampBtn.textContent = "點亮燈柱(燈油×3)";
+    lampBtn.textContent = "點亮燈柱(燈油×1)";
     lampBtn.addEventListener("click", () => {
       if (engine.lightLamp()) render();
     });

@@ -175,6 +175,26 @@ function startVillage() {
     logEl.scrollTop = logEl.scrollHeight;
   }
 
+  // 燈油制度遷移(一次性):舊制 1 份 1 格、每座燈柱 3 份 → 新制 1 罐 3 格、每座 1 罐。
+  // 庫存與行囊裡的舊份數折成罐(無條件進位,不讓玩家吃虧)
+  if (!localStorage.getItem("oil-unit-v2")) {
+    try {
+      const v = JSON.parse(localStorage.getItem("village-state") ?? "{}");
+      if ((v.resources?.oil ?? 0) > 0) {
+        v.resources.oil = Math.ceil(v.resources.oil / 3);
+        localStorage.setItem("village-state", JSON.stringify(v));
+      }
+      const c = JSON.parse(localStorage.getItem("carried") ?? "null");
+      if (c && (c.oil ?? 0) > 0) {
+        c.oil = Math.ceil(c.oil / 3);
+        localStorage.setItem("carried", JSON.stringify(c));
+      }
+    } catch {
+      /* 壞資料就跳過,別擋開機 */
+    }
+    localStorage.setItem("oil-unit-v2", "1");
+  }
+
   const engine = new VillageEngine({ onLog: appendLog, onTick: render });
 
   // 測試用十倍速:生產週期 10 秒 → 1 秒,採集冷卻同步縮短(只影響本次開頁,不寫進存檔)
@@ -355,12 +375,12 @@ function startVillage() {
     return "poor";
   }
 
-  function drawGatherBar() {
-    if (!gatherState) return;
+  // 節奏條繪製(採集與打造共用同一套視覺)
+  function drawBar(cells: HTMLSpanElement[], pos: number) {
     for (let i = 0; i < BAR_LEN; i++) {
       const distance = Math.abs(i - SWEET_CENTER);
-      const cell = gatherCells[i];
-      if (i === gatherState.pos) {
+      const cell = cells[i];
+      if (i === pos) {
         cell.textContent = "█";
         cell.className = "gather-cursor";
       } else if (distance === 0) {
@@ -376,10 +396,15 @@ function startVillage() {
     }
   }
 
-  function drawStoppedBar(stoppedAt: number, distance: number) {
+  function drawGatherBar() {
+    if (!gatherState) return;
+    drawBar(gatherCells, gatherState.pos);
+  }
+
+  function drawStopped(cells: HTMLSpanElement[], stoppedAt: number, distance: number) {
     for (let i = 0; i < BAR_LEN; i++) {
       const d = Math.abs(i - SWEET_CENTER);
-      const cell = gatherCells[i];
+      const cell = cells[i];
       if (i === stoppedAt) {
         cell.textContent = distance === 0 ? "★" : "█";
         cell.className = `gather-cursor stopped-${gradeKey(distance)}`;
@@ -396,11 +421,19 @@ function startVillage() {
     }
   }
 
-  // 空白鍵也能停,不用一定要點按鈕
+  function drawStoppedBar(stoppedAt: number, distance: number) {
+    drawStopped(gatherCells, stoppedAt, distance);
+  }
+
+  // 空白鍵也能停,不用一定要點按鈕(採集與打造的節奏條共用)
   window.addEventListener("keydown", (e) => {
-    if (e.code === "Space" && gatherState) {
+    if (e.code !== "Space") return;
+    if (gatherState) {
       e.preventDefault();
       stopGather();
+    } else if (craftState) {
+      e.preventDefault();
+      stopCraftGame();
     }
   });
 
@@ -615,6 +648,72 @@ function startVillage() {
     return { t, b };
   });
   // 武器列壓成單行(名稱|成本|修理/打造):12 把武器一頁放得下,不用捲(玩家反饋:畫面要乾淨)
+  // ---- 打造小遊戲:與採集同一套節奏條——停得越準,省下的材料越多(完美 20%、不錯 10%、普通 5%) ----
+  let craftState: { kind: "weapon" | "consumable"; id: string; pos: number; dir: number; timer: number } | null = null;
+  let craftResultTimer = 0;
+  const craftBarEl = document.createElement("div");
+  craftBarEl.className = "gather-bar";
+  const craftRow = document.createElement("div");
+  craftRow.className = "gather-row";
+  const craftCells: HTMLSpanElement[] = [];
+  for (let i = 0; i < BAR_LEN; i++) {
+    const cell = document.createElement("span");
+    craftRow.appendChild(cell);
+    craftCells.push(cell);
+  }
+  const craftStopBtn = document.createElement("button");
+  craftStopBtn.className = "btn btn-primary";
+  craftStopBtn.textContent = "停!";
+  craftStopBtn.addEventListener("click", stopCraftGame);
+  const craftResultEl = document.createElement("span");
+  craftResultEl.className = "gather-result";
+  craftBarEl.append(craftRow, craftStopBtn, craftResultEl);
+  craftBarEl.style.visibility = "hidden";
+  weaponsEl.parentElement!.insertBefore(craftBarEl, weaponsEl);
+
+  function startCraftGame(kind: "weapon" | "consumable", id: string) {
+    if (craftState) return;
+    clearTimeout(craftResultTimer);
+    craftResultEl.textContent = "";
+    craftResultEl.className = "gather-result";
+    craftRow.className = "gather-row";
+    craftStopBtn.style.display = "";
+    craftBarEl.style.visibility = "visible";
+    craftState = { kind, id, pos: 0, dir: 1, timer: 0 };
+    craftState.timer = window.setInterval(() => {
+      const g = craftState!;
+      g.pos += g.dir;
+      if (g.pos >= BAR_LEN - 1 || g.pos <= 0) g.dir *= -1;
+      drawBar(craftCells, g.pos);
+    }, 45);
+    drawBar(craftCells, craftState.pos);
+  }
+
+  function stopCraftGame() {
+    if (!craftState) return;
+    const { kind, id, pos } = craftState;
+    clearInterval(craftState.timer);
+    craftState = null;
+
+    const distance = Math.abs(pos - SWEET_CENTER);
+    // 停得越準省越多;失手也照樣做得出來(懲罰是沒省到,不是浪費材料)
+    const refundPct = distance <= 1 ? 0.2 : distance <= 3 ? 0.1 : distance <= 6 ? 0.05 : 0;
+    const ok = kind === "weapon" ? engine.craftWeapon(id, refundPct) : engine.craftConsumable(id, refundPct);
+
+    drawStopped(craftCells, pos, distance);
+    craftStopBtn.style.display = "none";
+    const gradeText = distance <= 1 ? "完美" : distance <= 3 ? "不錯" : distance <= 6 ? "普通" : "勉強";
+    craftResultEl.textContent = ok ? `${gradeText}　完工${refundPct > 0 ? `(省下約 ${Math.round(refundPct * 100)}% 材料)` : ""}` : "材料不夠了";
+    craftResultEl.className = `gather-result grade-${gradeKey(distance)}`;
+    craftRow.className = distance <= 1 ? "gather-row hit-perfect" : distance <= 3 ? "gather-row hit-good" : "gather-row hit-miss";
+
+    craftResultTimer = window.setTimeout(() => {
+      craftBarEl.style.visibility = "hidden";
+    }, 1400);
+
+    render();
+  }
+
   const weaponRows = WEAPONS.map((weapon) => {
     const row = document.createElement("div");
     row.className = "craft-line";
@@ -631,10 +730,7 @@ function startVillage() {
     const btn = document.createElement("button");
     btn.className = "btn";
     btn.textContent = "打造";
-    btn.addEventListener("click", () => {
-      engine.craftWeapon(weapon.id);
-      render();
-    });
+    btn.addEventListener("click", () => startCraftGame("weapon", weapon.id));
     // 修理鈕:鐵匠鋪蓋好且這把武器受損時才出現
     const repairBtn = document.createElement("button");
     repairBtn.className = "btn";
@@ -644,9 +740,26 @@ function startVillage() {
       render();
     });
 
-    row.append(name, cost, repairBtn, btn);
+    // 丟棄鈕:持有時可扔(有備用且使用中那把受損時分成兩顆:丟耗損的/丟全新的)
+    const dropWornBtn = document.createElement("button");
+    dropWornBtn.className = "btn";
+    dropWornBtn.style.display = "none";
+    dropWornBtn.addEventListener("click", () => {
+      engine.dropWeapon(weapon.id, true);
+      render();
+    });
+    const dropNewBtn = document.createElement("button");
+    dropNewBtn.className = "btn";
+    dropNewBtn.style.display = "none";
+    dropNewBtn.textContent = "丟全新的";
+    dropNewBtn.addEventListener("click", () => {
+      engine.dropWeapon(weapon.id, false);
+      render();
+    });
+
+    row.append(name, cost, repairBtn, btn, dropWornBtn, dropNewBtn);
     weaponsEl.appendChild(row);
-    return { weapon, row, name, cost, btn, repairBtn };
+    return { weapon, row, name, cost, btn, repairBtn, dropWornBtn, dropNewBtn };
   });
 
   // 消耗品打造(乾糧/繃帶/弓矢),同樣依「見過材料 + 前置建築/武器」浮現
@@ -667,10 +780,7 @@ function startVillage() {
     const btn = document.createElement("button");
     btn.className = "btn";
     btn.textContent = "製作";
-    btn.addEventListener("click", () => {
-      engine.craftConsumable(def.id);
-      render();
-    });
+    btn.addEventListener("click", () => startCraftGame("consumable", def.id));
 
     row.append(name, cost, btn);
     weaponsEl.appendChild(row);
@@ -1018,6 +1128,23 @@ function startVillage() {
         row.repairBtn.textContent = `修理(${rcText})`;
         row.repairBtn.disabled = !affordable;
         row.repairBtn.classList.toggle("ready", affordable);
+      }
+
+      // 丟棄鈕:持有才出現;有備用且使用中那把受損 → 挑丟哪一把,否則單顆「丟棄」
+      const damaged = engine.isWeaponDamaged(row.weapon.id);
+      if (count > 0) {
+        row.dropWornBtn.style.display = "";
+        if (count > 1 && damaged) {
+          const worn = engine.weaponDurability[row.weapon.id];
+          row.dropWornBtn.textContent = `丟耗損的(耐久 ${worn})`;
+          row.dropNewBtn.style.display = "";
+        } else {
+          row.dropWornBtn.textContent = damaged ? `丟棄(耐久 ${engine.weaponDurability[row.weapon.id]})` : "丟棄";
+          row.dropNewBtn.style.display = "none";
+        }
+      } else {
+        row.dropWornBtn.style.display = "none";
+        row.dropNewBtn.style.display = "none";
       }
     }
 

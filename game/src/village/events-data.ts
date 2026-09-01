@@ -195,8 +195,8 @@ export const EVENTS: VillageEvent[] = [
     text: "一個渾身裹著破布的高大旅人站在村口。布縫間露出的不是皮膚。它伸出手,聲音像敲在金屬管上:「鐵。和燒的油。」",
     options: [
       {
-        label: "給它(鐵礦 -60、燈油 -10)",
-        effect: { iron: -60, oil: -10 },
+        label: "給它(鐵礦 -60、燈油 -4)",
+        effect: { iron: -60, oil: -4 },
         grantPerk: "machinist",
         resultText: "它半天之內改造了村裡所有的工具,沒有人看清它是怎麼做的。天黑前它就走了。(獲得【機巧】:手動採集成果 +25%)",
       },

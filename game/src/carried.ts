@@ -35,7 +35,7 @@ export interface Carried {
   rails?: number;
   /** 火焰卷軸:一次性法術道具(法術系統解鎖前的第一次接觸) */
   scrolls?: number;
-  /** 燈油:點亮據點燈柱的燃料(每座 3 份) */
+  /** 燈油:一罐點一座據點燈柱(罐子占 3 格) */
   oil?: number;
   /** 舊時代藥劑(交易所兌換):戰鬥中飲用,大量回復並解除所有異常 */
   elixirs?: number;
@@ -49,7 +49,7 @@ export interface Carried {
   packCap?: number;
 }
 
-import { WEAPONS, ARROWS_PER_SLOT, RATIONS_PER_SLOT, BULLETS_PER_SLOT, RAILS_PER_SLOT } from "./village/data";
+import { WEAPONS, ARROWS_PER_SLOT, RATIONS_PER_SLOT, BULLETS_PER_SLOT, RAILS_PER_SLOT, OIL_SLOTS } from "./village/data";
 
 /**
  * 揹負空間目前的占用量(統一容量):
@@ -72,7 +72,8 @@ export function packUsed(carried: Carried): number {
   // 乾糧輕便 2 份併 1 格;肉乾重,1 份 1 格
   const rationsTotal = (carried.rations ?? 0) + (carried.loot?.ration ?? 0);
   used += Math.ceil(rationsTotal / RATIONS_PER_SLOT);
-  used += (carried.jerky ?? 0) + (carried.bandages ?? 0) + (carried.scrolls ?? 0) + (carried.oil ?? 0) + (carried.elixirs ?? 0) + (carried.salts ?? 0);
+  used += (carried.jerky ?? 0) + (carried.bandages ?? 0) + (carried.scrolls ?? 0) + (carried.elixirs ?? 0) + (carried.salts ?? 0);
+  used += (carried.oil ?? 0) * OIL_SLOTS;
   for (const [id, n] of Object.entries(carried.loot ?? {})) {
     if (id === "arrow" || id === "ration" || id === "bullet" || id === "rail") continue; // 已併入各自的格
     used += n;

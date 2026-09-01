@@ -183,19 +183,24 @@ export class VillageEngine {
   }
 
   /** 武器可重複打造,備用武器在耐久度機制下有實際意義 */
-  craftWeapon(weaponId: string) {
+  /** 打造武器:refundPct 是打造小遊戲的準度獎勵——停得準,退回一部分材料 */
+  craftWeapon(weaponId: string, refundPct = 0): boolean {
     const weapon = WEAPONS.find((w) => w.id === weaponId);
-    if (!weapon || weapon.lootOnly || !this.canAfford(weapon.cost)) return;
+    if (!weapon || weapon.lootOnly || !this.canAfford(weapon.cost)) return false;
 
+    const saved: string[] = [];
     for (const [id, amount] of Object.entries(weapon.cost)) {
-      this.resources[id as ResourceId] -= amount ?? 0;
+      const back = Math.round((amount ?? 0) * refundPct);
+      this.resources[id as ResourceId] -= (amount ?? 0) - back;
+      if (back > 0) saved.push(`${RESOURCE_LABEL[id as ResourceId]} ${back}`);
     }
     // 幽靈耐久防呆:這一型的舊武器已經全數失去(戰死帶走)時,殘耐久紀錄也該跟著消失——
     // 新打造的是全新的一把,不繼承亡者之傷
     if ((this.ownedWeapons[weaponId] ?? 0) <= 0) delete this.weaponDurability[weaponId];
     this.ownedWeapons[weaponId] = (this.ownedWeapons[weaponId] ?? 0) + 1;
     this.saveState();
-    this.cb.onLog(`打造了「${weapon.label}」。`);
+    this.cb.onLog(`打造了「${weapon.label}」。${saved.length > 0 ? `(手藝到位,省下 ${saved.join("、")})` : ""}`);
+    return true;
   }
 
   /** 消耗品打造(乾糧/繃帶/弓矢),成品直接進資源庫存 */
@@ -256,6 +261,23 @@ export class VillageEngine {
     this.cb.onLog(`修理好了「${weapon?.label ?? weaponId}」。`);
   }
 
+  /** 丟棄一把武器:有備用且使用中那把有耗損時,可挑丟哪一把(dropWorn=丟耗損的) */
+  dropWeapon(weaponId: string, dropWorn: boolean) {
+    const n = this.ownedWeapons[weaponId] ?? 0;
+    if (n <= 0) return;
+    this.ownedWeapons[weaponId] = n - 1;
+    if (this.ownedWeapons[weaponId] <= 0) {
+      delete this.ownedWeapons[weaponId];
+      delete this.weaponDurability[weaponId];
+    } else if (dropWorn) {
+      // 耗損的那把扔了,備用的頂上(全新,殘耐久紀錄跟著消失)
+      delete this.weaponDurability[weaponId];
+    }
+    this.saveState();
+    const weapon = WEAPONS.find((w) => w.id === weaponId);
+    this.cb.onLog(`丟棄了一把「${weapon?.label ?? weaponId}」。`);
+  }
+
   isUpgradeVisible(upgradeId: string): boolean {
     const def = UPGRADES.find((u) => u.id === upgradeId);
     if (!def) return false;
@@ -299,17 +321,22 @@ export class VillageEngine {
     return true;
   }
 
-  craftConsumable(consumableId: string) {
+  /** 製作消耗品:refundPct 同打造——小遊戲停得準,退回一部分材料 */
+  craftConsumable(consumableId: string, refundPct = 0): boolean {
     const def = CONSUMABLES.find((c) => c.id === consumableId);
-    if (!def || !this.isConsumableVisible(consumableId) || !this.canAfford(def.cost)) return;
+    if (!def || !this.isConsumableVisible(consumableId) || !this.canAfford(def.cost)) return false;
 
+    const saved: string[] = [];
     for (const [id, amount] of Object.entries(def.cost)) {
-      this.resources[id as ResourceId] -= amount ?? 0;
+      const back = Math.round((amount ?? 0) * refundPct);
+      this.resources[id as ResourceId] -= (amount ?? 0) - back;
+      if (back > 0) saved.push(`${RESOURCE_LABEL[id as ResourceId]} ${back}`);
     }
     this.resources[def.id] += def.yield;
     this.syncSeenResources();
     this.saveState();
-    this.cb.onLog(`製作了「${def.label}」x${def.yield}。`);
+    this.cb.onLog(`製作了「${def.label}」x${def.yield}。${saved.length > 0 ? `(手藝到位,省下 ${saved.join("、")})` : ""}`);
+    return true;
   }
 
   isJobUnlocked(jobId: string): boolean {

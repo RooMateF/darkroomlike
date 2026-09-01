@@ -183,8 +183,8 @@ export const CONSUMABLES: ConsumableDef[] = [
   { id: "ration", label: "乾糧", cost: { grain: 30, wood: 10 }, yield: 2 },
   // 弓矢:遠程輸出的彈藥錢——有感但不至於奢侈(2026-08 定案 30/20)
   { id: "arrow", label: "弓矢", cost: { wood: 30, stone: 20 }, yield: 3, requiresWeapon: "hunting-bow" },
-  // 燈油:燻製棚熬獸脂——點亮據點燈柱的燃料(每座燈柱 3 份,壓低周圍的遭遇率)
-  { id: "oil", label: "燈油", cost: { meat: 2, wood: 5 }, yield: 1, requiresBuilding: "smokehouse" },
+  // 燈油:燻製棚熬獸脂——一罐點亮一座燈柱(壓低周圍遭遇率);罐子笨重,揹著占 3 格
+  { id: "oil", label: "燈油", cost: { meat: 6, wood: 15 }, yield: 1, requiresBuilding: "smokehouse" },
   // 子彈:鋼階彈藥(火藥吃煤)——左輪/散彈通用
   { id: "bullet", label: "子彈", cost: { steel: 2, coal: 2 }, yield: 6, requiresWeaponAny: ["revolver", "shotgun"] },
   // 鐵軌:鋪在遠征地圖上的永久建設——從村莊一格一格連出去;軌上水 1/4 步、糧 1/8 步、不遇敵。
@@ -247,6 +247,8 @@ export const ARROWS_PER_SLOT = 3;
 export const BULLETS_PER_SLOT = 6;
 /** 鐵軌沉重:2 根併 1 格 */
 export const RAILS_PER_SLOT = 2;
+// 燈油一罐占 3 格(一罐=一座燈柱的量;與其揹三小瓶不如揹一罐)
+export const OIL_SLOTS = 3;
 /** 被動裝備欄:同時只能讓兩個被動生效——對著 Boss 的機制換裝,而不是全部堆上 */
 export const PERK_SLOTS = 2;
 /** 乾糧輕便:2 份併 1 格(肉乾重,1 份 1 格) */

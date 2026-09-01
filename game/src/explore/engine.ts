@@ -147,7 +147,7 @@ const FOOD_EVERY_STEPS = 2; // 每走 2 格消耗 1 乾糧(仿 ADR)
 // 點燈後 ×0.5 → 0.1,正好等於舊版的基礎值——燈火從「加分項」升格為「必修基建」:
 // 想安全走廊就得鋪燈,鐵軌管水糧、燈火管遇敵的分工更鮮明
 const ENCOUNTER_CHANCE = 0.2;
-const LAMP_OIL_COST = 3; // 點亮一座據點燈柱的燈油
+const LAMP_OIL_COST = 1; // 點亮一座據點燈柱要一罐燈油(一罐=舊制三份,占 3 格)
 export const LAMP_RADIUS = 8; // 燈火壓遇敵的範圍(曼哈頓距離);UI 用它把光圈畫在地圖上
 const LAMP_SUPPRESS = 0.5; // 照亮區內的遭遇率倍率(0.2 × 0.5 = 舊版基礎值 0.1)
 

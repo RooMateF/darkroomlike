@@ -1,5 +1,5 @@
 import "./style.css";
-import { WEAPONS, carryCapacity, ARROWS_PER_SLOT, RATIONS_PER_SLOT, BULLETS_PER_SLOT, RAILS_PER_SLOT } from "./village/data";
+import { WEAPONS, carryCapacity, ARROWS_PER_SLOT, RATIONS_PER_SLOT, BULLETS_PER_SLOT, RAILS_PER_SLOT , OIL_SLOTS} from "./village/data";
 import { RESOURCE_LABEL } from "./village/types";
 import { saveCarried, returnCarriedToVillage, playerMaxHp, type Carried } from "./carried";
 import { markFreshExpedition } from "./explore/engine";
@@ -109,7 +109,8 @@ function packPicked(): number {
     const def = WEAPONS.find((w) => w.id === id);
     used += (def?.packSize ?? 3) * n;
   }
-  used += pick.jerky + pick.bandages + pick.scrolls + pick.oil + pick.elixirs + pick.salts;
+  used += pick.jerky + pick.bandages + pick.scrolls + pick.elixirs + pick.salts;
+  used += pick.oil * OIL_SLOTS;
   used += Math.ceil(pick.rations / RATIONS_PER_SLOT);
   used += Math.ceil(pick.arrows / ARROWS_PER_SLOT);
   used += Math.ceil(pick.bullets / BULLETS_PER_SLOT);
@@ -238,7 +239,7 @@ const supplyDefs = [
   { id: "bullet", label: RESOURCE_LABEL.bullet, extra: `${BULLETS_PER_SLOT} 發占 1 格・左輪/散彈通用`, get: () => pick.bullets, set: (n: number) => (pick.bullets = n) },
   { id: "rail", label: RESOURCE_LABEL.rail, extra: `${RAILS_PER_SLOT} 根占 1 格・鋪在地圖上的永久建設`, get: () => pick.rails, set: (n: number) => (pick.rails = n) },
   { id: "scroll", label: RESOURCE_LABEL.scroll, extra: "占 1 格・一次性,威力驚人", get: () => pick.scrolls, set: (n: number) => (pick.scrolls = n) },
-  { id: "oil", label: RESOURCE_LABEL.oil, extra: "占 1 格・點亮據點燈柱的燃料(每座 3 份)", get: () => pick.oil, set: (n: number) => (pick.oil = n) },
+  { id: "oil", label: RESOURCE_LABEL.oil, extra: "占 3 格・一罐點亮一座據點燈柱", get: () => pick.oil, set: (n: number) => (pick.oil = n) },
   { id: "elixir", label: RESOURCE_LABEL.elixir, extra: "占 1 格・戰鬥中飲用:大量回復並解除所有異常", get: () => pick.elixirs, set: (n: number) => (pick.elixirs = n) },
   { id: "salt", label: RESOURCE_LABEL.salt, extra: "占 1 格・解除暈眩/遲緩並免疫 6 秒", get: () => pick.salts, set: (n: number) => (pick.salts = n) },
 ] as const;
