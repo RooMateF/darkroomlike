@@ -427,6 +427,20 @@ function renderPack() {
   }
 }
 
+// ---- 地形區域化(用戶定案:模擬真實地形,收斂圖面雜訊)----
+// 地面不再逐格隨機混雜:一律畫「所在區域」的底紋——
+// A 圖村莊周圍是一整片林地(;),走遠了才開闊(.);北嶺/東郊是岩地(:);
+// 南原開闊(.);西澤灌木(;)。牆(#)與水(~)照舊。
+const FOREST_RADIUS = 16; // A 圖村莊林地的半徑(以村莊為圓心)
+function zoneGround(x: number, y: number): string {
+  if (engine.mapId === "A") {
+    return Math.hypot(x - homePos.x, y - homePos.y) < FOREST_RADIUS ? ";" : ".";
+  }
+  if (engine.mapId === "N" || engine.mapId === "E") return ":";
+  if (engine.mapId === "S") return ".";
+  return ";"; // W 西澤:灌木軟地
+}
+
 function render() {
   zoomOutBtn.disabled = zoomPx <= ZOOM_LEVELS[0];
   zoomInBtn.disabled = zoomPx >= ZOOM_LEVELS[ZOOM_LEVELS.length - 1];
@@ -461,8 +475,15 @@ function render() {
       const isPlayer = x === engine.playerX && y === engine.playerY;
       const tile = engine.grid[y][x];
       let symbol = tile.revealed ? TILE_SYMBOL[tile.type] : " ";
+      // 地面與資源點:畫區域底紋($ 不再標示——踩到照樣採,是路上的順手拾獲);
+      // 事件點統一畫 ?(和探勘點一樣:值得停下來看的東西)
+      const isGround = tile.type === "plain" || tile.type === "brush" || tile.type === "rubble" || tile.type === "resource";
+      if (tile.revealed) {
+        if (isGround) symbol = zoneGround(x, y);
+        else if (tile.type === "event") symbol = "?";
+      }
       // 鐵軌:一般地形上畫 =(據點/地標等重要符號優先)
-      if (tile.revealed && tile.rail && (tile.type === "plain" || tile.type === "brush" || tile.type === "rubble")) {
+      if (tile.revealed && tile.rail && isGround) {
         symbol = "=";
       }
       // 補給點符號只表達據點本質:S 有儲備 / s 這趟已拿空——
@@ -491,8 +512,8 @@ function render() {
       cell.className = "map-cell";
       if (isPlayer) cell.classList.add("player");
       if (!isPlayer && tile.revealed) {
-        // 地面層:一般地形+牆+水潭——牆亮晶晶會引誘人走過去,它只是地形的一部分
-        const isTexture = tile.type === "plain" || tile.type === "brush" || tile.type === "rubble" || tile.type === "wall" || tile.type === "water";
+        // 地面層:一般地形+資源格+牆+水潭——牆亮晶晶會引誘人走過去,它只是地形的一部分
+        const isTexture = isGround || tile.type === "wall" || tile.type === "water";
         if (symbol === "⌂" || (tile.type === "depot" && tile.lit)) cell.classList.add("beacon");
         else if (symbol === "s" || symbol === "r") cell.classList.add("dim");
         else if (lamps.length > 0 && inGlow(x, y)) cell.classList.add("glow");
