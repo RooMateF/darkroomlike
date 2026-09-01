@@ -2,7 +2,8 @@ import "./style.css";
 import { VillageEngine, TICK_MS, GATHERABLE } from "./village/engine";
 import { JOBS, BUILDINGS, WEAPONS, CONSUMABLES, UPGRADES, TRADES, repairCost, PERK_SLOTS } from "./village/data";
 import { PERK_LABEL } from "./village/events-data";
-import { clearedSiteCount } from "./explore/sites";
+import { clearedSiteCount, specialSites, siteProgress } from "./explore/sites";
+import { generateMap } from "./explore/map-gen";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
 import { INTRO_LINES, MILESTONES } from "./village/narrative";
 import { returnCarriedToVillage, loadCarried } from "./carried";
@@ -913,8 +914,70 @@ function startVillage() {
     }
   }
 
+  // ---- 她的指路(引導事件):連續 7 趟空手而歸後,回村由她點方向 ----
+  // 第一次指最近的資源區塊,之後指最近的未打通探勘點;文本經用戶核可(2026-09)
+  let guidanceText: string | null = null;
+
+  function dirName(dx: number, dy: number): string {
+    // y 向下:東=0°、南=90°;八方位
+    const names = ["東", "東南", "南", "西南", "西", "西北", "北", "東北"];
+    const ang = (Math.atan2(dy, dx) * 180) / Math.PI;
+    return names[Math.round(((ang + 360) % 360) / 45) % 8];
+  }
+
+  function nearestResourceDir(): string | null {
+    let best: { x: number; y: number; d: number } | null = null;
+    const consider = (x: number, y: number, isRes: boolean) => {
+      if (!isRes) return;
+      const d = Math.hypot(x - 44, y - 27);
+      if (d >= 3 && (!best || d < best.d)) best = { x, y, d };
+    };
+    try {
+      const raw = localStorage.getItem("explore-state-v7");
+      if (raw) {
+        // 已探索過:讀存檔格線($=還沒採走的資源)
+        const rows = (JSON.parse(raw).typeRows ?? []) as string[];
+        rows.forEach((row, y) => {
+          for (let x = 0; x < row.length; x++) consider(x, y, row[x] === "$");
+        });
+      } else {
+        // 一步都還沒踏出去:照固定種子重生成一張看
+        generateMap("A").forEach((row, y) => row.forEach((t, x) => consider(x, y, t.type === "resource")));
+      }
+    } catch {
+      return null;
+    }
+    return best ? dirName(best.x - 44, best.y - 27) : null;
+  }
+
+  function nearestSiteDir(): string | null {
+    const open = specialSites().filter((st) => (st.mapId ?? "A") === "A" && !siteProgress(st.key).cleared);
+    let best: { x: number; y: number; d: number } | null = null;
+    for (const st of open) {
+      const d = Math.hypot(st.x - 44, st.y - 27);
+      if (!best || d < best.d) best = { x: st.x, y: st.y, d };
+    }
+    return best ? dirName(best.x - 44, best.y - 27) : null;
+  }
+
+  function maybeArmGuidance() {
+    if (guidanceText || engine.pendingEvent) return;
+    if (loadCarried() !== null) return; // 人還在外面:等回村再說
+    if (Number(localStorage.getItem("fruitless-expeditions") ?? "0") < 7) return;
+    const times = Number(localStorage.getItem("guidance-times") ?? "0");
+    const dir = times === 0 ? nearestResourceDir() : (nearestSiteDir() ?? nearestResourceDir());
+    if (!dir) return;
+    // 單字方位在句子裡讀起來會禿(「北那頭」),補個「邊」;雙字方位(東北)不用
+    const dirB = dir.length === 1 ? `${dir}邊` : dir;
+    guidanceText =
+      times === 0
+        ? `她把一杯熱水塞進你手裡,在你對面坐下。「這幾趟……都空著手回來,對吧。」她沒有責備的意思,只是攤開你畫的地圖,手指往${dir}一點。「我記得${dir}邊的林子裡,總能撿到些能用的東西。往那邊走走看吧——注意自己的安全。」`
+        : `「還是一無所獲的話……」她猶豫了一下,還是開了口。「獵人們提過,${dirB}那頭有處看起來不太尋常的地方。可能有危險,但……也可能有我們需要的東西。如果要去的話記得裝備要準備萬全。」`;
+  }
+
   function render() {
     // 事件用全螢幕遮罩呈現(時間本來就暫停了,讓玩家專心做決定)
+    maybeArmGuidance();
     const ev = engine.pendingEvent;
     if (ev && ev.kind === "choice") {
       // 只在事件換人時重建選項,避免每次 render 都重繪按鈕導致點擊失效
@@ -935,6 +998,24 @@ function startVillage() {
           });
           overlayOptionsEl.appendChild(btn);
         });
+      }
+      overlayEl.style.display = "flex";
+    } else if (guidanceText) {
+      if (shownEventId !== "guidance") {
+        shownEventId = "guidance";
+        overlayTextEl.textContent = guidanceText;
+        overlayOptionsEl.innerHTML = "";
+        const btn = document.createElement("button");
+        btn.className = "btn ready";
+        btn.textContent = "知道了";
+        btn.addEventListener("click", () => {
+          // 指過路就重新計數;下一輪(又空手 7 趟)改指特殊地點
+          localStorage.setItem("fruitless-expeditions", "0");
+          localStorage.setItem("guidance-times", String(Number(localStorage.getItem("guidance-times") ?? "0") + 1));
+          guidanceText = null;
+          render();
+        });
+        overlayOptionsEl.appendChild(btn);
       }
       overlayEl.style.display = "flex";
     } else {
