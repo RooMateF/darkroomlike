@@ -110,11 +110,13 @@ export interface WeaponDef {
   id: string;
   label: string;
   cost: Partial<Record<import("./types").ResourceId, number>>;
-  /** 對應戰鬥類別(design-notes.md § 2.3.1) */
-  category: "melee" | "ranged";
+  /** 對應戰鬥類別(design-notes.md § 2.3.1);shield 不進攻擊列,提供「格擋」動作 */
+  category: "melee" | "ranged" | "shield";
   /** 戰鬥端的排程參數(design-notes.md § 2.4):高位階不只是數值變大,速度也要有差異 */
   baseCost: number;
   damage: number;
+  /** 盾牌限定:格擋參數(reduce=半格擋減傷比例、cd=冷卻秒數) */
+  block?: { reduce: number; cd: number };
   /** 攻擊符號(design-notes.md § 2.7 log 動畫) */
   symbol: string;
   /** 耐久度:每次使用 -1,歸零損壞;帶備用武器出門就有意義了 */
@@ -155,6 +157,11 @@ export const WEAPONS: WeaponDef[] = [
   { id: "shotgun", label: "散彈槍", cost: { steel: 14, wood: 20 }, category: "ranged", baseCost: 1.5, damage: 16, symbol: "→!!", durability: 45, ammo: "bullet", ammoPerUse: 2, packSize: 3 },
   // 靜默教堂(Lv5)的戰利品:輕得不可思議(呼應敘事)。lootOnly:cost 只作修理費基準
   { id: "alloy-blade", label: "異質短刃", cost: { steel: 12, leather: 20, scroll: 1 }, category: "melee", baseCost: 0.5, damage: 7, symbol: ">>|", durability: 80, packSize: 2, lootOnly: true },
+  // ---- 盾牌(格擋鏈,2026-09 用戶定案):啟動 0.5s 防禦窗,前 0.1s 完全格擋(整擊無效);
+  // 之後半格擋依盾減傷(附帶效果照吃)。CD 與減傷率由盾決定;半格擋耗 1 耐久,完全格擋免費
+  { id: "wood-shield", label: "木盾", cost: { wood: 50, hide: 5 }, category: "shield", baseCost: 0, damage: 0, symbol: "[]", durability: 20, packSize: 3, block: { reduce: 0.5, cd: 5 } },
+  { id: "iron-shield", label: "鐵盾", cost: { ingot: 10, wood: 10 }, category: "shield", baseCost: 0, damage: 0, symbol: "[]", durability: 35, packSize: 3, block: { reduce: 0.65, cd: 4 } },
+  { id: "steel-shield", label: "鋼盾", cost: { steel: 12, leather: 5 }, category: "shield", baseCost: 0, damage: 0, symbol: "[]", durability: 50, packSize: 3, block: { reduce: 0.8, cd: 3.5 } },
 ];
 
 // ---- 消耗品打造(整備出門用) ----

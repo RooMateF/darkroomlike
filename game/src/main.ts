@@ -291,6 +291,74 @@ for (const cat of PLAYER_CATEGORIES) {
   }
 }
 
+// ---- 格擋(盾牌):獨立於類別列的即時動作——0 鍵或按鈕,窗口/冷卻畫在同一條 bar ----
+// 帶多面盾時用最好的那面(WEAPONS 順序即位階);半格擋耗 1 耐久,壞了自動換下一面
+function bestShieldId(): string | null {
+  if (!carried) return null;
+  for (let i = WEAPONS.length - 1; i >= 0; i--) {
+    const w = WEAPONS[i];
+    if (w.category === "shield" && (carried.weapons[w.id] ?? 0) > 0) return w.id;
+  }
+  return null;
+}
+
+let shieldId = bestShieldId();
+const blockRowEls = (() => {
+  const line = document.createElement("div");
+  line.className = "row-grid";
+  line.style.display = "none";
+  const name = document.createElement("span");
+  name.className = "row-name";
+  const barWrap = document.createElement("span");
+  barWrap.className = "row-controls";
+  const bar = document.createElement("span");
+  bar.className = "bar";
+  const barFilled = document.createElement("span");
+  barFilled.className = "filled";
+  const barEmpty = document.createElement("span");
+  bar.append(barFilled, barEmpty);
+  const pct = document.createElement("span");
+  pct.className = "row-count";
+  barWrap.append(bar, pct);
+  const useLink = document.createElement("button");
+  useLink.className = "use-link";
+  useLink.textContent = "格擋";
+  useLink.addEventListener("click", () => engine.useBlock());
+  line.append(name, barWrap, useLink);
+  categoriesEl.appendChild(line);
+  return { line, name, bar, barFilled, barEmpty, pct, useLink };
+})();
+
+function syncShieldToEngine() {
+  const def = shieldId ? WEAPONS.find((w) => w.id === shieldId) : null;
+  engine.shield = def?.block ? { label: def.label, reduce: def.block.reduce, cd: def.block.cd } : null;
+  blockRowEls.line.style.display = engine.shield ? "" : "none";
+}
+
+/** 半格擋耗盾耐久;壞了換下一面(完全格擋免費——手上功夫不磨盾) */
+function onShieldBlocked(perfect: boolean) {
+  if (perfect || !carried || !shieldId) return;
+  const def = WEAPONS.find((w) => w.id === shieldId)!;
+  carried.durability[shieldId] = (carried.durability[shieldId] ?? carriedMaxDurability(carried, shieldId)) - 1;
+  if (carried.durability[shieldId] <= 0) {
+    if ((carried.fineWeapons?.[shieldId] ?? 0) > 0) {
+      carried.fineWeapons![shieldId]--;
+      if (carried.fineWeapons![shieldId] <= 0) delete carried.fineWeapons[shieldId];
+    }
+    carried.weapons[shieldId] = Math.max(0, (carried.weapons[shieldId] ?? 0) - 1);
+    if (carried.weapons[shieldId] > 0) {
+      carried.durability[shieldId] = (carried.fineWeapons?.[shieldId] ?? 0) > 0 ? fineMaxDurability(shieldId) : def.durability;
+      appendSystemLog(`${def.label}被打得裂開——你換上了備用的一面。`);
+    } else {
+      delete carried.durability[shieldId];
+      appendSystemLog(`${def.label}徹底碎了。`);
+      shieldId = bestShieldId();
+      syncShieldToEngine();
+    }
+  }
+  saveCarried(carried);
+}
+
 function appendLog(entry: LogEntry) {
   const line = document.createElement("div");
   line.className = "log-line";
@@ -306,6 +374,7 @@ function appendLog(entry: LogEntry) {
   target.className = "log-target hit";
   target.textContent =
     (entry.heal ?? 0) > 0 ? `${entry.target} (+${entry.heal})` : entry.damage > 0 ? `${entry.target} (-${entry.damage})` : entry.target;
+  if (entry.blocked) target.textContent += "(盾架住了大半)";
 
   line.append(actor, symbol, target);
   logEl.appendChild(line);
@@ -351,6 +420,10 @@ window.addEventListener("keydown", (e) => {
     if (!retreatBtn.disabled) retreatBtn.click();
     return;
   }
+  if (e.key === "0") {
+    engine.useBlock();
+    return;
+  }
   const idx = Number(e.key);
   if (idx >= 1 && idx <= rows.length) {
     const row = rows[idx - 1];
@@ -361,6 +434,7 @@ window.addEventListener("keydown", (e) => {
 const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
   onLog: appendLog,
   onTell: appendSystemLog,
+  onBlocked: (perfect) => onShieldBlocked(perfect),
   // 混亂發作:隨機執行一個「就緒且可用」的行動(行動條沒滿就等滿的那一刻,引擎每幀重試)
   onConfusedAct: () => {
     const candidates: { cat: CategoryId; id: string }[] = [];
@@ -484,6 +558,7 @@ if (carried) {
 } else {
   engine.playerHp = engine.playerMaxHp;
 }
+syncShieldToEngine();
 appendSystemLog(enemyDef.intro);
 if (engine.enemy.currentMove.tell) appendSystemLog(engine.enemy.currentMove.tell);
 
@@ -628,6 +703,33 @@ function render() {
     if (engine.slowLeft > 0) spRow("遲緩", engine.slowTotal > 0 ? engine.slowLeft / engine.slowTotal : 1, `${engine.slowLeft.toFixed(1)}s`);
     if (engine.controlImmuneLeft > 0) spRow("免疫(鹽)", engine.controlImmuneTotal > 0 ? engine.controlImmuneLeft / engine.controlImmuneTotal : 1, `${engine.controlImmuneLeft.toFixed(1)}s`);
     statusPanelEl.innerHTML = rows.length ? rows.join("") : `<div class="hint-line">你目前沒有異常。</div>`;
+  }
+
+  // 格擋列:窗口中=滿條亮起;冷卻中=回充進度;就緒=可按
+  if (engine.shield && carried && shieldId) {
+    const sdef = WEAPONS.find((w) => w.id === shieldId)!;
+    const sdur = carried.durability[shieldId] ?? carriedMaxDurability(carried, shieldId);
+    blockRowEls.name.textContent = `0. 格擋(${sdef.label}・耐久 ${sdur})`;
+    let frac: number;
+    let tag: string;
+    if (engine.blockWindowLeft > 0) {
+      frac = 1;
+      tag = "格擋中!";
+    } else if (engine.blockCooldownLeft > 0) {
+      frac = 1 - engine.blockCooldownLeft / engine.shield.cd;
+      tag = `${Math.round(frac * 100)}%`;
+    } else {
+      frac = 1;
+      tag = "就緒";
+    }
+    const sFilled = Math.round(frac * BAR_WIDTH);
+    blockRowEls.barFilled.textContent = "█".repeat(sFilled);
+    blockRowEls.barEmpty.textContent = "░".repeat(BAR_WIDTH - sFilled);
+    blockRowEls.pct.textContent = tag;
+    const blockReady = engine.blockCooldownLeft <= 0 && engine.blockWindowLeft <= 0 && engine.stunLeft <= 0;
+    blockRowEls.bar.classList.toggle("ready", engine.blockWindowLeft > 0 || blockReady);
+    blockRowEls.useLink.disabled = !blockReady;
+    blockRowEls.useLink.classList.toggle("ready", blockReady);
   }
 
   // 敵方跑條(§2.9):速度本身就是威脅預告——招式越重跑條越慢,玩家看節奏自行判讀

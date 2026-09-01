@@ -106,6 +106,8 @@ export interface EngineCallbacks {
   onTell?: (text: string) => void;
   /** 混亂發作:UI 隨機執行一個「就緒且可用」的行動,執行了回 true(可選;模擬器不接) */
   onConfusedAct?: () => boolean;
+  /** 格擋接下一擊(perfect=完全格擋):UI 扣盾耐久用(完全格擋免費) */
+  onBlocked?: (perfect: boolean) => void;
 }
 
 /**
@@ -135,6 +137,12 @@ export class CombatEngine {
   slowLeft = 0;
   /** 控制免疫剩餘秒數(醒神鹽):期間不吃暈眩/遲緩/混亂 */
   controlImmuneLeft = 0;
+  /** 裝備中的盾(格擋參數;null=沒帶盾,不能格擋) */
+  shield: { label: string; reduce: number; cd: number } | null = null;
+  /** 格擋窗口剩餘秒數(0.5s;前 0.1s 完全格擋) */
+  blockWindowLeft = 0;
+  /** 格擋冷卻剩餘秒數 */
+  blockCooldownLeft = 0;
   /** 混亂條(§用戶規格 2026-09):滿 100 後,下一個充能完成的行動被隨機執行 */
   confusionGauge = 0;
   /** 混亂已滿,等著奪走下一個行動(行動條未滿就等它滿的那一刻) */
@@ -162,6 +170,16 @@ export class CombatEngine {
       this.enemyMaxHp = opts.enemyHp;
     }
     if (opts?.enemyLabel) this.enemyLabel = opts.enemyLabel;
+  }
+
+  /** 舉盾格擋(§用戶規格 2026-09):開 0.5s 防禦窗,前 0.1s 完全格擋;冷卻由盾決定 */
+  useBlock(): boolean {
+    if (!this.shield || this.blockCooldownLeft > 0 || this.blockWindowLeft > 0) return false;
+    if (this.stunLeft > 0) return false; // 暈眩中舉不起盾
+    this.blockWindowLeft = BLOCK_WINDOW;
+    this.blockCooldownLeft = this.shield.cd;
+    this.cb.onLog({ id: this.logId++, actor: "你", target: "舉起了盾", symbol: "[]", damage: 0 });
+    return true;
   }
 
   /** 解除控制效果並給予免疫窗口(醒神鹽)——混亂也是「腦子的事」,一併醒掉 */
@@ -209,6 +227,8 @@ export class CombatEngine {
 
     if (!this.paused) {
       // 控制效果倒數
+      if (this.blockWindowLeft > 0) this.blockWindowLeft = Math.max(0, this.blockWindowLeft - dt);
+      if (this.blockCooldownLeft > 0) this.blockCooldownLeft = Math.max(0, this.blockCooldownLeft - dt);
       if (this.stunLeft > 0) this.stunLeft = Math.max(0, this.stunLeft - dt);
       if (this.slowLeft > 0) this.slowLeft = Math.max(0, this.slowLeft - dt);
       if (this.controlImmuneLeft > 0) this.controlImmuneLeft = Math.max(0, this.controlImmuneLeft - dt);
@@ -252,17 +272,34 @@ export class CombatEngine {
   private resolveEnemyAttack() {
     const move = this.enemy.currentMove;
     if (move.damage > 0) {
-      this.playerHp = Math.max(0, this.playerHp - move.damage);
-      this.cb.onLog({
-        id: this.logId++,
-        actor: this.enemyLabel,
-        target: "你",
-        symbol: move.symbol,
-        damage: move.damage,
-      });
+      // 格擋判定:防禦窗內接下這一擊——前 0.1s 完全格擋(傷害/控制/異常全免),
+      // 之後半格擋(依盾減傷,附帶效果照吃);一面盾一次窗只接一擊
+      let blocked: "perfect" | "partial" | null = null;
+      let dmg = move.damage;
+      if (this.blockWindowLeft > 0 && this.shield) {
+        blocked = this.blockWindowLeft >= BLOCK_WINDOW - BLOCK_PERFECT ? "perfect" : "partial";
+        dmg = blocked === "perfect" ? 0 : Math.max(0, Math.ceil(dmg * (1 - this.shield.reduce)));
+        this.blockWindowLeft = 0;
+        this.cb.onBlocked?.(blocked === "perfect");
+      }
+      if (blocked === "perfect") {
+        this.cb.onLog({ id: this.logId++, actor: "你", target: `完全格擋!盾面把${this.enemyLabel}的攻勢整個彈開`, symbol: "◎", damage: 0 });
+      } else {
+        this.playerHp = Math.max(0, this.playerHp - dmg);
+        this.cb.onLog({
+          id: this.logId++,
+          actor: this.enemyLabel,
+          target: "你",
+          symbol: move.symbol,
+          damage: dmg,
+          blocked: blocked === "partial",
+        });
+      }
 
-      // 控制效果:暈眩(行動凍結)/遲緩(充能減半);醒神鹽的免疫窗口可以擋掉
-      if (move.control && this.controlImmuneLeft > 0) {
+      // 控制效果:暈眩(行動凍結)/遲緩(充能減半);醒神鹽的免疫窗口可以擋掉;完全格擋全免
+      if (blocked === "perfect") {
+        /* 完全格擋:控制與異常一併被盾面彈開 */
+      } else if (move.control && this.controlImmuneLeft > 0) {
         this.cb.onLog({ id: this.logId++, actor: "你", target: "咬牙穩住了身形", symbol: "=", damage: 0 });
       } else if (move.control) {
         if (move.control.kind === "stun") {
@@ -276,8 +313,8 @@ export class CombatEngine {
         }
       }
 
-      // 命中附帶異常值疊加(累積制,不是機率):滿 100 升一級,最高 3 級
-      if (move.status) {
+      // 命中附帶異常值疊加(累積制,不是機率):滿 100 升一級,最高 3 級;完全格擋全免
+      if (move.status && blocked !== "perfect") {
         const s = this.playerStatus[move.status.kind];
         s.gauge += move.status.amount;
         if (s.gauge >= 100 && s.level < 3) {
@@ -289,7 +326,7 @@ export class CombatEngine {
           s.gauge = 100; // 已滿級,計量封頂
         }
       }
-      this.applyConfusion(move);
+      if (blocked !== "perfect") this.applyConfusion(move);
       this.cb.onHpChange();
     } else {
       // 零傷害的行為(如發狂者的「顫抖」、哼歌者的「哼唱」):空轉或純異常疊加
@@ -379,3 +416,7 @@ export class CombatEngine {
 
 /** 使用某類別的行動後,其他類別保留的預讀進度比例(design-notes.md 待補:目前先用 0.5 當原型數值) */
 const CARRYOVER_RATIO = 0.5;
+
+// 格擋窗口(§用戶規格 2026-09):啟動後 0.5 秒內的第一擊被接下;前 0.1 秒是完全格擋
+export const BLOCK_WINDOW = 0.5;
+export const BLOCK_PERFECT = 0.1;
