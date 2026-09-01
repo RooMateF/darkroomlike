@@ -244,7 +244,11 @@ const onResize = () => {
 window.addEventListener("resize", onResize);
 
 // 事件委派:點在 @ 的哪一側就往那個方向走一步(格子上存的是世界座標)
+// 掛載後 700ms 內忽略點擊(2026-09 用戶反饋:戰鬥勝利連點按鈕的殘餘點擊
+// 會落在地圖上多走一步——回到原野先喘口氣再接受滑鼠指令)
+const mountedAt = performance.now();
 mapEl.addEventListener("click", (e) => {
+  if (performance.now() - mountedAt < 700) return;
   const target = e.target as HTMLElement;
   if (!target.dataset.x) return;
   engine.moveTo(Number(target.dataset.x), Number(target.dataset.y));
