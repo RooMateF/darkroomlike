@@ -71,7 +71,7 @@ const pick = {
 };
 
 app.innerHTML = `
-  <div class="section-title">整備</div>
+  <div class="section-title">遠征</div>
 
   <div class="section">
     <div class="section-title">狀態</div>

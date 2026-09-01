@@ -542,7 +542,8 @@ function startVillage() {
     { id: "build", label: "建築" },
     { id: "workshop", label: "工房" },
     { id: "market", label: "交易所" },
-    { id: "prep", label: "整備" },
+    // prep 與 expedition 互斥顯示(村內=整備視圖/在外=地圖視圖),同標籤「遠征」讓它讀起來是同一個入口(2026-09 用戶要求)
+    { id: "prep", label: "遠征" },
     { id: "expedition", label: "遠征" },
     { id: "system", label: "系統" },
   ];
@@ -1308,7 +1309,7 @@ function startVillage() {
     // 掛載放在顯示之後:遠征視圖初始化要量測容器尺寸,容器必須已經可見
     syncMountedView(activeVillageTab);
 
-    // 外出探索的入口只有選單列的「整備」分頁(人口上限 20+田 解鎖時浮現)——
+    // 外出探索的入口只有選單列的「遠征」分頁(人口上限 20+田 解鎖時浮現)——
     // 左欄不再放重複的出門按鈕;條件不寫提示,讓玩家自行摸索
     checkMilestones();
   }
