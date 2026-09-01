@@ -22,6 +22,8 @@ export interface Carried {
   weapons: Record<string, number>;
   /** 目前「使用中那一把」的剩餘耐久(壞了換下一把,重置為滿) */
   durability: Record<string, number>;
+  /** 精工品數量(是 weapons 的子集):耐久上限 +25%,永遠優先當「使用中那把」 */
+  fineWeapons?: Record<string, number>;
   rations: number;
   /** 出發時帶的乾糧量,補給點回填的上限 */
   maxRations: number;
@@ -49,7 +51,14 @@ export interface Carried {
   packCap?: number;
 }
 
-import { WEAPONS, ARROWS_PER_SLOT, RATIONS_PER_SLOT, BULLETS_PER_SLOT, RAILS_PER_SLOT, OIL_SLOTS } from "./village/data";
+import { WEAPONS, ARROWS_PER_SLOT, RATIONS_PER_SLOT, BULLETS_PER_SLOT, RAILS_PER_SLOT, OIL_SLOTS, fineMaxDurability } from "./village/data";
+
+/** 這一型「使用中那把」的耐久上限:行囊裡有精工品時精工優先上手 */
+export function carriedMaxDurability(carried: Carried, weaponId: string): number {
+  const w = WEAPONS.find((x) => x.id === weaponId);
+  if (!w) return 0;
+  return (carried.fineWeapons?.[weaponId] ?? 0) > 0 ? fineMaxDurability(weaponId) : w.durability;
+}
 
 /**
  * 揹負空間目前的占用量(統一容量):
@@ -190,6 +199,10 @@ export function returnCarriedToVillage() {
   village.ownedWeapons ??= {};
   for (const [id, n] of Object.entries(leftover.weapons)) {
     village.ownedWeapons[id] = (village.ownedWeapons[id] ?? 0) + n;
+  }
+  village.fineWeapons ??= {};
+  for (const [id, n] of Object.entries(leftover.fineWeapons ?? {})) {
+    if (n > 0) village.fineWeapons[id] = (village.fineWeapons[id] ?? 0) + n;
   }
   village.resources ??= {};
   village.resources.ration = (village.resources.ration ?? 0) + leftover.rations;

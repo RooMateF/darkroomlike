@@ -249,6 +249,13 @@ export const BULLETS_PER_SLOT = 6;
 export const RAILS_PER_SLOT = 2;
 // 燈油一罐占 3 格(一罐=一座燈柱的量;與其揹三小瓶不如揹一罐)
 export const OIL_SLOTS = 3;
+
+// 精工品:打造小遊戲「完美」的產物——同型武器的上位版本,耐久上限 +25%
+export const FINE_DURABILITY_MULT = 1.25;
+export function fineMaxDurability(weaponId: string): number {
+  const w = WEAPONS.find((x) => x.id === weaponId);
+  return w ? Math.round(w.durability * FINE_DURABILITY_MULT) : 0;
+}
 /** 被動裝備欄:同時只能讓兩個被動生效——對著 Boss 的機制換裝,而不是全部堆上 */
 export const PERK_SLOTS = 2;
 /** 乾糧輕便:2 份併 1 格(肉乾重,1 份 1 格) */

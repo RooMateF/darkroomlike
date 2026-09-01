@@ -1,9 +1,9 @@
 import "./style.css";
 import { CombatEngine, type LogEntry } from "./engine";
 import { buildPlayerCategories } from "./demo-data";
-import { WEAPONS } from "./village/data";
+import { WEAPONS, fineMaxDurability } from "./village/data";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
-import { loadCarried, saveCarried, clearCarried, addLoot, playerMaxHp } from "./carried";
+import { loadCarried, saveCarried, clearCarried, addLoot, playerMaxHp, carriedMaxDurability } from "./carried";
 import { pickRandomEnemy, pickMidEnemy, GUARDIANS, LANDMARK_REWARDS, LV3_BOSS, type EnemyDef } from "./enemies";
 import { markLandmarkCleared, currentMapId, isAutoPickup } from "./explore/engine";
 import { DUNGEON_KEY, siteProgress, saveSiteProgress, churchKeySiteKey, hasChurchKey, grantChurchKey, type DungeonRun } from "./explore/sites";
@@ -176,11 +176,17 @@ function afterUse(subActionId: string) {
     const per = weapon.ammoPerUse ?? 1;
     if (weapon.ammo === "arrow") carried.arrows = Math.max(0, carried.arrows - per);
     if (weapon.ammo === "bullet") carried.bullets = Math.max(0, (carried.bullets ?? 0) - per);
-    carried.durability[subActionId] = (carried.durability[subActionId] ?? weapon.durability) - 1;
+    carried.durability[subActionId] = (carried.durability[subActionId] ?? carriedMaxDurability(carried, subActionId)) - 1;
     if (carried.durability[subActionId] <= 0) {
+      // 壞的是「使用中那把」:精工優先上手,所以有精工存量時壞掉的就是精工
+      if ((carried.fineWeapons?.[subActionId] ?? 0) > 0) {
+        carried.fineWeapons![subActionId]--;
+        if (carried.fineWeapons![subActionId] <= 0) delete carried.fineWeapons![subActionId];
+      }
       carried.weapons[subActionId] = Math.max(0, (carried.weapons[subActionId] ?? 0) - 1);
       if (carried.weapons[subActionId] > 0) {
-        carried.durability[subActionId] = weapon.durability; // 換上備用的那把
+        // 換上備用的那把(還有精工存量就還是精工)
+        carried.durability[subActionId] = (carried.fineWeapons?.[subActionId] ?? 0) > 0 ? fineMaxDurability(subActionId) : weapon.durability;
         appendSystemLog(`${weapon.label}壞了——你換上了備用的一把。`);
       } else {
         delete carried.durability[subActionId];

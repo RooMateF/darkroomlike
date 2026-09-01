@@ -4,7 +4,7 @@ import { MAP_DEFS } from "./explore/map-gen";
 import { hasChurchKey, siteProgress, specialSites } from "./explore/sites";
 import { LANDMARKS, TILE_SYMBOL } from "./explore/types";
 import { playerMaxHp, packUsed, saveCarried } from "./carried";
-import { WEAPONS, ARROWS_PER_SLOT, RATIONS_PER_SLOT, BULLETS_PER_SLOT, RAILS_PER_SLOT , OIL_SLOTS} from "./village/data";
+import { WEAPONS, ARROWS_PER_SLOT, RATIONS_PER_SLOT, BULLETS_PER_SLOT, RAILS_PER_SLOT, OIL_SLOTS, fineMaxDurability } from "./village/data";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
 
 // 2026-08 併入村莊單頁:改為可掛載的視圖(mountExplore),殼層負責分頁、寬版切換與引擎暫停
@@ -316,17 +316,29 @@ function renderPack() {
   for (const w of WEAPONS) {
     const n = c.weapons[w.id] ?? 0;
     if (n <= 0) continue;
-    const worn = c.durability[w.id] ?? w.durability;
+    const fineN = c.fineWeapons?.[w.id] ?? 0;
+    const curMax = fineN > 0 ? fineMaxDurability(w.id) : w.durability;
+    const worn = c.durability[w.id] ?? curMax;
     const line = document.createElement("div");
     line.className = "row-grid";
     const name = document.createElement("span");
     name.className = "row-name";
-    name.textContent = `${w.label} ×${n}(耐久 ${worn}/${w.durability})`;
+    name.textContent = `${w.label} ×${n}${fineN > 0 ? `(精工 ×${fineN})` : ""}(耐久 ${worn}/${curMax})`;
     const mid = document.createElement("span");
     mid.className = "row-controls";
     mid.textContent = `占 ${w.packSize * n} 格`;
     const btns = document.createElement("span");
     const dropWeapon = (dropWorn: boolean) => {
+      const f = c.fineWeapons?.[w.id] ?? 0;
+      if (dropWorn) {
+        // 使用中那把 = 精工優先:有精工存量時丟耗損的就是丟精工
+        if (f > 0) c.fineWeapons![w.id] = f - 1;
+      } else {
+        // 丟全新的備用:先丟普通品;備用只剩精工時才丟精工
+        const normalSpares = f > 0 ? n - f : n - f - 1;
+        if (normalSpares <= 0 && f > 0) c.fineWeapons![w.id] = f - 1;
+      }
+      if (c.fineWeapons && (c.fineWeapons[w.id] ?? 0) <= 0) delete c.fineWeapons[w.id];
       c.weapons[w.id] = n - 1;
       if (c.weapons[w.id] <= 0) {
         delete c.weapons[w.id];
@@ -338,7 +350,7 @@ function renderPack() {
       renderPack();
       render();
     };
-    if (n > 1 && worn < w.durability) {
+    if (n > 1 && worn < curMax) {
       const b1 = document.createElement("button");
       b1.className = "btn";
       b1.textContent = `丟耗損的(耐久 ${worn})`;
@@ -352,7 +364,8 @@ function renderPack() {
       const b = document.createElement("button");
       b.className = "btn";
       b.textContent = "丟棄";
-      b.addEventListener("click", () => dropWeapon(true));
+      // 受損時=丟耗損的;未受損時先丟普通品(精工留下)
+      b.addEventListener("click", () => dropWeapon(worn < curMax));
       btns.appendChild(b);
     }
     line.append(name, mid, btns);

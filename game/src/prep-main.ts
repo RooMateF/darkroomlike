@@ -1,5 +1,5 @@
 import "./style.css";
-import { WEAPONS, carryCapacity, ARROWS_PER_SLOT, RATIONS_PER_SLOT, BULLETS_PER_SLOT, RAILS_PER_SLOT , OIL_SLOTS} from "./village/data";
+import { WEAPONS, carryCapacity, ARROWS_PER_SLOT, RATIONS_PER_SLOT, BULLETS_PER_SLOT, RAILS_PER_SLOT, OIL_SLOTS, fineMaxDurability } from "./village/data";
 import { RESOURCE_LABEL } from "./village/types";
 import { saveCarried, returnCarriedToVillage, playerMaxHp, type Carried } from "./carried";
 import { markFreshExpedition } from "./explore/engine";
@@ -12,6 +12,8 @@ import { markFreshExpedition } from "./explore/engine";
 interface VillageState {
   resources: Record<string, number>;
   ownedWeapons: Record<string, number>;
+  /** 精工品數量(ownedWeapons 的子集):耐久上限 +25%,帶出門時優先 */
+  fineWeapons?: Record<string, number>;
   /** 受損武器的剩餘耐久(不修的話會一直帶著;鐵匠鋪可修理) */
   weaponDurability?: Record<string, number>;
   [key: string]: unknown;
@@ -211,10 +213,12 @@ const rows: PickRow[] = [];
 for (const w of WEAPONS) {
   const stock = () => village.ownedWeapons[w.id] ?? 0;
   if (stock() <= 0) continue;
-  const remainingDur = village.weaponDurability?.[w.id] ?? w.durability;
+  const fineN = village.fineWeapons?.[w.id] ?? 0;
+  const curMax = fineN > 0 ? fineMaxDurability(w.id) : w.durability;
+  const remainingDur = village.weaponDurability?.[w.id] ?? curMax;
   const row = makePickRow(
-    w.label,
-    `占 ${w.packSize} 格・耐久 ${remainingDur}/${w.durability}${w.ammo === "arrow" ? "・需要弓矢" : w.ammo === "bullet" ? `・需要子彈(每擊 ${w.ammoPerUse ?? 1} 發)` : ""}`,
+    fineN > 0 ? `${w.label}(精工 ×${fineN})` : w.label,
+    `占 ${w.packSize} 格・耐久 ${remainingDur}/${curMax}${w.ammo === "arrow" ? "・需要弓矢" : w.ammo === "bullet" ? `・需要子彈(每擊 ${w.ammoPerUse ?? 1} 發)` : ""}`,
     stock,
     () => pick.weapons[w.id] ?? 0,
     (n) => (pick.weapons[w.id] = n),
@@ -298,9 +302,18 @@ try {
 const departBtn = app.querySelector<HTMLButtonElement>("#depart-btn")!;
 departBtn.addEventListener("click", () => {
   localStorage.setItem("last-loadout", JSON.stringify(pick));
-  // 從村莊庫存扣掉帶走的份
+  // 從村莊庫存扣掉帶走的份(精工品優先帶出門——帶了就要用最好的)
+  const fineTaken: Record<string, number> = {};
   for (const [id, n] of Object.entries(pick.weapons)) {
-    if (n > 0) village.ownedWeapons[id] = (village.ownedWeapons[id] ?? 0) - n;
+    if (n > 0) {
+      const f = Math.min(n, village.fineWeapons?.[id] ?? 0);
+      if (f > 0) {
+        fineTaken[id] = f;
+        village.fineWeapons![id] -= f;
+        if (village.fineWeapons![id] <= 0) delete village.fineWeapons![id];
+      }
+      village.ownedWeapons[id] = (village.ownedWeapons[id] ?? 0) - n;
+    }
   }
   village.resources.ration = (village.resources.ration ?? 0) - pick.rations;
   village.resources.jerky = (village.resources.jerky ?? 0) - pick.jerky;
@@ -316,6 +329,7 @@ departBtn.addEventListener("click", () => {
 
   const carried: Carried = {
     weapons: Object.fromEntries(Object.entries(pick.weapons).filter(([, n]) => n > 0)),
+    fineWeapons: fineTaken,
     durability: {},
     rations: pick.rations,
     maxRations: pick.rations,
@@ -334,7 +348,8 @@ departBtn.addEventListener("click", () => {
   // 攜帶武器的耐久:受損的延續上次的剩餘值(沒修就是帶著傷上路),沒受損的為全滿
   for (const id of Object.keys(carried.weapons)) {
     const def = WEAPONS.find((w) => w.id === id)!;
-    carried.durability[id] = village.weaponDurability?.[id] ?? def.durability;
+    const full = (fineTaken[id] ?? 0) > 0 ? fineMaxDurability(id) : def.durability;
+    carried.durability[id] = village.weaponDurability?.[id] ?? full;
   }
   saveCarried(carried);
   // 新遠征:地圖固定、迷霧保留,但人回到出發點、水補滿、檢查點重設

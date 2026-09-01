@@ -696,14 +696,19 @@ function startVillage() {
     craftState = null;
 
     const distance = Math.abs(pos - SWEET_CENTER);
-    // 停得越準省越多;失手也照樣做得出來(懲罰是沒省到,不是浪費材料)
-    const refundPct = distance <= 1 ? 0.2 : distance <= 3 ? 0.1 : distance <= 6 ? 0.05 : 0;
-    const ok = kind === "weapon" ? engine.craftWeapon(id, refundPct) : engine.craftConsumable(id, refundPct);
+    const perfect = distance <= 1;
+    // 武器完美=精工品(耐久上限+25%,不退料);其餘準度退料。消耗品完美仍退 20%
+    const refundPct = perfect ? (kind === "weapon" ? 0 : 0.2) : distance <= 3 ? 0.1 : distance <= 6 ? 0.05 : 0;
+    const ok = kind === "weapon" ? engine.craftWeapon(id, refundPct, perfect) : engine.craftConsumable(id, refundPct);
 
     drawStopped(craftCells, pos, distance);
     craftStopBtn.style.display = "none";
-    const gradeText = distance <= 1 ? "完美" : distance <= 3 ? "不錯" : distance <= 6 ? "普通" : "勉強";
-    craftResultEl.textContent = ok ? `${gradeText}　完工${refundPct > 0 ? `(省下約 ${Math.round(refundPct * 100)}% 材料)` : ""}` : "材料不夠了";
+    const gradeText = perfect ? "完美" : distance <= 3 ? "不錯" : distance <= 6 ? "普通" : "勉強";
+    craftResultEl.textContent = ok
+      ? perfect && kind === "weapon"
+        ? "完美　精工品完成(耐久上限 +25%)"
+        : `${gradeText}　完工${refundPct > 0 ? `(省下約 ${Math.round(refundPct * 100)}% 材料)` : ""}`
+      : "材料不夠了";
     craftResultEl.className = `gather-result grade-${gradeKey(distance)}`;
     craftRow.className = distance <= 1 ? "gather-row hit-perfect" : distance <= 3 ? "gather-row hit-good" : "gather-row hit-miss";
 
@@ -745,7 +750,8 @@ function startVillage() {
     dropWornBtn.className = "btn";
     dropWornBtn.style.display = "none";
     dropWornBtn.addEventListener("click", () => {
-      engine.dropWeapon(weapon.id, true);
+      // 受損時=丟耗損的那把;未受損時視同丟備用(先丟普通品,別把精工扔了)
+      engine.dropWeapon(weapon.id, engine.isWeaponDamaged(weapon.id));
       render();
     });
     const dropNewBtn = document.createElement("button");
@@ -1054,8 +1060,12 @@ function startVillage() {
     };
 
     for (const w of WEAPONS.filter((w) => engine.weaponCount(w.id) > 0)) {
-      const dmg = engine.isWeaponDamaged(w.id) ? `(耐 ${engine.weaponDurability[w.id]}/${w.durability})` : "";
-      addArmoryLine(`${w.label}${dmg}`, `×${engine.weaponCount(w.id)}`);
+      const fineN = engine.fineWeapons[w.id] ?? 0;
+      const dmg = engine.isWeaponDamaged(w.id) ? `(耐 ${engine.weaponDurability[w.id]}/${engine.currentMaxDurability(w.id)})` : "";
+      // 精工另立一列(用戶定案的二級制);受損標記跟著「使用中那把」= 精工優先
+      if (fineN > 0) addArmoryLine(`精工${w.label}${dmg}`, `×${fineN}`);
+      const normalN = engine.weaponCount(w.id) - fineN;
+      if (normalN > 0) addArmoryLine(`${w.label}${fineN > 0 ? "" : dmg}`, `×${normalN}`);
     }
     // 出門用的消耗品(弓矢/乾糧/肉乾/繃帶/卷軸/燈油/藥劑)也一併列出
     for (const id of ["arrow", "ration", "jerky", "bandage", "scroll", "oil", "elixir", "salt", "rail"] as ResourceId[]) {
@@ -1112,7 +1122,8 @@ function startVillage() {
         row.cost.textContent = "";
       }
       // 打造列只標最大耐久(規格);殘耐久是「這一把」的狀態,看整備頁——受損時修理鈕就是訊號
-      row.name.textContent = `${count > 0 ? `${row.weapon.label} ×${count}` : row.weapon.label}(耐久 ${row.weapon.durability})`;
+      const fineOwned = engine.fineWeapons[row.weapon.id] ?? 0;
+      row.name.textContent = `${count > 0 ? `${row.weapon.label} ×${count}` : row.weapon.label}${fineOwned > 0 ? `(精工 ×${fineOwned})` : ""}(耐久 ${row.weapon.durability})`;
       row.btn.disabled = !craftable;
       row.btn.classList.toggle("ready", craftable);
 

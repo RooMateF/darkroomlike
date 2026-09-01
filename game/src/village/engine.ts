@@ -1,4 +1,4 @@
-import { BUILDINGS, CONSUMABLES, HUT_CAP_BONUS, JOBS, TRADES, UPGRADES, WEAPONS, repairCost, isIronTierWeapon , PERK_SLOTS } from "./data";
+import { BUILDINGS, CONSUMABLES, HUT_CAP_BONUS, JOBS, TRADES, UPGRADES, WEAPONS, repairCost, isIronTierWeapon , PERK_SLOTS , fineMaxDurability} from "./data";
 import { EVENTS, FOLLOWUP_POOLS, type VillageEvent } from "./events-data";
 import { clearedSiteCount } from "../explore/sites";
 import { RESOURCE_LABEL, type ResourceId } from "./types";
@@ -75,6 +75,8 @@ export class VillageEngine {
   lastEventTick = 0;
   /** 受損武器的剩餘耐久(遠征帶回後持續保留;鐵匠鋪可修理回滿) */
   weaponDurability: Record<string, number> = {};
+  /** 精工品數量(是 ownedWeapons 的子集):打造完美的產物,耐久上限 +25%,永遠優先上手 */
+  fineWeapons: Record<string, number> = {};
   /** 累積交易次數(交易所獨賣品的熟客解鎖依據) */
   tradeCount = 0;
   private tickCount = 0;
@@ -99,6 +101,7 @@ export class VillageEngine {
         growthMeter: this.growthMeter,
         seenResources: [...this.seenResources],
         ownedWeapons: this.ownedWeapons,
+        fineWeapons: this.fineWeapons,
         upgrades: this.upgrades,
         perks: this.perks,
         equippedPerks: this.equippedPerks,
@@ -125,6 +128,7 @@ export class VillageEngine {
       this.growthMeter = s.growthMeter ?? 0;
       for (const id of s.seenResources ?? []) this.seenResources.add(id as ResourceId);
       this.ownedWeapons = s.ownedWeapons ?? {};
+      this.fineWeapons = s.fineWeapons ?? {};
       this.upgrades = s.upgrades ?? {};
       this.perks = s.perks ?? {};
       // 舊存檔遷移:沒有裝備欄資料時,把已擁有的被動依序裝上(維持原「全部生效」的體感)
@@ -183,8 +187,8 @@ export class VillageEngine {
   }
 
   /** 武器可重複打造,備用武器在耐久度機制下有實際意義 */
-  /** 打造武器:refundPct 是打造小遊戲的準度獎勵——停得準,退回一部分材料 */
-  craftWeapon(weaponId: string, refundPct = 0): boolean {
+  /** 打造武器:refundPct 是準度退料;fine=true(完美)產出精工品(耐久上限 +25%) */
+  craftWeapon(weaponId: string, refundPct = 0, fine = false): boolean {
     const weapon = WEAPONS.find((w) => w.id === weaponId);
     if (!weapon || weapon.lootOnly || !this.canAfford(weapon.cost)) return false;
 
@@ -198,9 +202,21 @@ export class VillageEngine {
     // 新打造的是全新的一把,不繼承亡者之傷
     if ((this.ownedWeapons[weaponId] ?? 0) <= 0) delete this.weaponDurability[weaponId];
     this.ownedWeapons[weaponId] = (this.ownedWeapons[weaponId] ?? 0) + 1;
+    if (fine) this.fineWeapons[weaponId] = (this.fineWeapons[weaponId] ?? 0) + 1;
     this.saveState();
-    this.cb.onLog(`打造了「${weapon.label}」。${saved.length > 0 ? `(手藝到位,省下 ${saved.join("、")})` : ""}`);
+    this.cb.onLog(
+      fine
+        ? `打造了「${weapon.label}」——這一把是精工品,耐久上限 +25%。`
+        : `打造了「${weapon.label}」。${saved.length > 0 ? `(手藝到位,省下 ${saved.join("、")})` : ""}`,
+    );
     return true;
+  }
+
+  /** 這一型「使用中那把」的耐久上限:有精工品時精工優先上手 */
+  currentMaxDurability(weaponId: string): number {
+    const weapon = WEAPONS.find((w) => w.id === weaponId);
+    if (!weapon) return 0;
+    return (this.fineWeapons[weaponId] ?? 0) > 0 ? fineMaxDurability(weaponId) : weapon.durability;
   }
 
   /** 消耗品打造(乾糧/繃帶/弓矢),成品直接進資源庫存 */
@@ -226,7 +242,7 @@ export class VillageEngine {
     const weapon = WEAPONS.find((w) => w.id === weaponId);
     if (!weapon) return false;
     const dur = this.weaponDurability[weaponId];
-    return dur !== undefined && dur < weapon.durability;
+    return dur !== undefined && dur < this.currentMaxDurability(weaponId);
   }
 
   /** 鐵礦坑解放後,工匠鋪升格為鐵匠鋪(才能處理鐵製以上的武器) */
@@ -265,6 +281,16 @@ export class VillageEngine {
   dropWeapon(weaponId: string, dropWorn: boolean) {
     const n = this.ownedWeapons[weaponId] ?? 0;
     if (n <= 0) return;
+    const fine = this.fineWeapons[weaponId] ?? 0;
+    if (dropWorn) {
+      // 使用中那把 = 精工優先上手:有精工存量時,丟耗損的就是丟精工
+      if (fine > 0) this.fineWeapons[weaponId] = fine - 1;
+    } else {
+      // 丟全新的備用:先丟普通品,別誤扔精工;備用只剩精工時才丟精工
+      const normalSpares = fine > 0 ? n - fine : n - fine - 1;
+      if (normalSpares <= 0 && fine > 0) this.fineWeapons[weaponId] = fine - 1;
+    }
+    if ((this.fineWeapons[weaponId] ?? 0) <= 0) delete this.fineWeapons[weaponId];
     this.ownedWeapons[weaponId] = n - 1;
     if (this.ownedWeapons[weaponId] <= 0) {
       delete this.ownedWeapons[weaponId];
