@@ -4,6 +4,7 @@ import { loadCarried, saveCarried, clearCarried, addLoot, packUsed, playerMaxHp,
 import { RESOURCE_LABEL, type ResourceId } from "../village/types";
 import { siteAt, siteProgress, specialSites, hasChurchKey, DUNGEON_KEY, SITE_ARRIVAL_TEXT, type DungeonRun } from "./sites";
 import { RATIONS_PER_SLOT } from "../village/data";
+import { CHOICE_EVENTS, type ChoiceEventDef } from "./choice-events";
 
 const STATE_KEY = "explore-state-v7"; // v7:地圖縮小 30%,舊存檔不相容(中央地圖沿用;相鄰地圖各自帶尾碼)
 
@@ -225,6 +226,10 @@ export class ExploreEngine {
   private hungerSteps = 0;
   /** 戰後喘息:每場戰鬥結束後 3 步內不再觸發隨機遭遇,避免連環戰把節奏打爛 */
   private encounterGrace = 0;
+  /** 開著的選擇式小劇情(事件框):有它在,移動整個停住等抉擇 */
+  pendingChoiceEvent: ChoiceEventDef | null = null;
+  /** 抉擇後的結果文本(第二幕):按「繼續」才收起 */
+  pendingChoiceResult: string | null = null;
   /** 這趟遠征已領過乾糧儲備的據點("x,y"):每個據點每趟只給一次,新遠征重置 */
   private depotGrantsUsed = new Set<string>();
   /** 這趟遠征已在哪些據點休整過(同上,防止進出刷血) */
@@ -541,6 +546,7 @@ export class ExploreEngine {
 
   /** dx/dy 為 -1/0/1,代表移動方向 */
   move(dx: number, dy: number) {
+    if (this.pendingChoiceEvent || this.pendingChoiceResult) return; // 事件框開著:先做完抉擇
     const nx = this.playerX + dx;
     const ny = this.playerY + dy;
     const target = this.grid[ny]?.[nx];
@@ -571,6 +577,13 @@ export class ExploreEngine {
       this.refillHere();
     } else if (target.type === "resource" || target.type === "event") {
       this.collectedSinceCheckpoint.push({ x: nx, y: ny, type: target.type });
+      // 選擇式小劇情(2026-09 核可):事件點有機率開出「停下來抉擇」的一幕——
+      // 每則一場遊戲只出現一次(觸發即記名),抽完後回到平常的碎片/補給
+      if (target.type === "event" && this.maybeStartChoiceEvent()) {
+        target.type = "plain";
+        this.saveState();
+        return;
+      }
       const rolled = this.rollPickupGains(target.type);
       target.type = "plain";
       if (typeof rolled === "string") {
@@ -909,6 +922,59 @@ export class ExploreEngine {
   }
 
   /** 把一批拾獲物加進行囊(受揹負空間限制),回傳結算文字 */
+  /** 事件點抽選擇式小劇情:抽中回 true(事件框由 UI 依 pendingChoiceEvent 呈現) */
+  private maybeStartChoiceEvent(): boolean {
+    if (!this.carried) return false;
+    let seen: string[] = [];
+    try {
+      seen = JSON.parse(localStorage.getItem("choice-events-seen") ?? "[]") as string[];
+    } catch {
+      seen = [];
+    }
+    const pool = CHOICE_EVENTS.filter((e) => !seen.includes(e.id));
+    if (pool.length === 0 || Math.random() >= 0.45) return false;
+    const ev = pool[Math.floor(Math.random() * pool.length)];
+    seen.push(ev.id);
+    localStorage.setItem("choice-events-seen", JSON.stringify(seen)); // 觸發即記名:重整頁面也不會再開同一則
+    this.pendingChoiceEvent = ev;
+    return true;
+  }
+
+  /** 玩家做出抉擇:套效果、記結果文本(UI 顯示第二幕,按「繼續」收起) */
+  resolveChoiceEvent(optionIndex: number) {
+    const ev = this.pendingChoiceEvent;
+    if (!ev) return;
+    const opt = ev.options[optionIndex];
+    if (!opt) return;
+    this.pendingChoiceEvent = null;
+    this.pendingChoiceResult = opt.result;
+    this.cb.onLog(opt.result);
+    const fx = opt.effect;
+    if (fx && this.carried) {
+      if (fx.kind === "gain") {
+        const { added, overflow } = addLoot(this.carried, fx.gains);
+        this.markGained(added);
+        if (overflow) this.cb.onLog("(背包塞不下,一部分留在了原地)");
+      } else if (fx.kind === "water") {
+        this.water = Math.min(this.maxWater, this.water + fx.amount);
+      } else if (fx.kind === "trade") {
+        const { added } = addLoot(this.carried, fx.gains);
+        this.markGained(added);
+        for (const [k, n] of Object.entries(fx.costs)) {
+          // 目前只有乾糧一種代價;不足就不扣(留東西是心意,不是義務)
+          if (k === "ration") this.carried.rations = Math.max(0, this.carried.rations - n);
+        }
+      }
+      saveCarried(this.carried);
+    }
+    this.saveState();
+  }
+
+  /** 收起結果文本(第二幕結束,恢復行動) */
+  dismissChoiceResult() {
+    this.pendingChoiceResult = null;
+  }
+
   /** 蓋「這趟有收穫」章(引導事件據此歸零空手計數) */
   private markGained(added: Record<string, number>) {
     if (Object.keys(added).length > 0) localStorage.setItem("expedition-gained", "1");

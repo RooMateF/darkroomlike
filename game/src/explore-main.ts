@@ -427,6 +427,64 @@ function renderPack() {
   }
 }
 
+// ---- 選擇式小劇情的事件框(全螢幕,與村莊事件同一套視覺)----
+const choiceOverlayEl = document.createElement("div");
+choiceOverlayEl.className = "event-overlay";
+choiceOverlayEl.style.display = "none";
+choiceOverlayEl.innerHTML = `
+  <div class="event-box">
+    <div class="event-title">事件</div>
+    <div class="event-text" id="explore-ev-text"></div>
+    <div class="event-options" id="explore-ev-options"></div>
+  </div>
+`;
+document.body.appendChild(choiceOverlayEl);
+const choiceTextEl = choiceOverlayEl.querySelector<HTMLDivElement>("#explore-ev-text")!;
+const choiceOptionsEl = choiceOverlayEl.querySelector<HTMLDivElement>("#explore-ev-options")!;
+let shownChoiceKey: string | null = null;
+
+function renderChoiceOverlay() {
+  const ce = engine.pendingChoiceEvent;
+  if (ce) {
+    // 只在事件換人時重建選項(與村莊事件同理:每次重繪按鈕會吃掉點擊)
+    if (shownChoiceKey !== ce.id) {
+      shownChoiceKey = ce.id;
+      choiceTextEl.textContent = ce.text;
+      choiceOptionsEl.innerHTML = "";
+      ce.options.forEach((opt, i) => {
+        const btn = document.createElement("button");
+        btn.className = "btn ready";
+        btn.textContent = opt.label;
+        btn.addEventListener("click", () => {
+          engine.resolveChoiceEvent(i);
+          render();
+        });
+        choiceOptionsEl.appendChild(btn);
+      });
+    }
+    choiceOverlayEl.style.display = "flex";
+  } else if (engine.pendingChoiceResult) {
+    // 第二幕:結果文本 + 繼續
+    if (shownChoiceKey !== "@result") {
+      shownChoiceKey = "@result";
+      choiceTextEl.textContent = engine.pendingChoiceResult;
+      choiceOptionsEl.innerHTML = "";
+      const btn = document.createElement("button");
+      btn.className = "btn ready";
+      btn.textContent = "繼續";
+      btn.addEventListener("click", () => {
+        engine.dismissChoiceResult();
+        render();
+      });
+      choiceOptionsEl.appendChild(btn);
+    }
+    choiceOverlayEl.style.display = "flex";
+  } else {
+    choiceOverlayEl.style.display = "none";
+    shownChoiceKey = null;
+  }
+}
+
 // ---- 地形區域化(用戶定案:模擬真實地形,收斂圖面雜訊)----
 // 地面不再逐格隨機混雜:一律畫「所在區域」的底紋——
 // A 圖村莊周圍是一整片林地(;),走遠了才開闊(.);北嶺/東郊是岩地(:);
@@ -442,6 +500,7 @@ function zoneGround(x: number, y: number): string {
 }
 
 function render() {
+  renderChoiceOverlay();
   zoomOutBtn.disabled = zoomPx <= ZOOM_LEVELS[0];
   zoomInBtn.disabled = zoomPx >= ZOOM_LEVELS[ZOOM_LEVELS.length - 1];
   renderPackButton();
