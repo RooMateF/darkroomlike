@@ -60,7 +60,7 @@ export const MILESTONES: Milestone[] = [
   {
     id: "farm-built",
     check: (s) => s.farmBuilt,
-    text: "『種下去的東西會發芽,』她蹲在田邊,手指按進土裡,『這件事,不管世界變成什麼樣都不會變。』",
+    text: "『種下去的東西會種子,』她蹲在田邊,手指按進土裡,『這件事,不管世界變成什麼樣都不會變。』",
   },
   {
     id: "tannery-built",
