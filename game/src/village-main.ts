@@ -649,7 +649,7 @@ function startVillage() {
     return { t, b };
   });
   // 武器列壓成單行(名稱|成本|修理/打造):12 把武器一頁放得下,不用捲(玩家反饋:畫面要乾淨)
-  // ---- 打造小遊戲:與採集同一套節奏條——停得越準,省下的材料越多(完美 20%、不錯 10%、普通 5%) ----
+  // ---- 打造小遊戲(武器限定):與採集同一套節奏條——完美=精工品,其餘準度退料 ----
   let craftState: { kind: "weapon" | "consumable"; id: string; pos: number; dir: number; timer: number } | null = null;
   let craftResultTimer = 0;
   const craftBarEl = document.createElement("div");
@@ -787,7 +787,11 @@ function startVillage() {
     const btn = document.createElement("button");
     btn.className = "btn";
     btn.textContent = "製作";
-    btn.addEventListener("click", () => startCraftGame("consumable", def.id));
+    // 消耗品直接製作(2026-09 用戶定案:小遊戲留給武器,量產物資不必每次按節奏條)
+    btn.addEventListener("click", () => {
+      engine.craftConsumable(def.id);
+      render();
+    });
 
     row.append(name, cost, btn);
     weaponsEl.appendChild(row);
