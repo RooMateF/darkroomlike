@@ -104,6 +104,14 @@ const OBSERVATORY_LORE_KEY = "observatory-lore-index";
  * 但新遠征要把玩家放回出發點、補滿水、重設檢查點。
  */
 export function markFreshExpedition() {
+  // 連續空手而歸的計數(引導事件的燃料):上一趟一無所獲 → +1,有收穫 → 歸零。
+  // 「收穫」= 撿到任何東西,或打通任何探勘層(戰鬥頁也會蓋章)
+  if (expeditionSerial() > 0) {
+    const fruitless = localStorage.getItem("expedition-gained") !== "1";
+    const n = Number(localStorage.getItem("fruitless-expeditions") ?? "0");
+    localStorage.setItem("fruitless-expeditions", String(fruitless ? n + 1 : 0));
+  }
+  localStorage.removeItem("expedition-gained");
   localStorage.setItem(FRESH_KEY, "1");
   // 每趟遠征都從村莊(中央地圖)出發;遠征序號 +1,各地圖據此重置據點儲備
   localStorage.setItem(CURRENT_MAP_KEY, "A");
@@ -901,9 +909,15 @@ export class ExploreEngine {
   }
 
   /** 把一批拾獲物加進行囊(受揹負空間限制),回傳結算文字 */
+  /** 蓋「這趟有收穫」章(引導事件據此歸零空手計數) */
+  private markGained(added: Record<string, number>) {
+    if (Object.keys(added).length > 0) localStorage.setItem("expedition-gained", "1");
+  }
+
   private applyPickup(gains: Record<string, number>): string {
     if (!this.carried) return "拾獲了一些東西,但你沒有背囊可以裝。";
     const { added, overflow } = addLoot(this.carried, gains);
+    this.markGained(added);
     saveCarried(this.carried);
     const entries = Object.entries(added);
     if (entries.length === 0) return "找到了一些東西,但背包已經塞不下了,只能忍痛留在原地。";
@@ -918,6 +932,7 @@ export class ExploreEngine {
     const take = Math.min(avail, count);
     if (take <= 0) return;
     const { added } = addLoot(this.carried, { [id]: take });
+    this.markGained(added);
     const got = added[id] ?? 0;
     saveCarried(this.carried);
     this.pendingPickup[id] = avail - got;

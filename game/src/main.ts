@@ -6,7 +6,18 @@ import { RESOURCE_LABEL, type ResourceId } from "./village/types";
 import { loadCarried, saveCarried, clearCarried, addLoot, playerMaxHp, carriedMaxDurability } from "./carried";
 import { pickRandomEnemy, pickMidEnemy, GUARDIANS, LANDMARK_REWARDS, LV3_BOSS, type EnemyDef } from "./enemies";
 import { markLandmarkCleared, currentMapId, isAutoPickup } from "./explore/engine";
-import { DUNGEON_KEY, siteProgress, saveSiteProgress, churchKeySiteKey, hasChurchKey, grantChurchKey, type DungeonRun } from "./explore/sites";
+
+// 蓋「這趟有收穫」章(空手計數的歸零依據;引導事件用)
+function markExpeditionGained(added: Record<string, number>) {
+  if (Object.keys(added).length > 0) localStorage.setItem("expedition-gained", "1");
+}
+import { DUNGEON_KEY, siteProgress, saveSiteProgress as saveSiteProgressRaw, churchKeySiteKey, hasChurchKey, grantChurchKey, type DungeonRun } from "./explore/sites";
+
+// 打通任何一層也算「有收穫」:包一層蓋章
+const saveSiteProgress: typeof saveSiteProgressRaw = (key, progress) => {
+  localStorage.setItem("expedition-gained", "1");
+  saveSiteProgressRaw(key, progress);
+};
 import type { CategoryId } from "./types";
 
 // 玩家的行動類別由隨身行囊決定(整備頁打包的 carried);敵人隨機抽自前期名冊
@@ -428,6 +439,7 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
       } else if (isAutoPickup()) {
         // 自動拾取開啟:照舊直接入包(與探索頁的開關一致)
         const { added, overflow } = addLoot(carried, gains);
+        markExpeditionGained(added);
         saveCarried(carried);
         let lootText = Object.entries(added)
           .map(([id, n]) => `${RESOURCE_LABEL[id as ResourceId]} +${n}`)
@@ -498,6 +510,7 @@ function showLootPanel(message: string, gains: Record<string, number>, href: str
     btn.addEventListener("click", () => {
       if (!carried) return;
       const { added, overflow } = addLoot(carried, { [id]: n });
+      markExpeditionGained(added);
       saveCarried(carried);
       const got = Object.values(added)[0] ?? 0;
       if (got <= 0) {
@@ -526,6 +539,7 @@ function showLootPanel(message: string, gains: Record<string, number>, href: str
     for (const r of itemRows) {
       if (r.line.style.display === "none") continue;
       const { added, overflow } = addLoot(carried, { [r.id]: r.n });
+      markExpeditionGained(added);
       if (overflow) anyOverflow = true;
       const got = Object.values(added)[0] ?? 0;
       if (got > 0) gotAll.push(`${RESOURCE_LABEL[r.id as ResourceId] ?? r.id} +${got}`);
