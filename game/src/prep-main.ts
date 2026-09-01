@@ -450,6 +450,8 @@ function render() {
     row.plus.disabled = !addable;
     row.minus.classList.toggle("ready", picked > 0);
     row.plus.classList.toggle("ready", addable);
+    // 丟到一件不剩的列直接消失,不占版面(2026-09 用戶要求)
+    row.line.style.display = stock <= 0 && picked <= 0 ? "none" : "";
   }
   capPackValue.textContent = `${packPicked()}/${capacity}`;
 }

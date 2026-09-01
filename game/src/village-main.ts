@@ -1359,5 +1359,19 @@ function startVillage() {
   // 冷卻倒數需要每秒更新顯示,不能只靠 10 秒一次的生產週期
   setInterval(render, 500);
 
+  // 防掛機(2026-09 用戶定案):閒置 10 分鐘強制觸發打盹事件——
+  // 事件卡著=生產迴圈暫停,掛機放置不會白撿資源;任何點擊/按鍵/滾輪都算「有人在」
+  const IDLE_LIMIT_MS = 10 * 60 * 1000;
+  let lastActivity = performance.now();
+  for (const evName of ["pointerdown", "keydown", "wheel"]) {
+    window.addEventListener(evName, () => (lastActivity = performance.now()), { capture: true, passive: true });
+  }
+  setInterval(() => {
+    if (performance.now() - lastActivity >= IDLE_LIMIT_MS) {
+      engine.forceIdleEvent();
+      lastActivity = performance.now(); // 觸發後重計:事件卡著期間本來就暫停,不必重複疊
+    }
+  }, 30_000);
+
   (window as unknown as { __village: typeof engine }).__village = engine;
 }

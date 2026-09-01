@@ -350,4 +350,19 @@ export const EVENTS: VillageEvent[] = [
     ],
     minTick: 40,
   },
+  // 防掛機(2026-09 用戶定案):村莊閒置 10 分鐘由 forceIdleEvent 強制觸發;
+  // followUpOnly=true 讓它不進隨機事件池,只走強制路徑。事件卡著=生產迴圈整個暫停
+  {
+    id: "idle-doze",
+    kind: "choice",
+    followUpOnly: true,
+    text: "火光晃著晃著,你的眼皮沉了下去。不知道打盹了多久——肩膀被輕輕拍了一下。「在這裡睡著會著涼的。」她把一件外衣披到你身上。",
+    options: [
+      {
+        label: "回過神來",
+        effect: {},
+        resultText: "你甩甩頭站起來。火還沒滅,村莊的日子繼續往前走。",
+      },
+    ],
+  },
 ];

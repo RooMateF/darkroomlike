@@ -649,6 +649,17 @@ export class VillageEngine {
     this.saveState();
   }
 
+  /** 防掛機(2026-09 用戶定案):閒置太久由頁面層呼叫,強制觸發打盹事件——
+   * 事件卡著的期間生產迴圈整個暫停,直到玩家回應才繼續 */
+  forceIdleEvent() {
+    if (this.pendingEvent) return; // 已有事件卡著=本來就暫停了,別疊
+    const ev = EVENTS.find((e) => e.id === "idle-doze");
+    if (!ev) return;
+    this.pendingEvent = ev;
+    this.lastEventTick = this.tickCount;
+    this.cb.onTick();
+  }
+
   canAfford(cost: Partial<Record<ResourceId, number>>): boolean {
     return Object.entries(cost).every(([id, amount]) => this.resources[id as ResourceId] >= (amount ?? 0));
   }
