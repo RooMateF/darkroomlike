@@ -35,8 +35,8 @@ function saveVillage(state: VillageState) {
 export interface PrepMountOpts {
   /** 按下「出發」之後(carried 已寫入、fresh 旗標已立):殼層切到遠征視圖 */
   onDepart: () => void;
-  /** 「回村莊」:殼層切回村況 */
-  onBack: () => void;
+  /** 保留給殼層的返回掛勾(頁籤本身可切換,目前整備頁不再放回村鈕) */
+  onBack?: () => void;
 }
 
 /** 把整備視圖掛進容器(每次進入分頁重新掛載,讀當下庫存) */
@@ -71,9 +71,6 @@ const pick = {
 
 app.innerHTML = `
   <div class="section-title">整備</div>
-  <div class="nav-links">
-    <button id="prep-back" class="btn">← 回村莊</button>
-  </div>
 
   <div class="section">
     <div class="section-title">狀態</div>
@@ -95,7 +92,6 @@ app.innerHTML = `
   </div>
 `;
 
-app.querySelector<HTMLButtonElement>("#prep-back")!.addEventListener("click", () => opts.onBack());
 
 const weaponListEl = app.querySelector<HTMLDivElement>("#weapon-list")!;
 const supplyListEl = app.querySelector<HTMLDivElement>("#supply-list")!;
