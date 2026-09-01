@@ -2,7 +2,7 @@
 // 位置用獨立種子確定性生成:地圖固定,地點也固定;進度存 localStorage "site-progress"
 
 import { LANDMARKS } from "./types";
-import { MAP_WIDTH, MAP_HEIGHT, MAZE, POCKET_N } from "./map-gen";
+import { MAP_WIDTH, MAP_HEIGHT, MAZE, POCKET_N, COAL_RIDGE } from "./map-gen";
 
 export interface SpecialSite {
   key: string; // "map:x,y" 或 "x,y"(中央地圖沿用舊格式,存檔相容)
@@ -66,6 +66,7 @@ export function specialSites(): SpecialSite[] {
       if (dist < minDist || dist > maxDist) continue;
       if (x >= MAZE.x1 && x <= MAZE.x2 && y >= MAZE.y1 && y <= MAZE.y2) continue; // 迷宮/圍場裡不撒點
       if (x >= POCKET_N.x1 && x <= POCKET_N.x2 && y >= POCKET_N.y1 && y <= POCKET_N.y2) continue;
+      if (x >= COAL_RIDGE.x1 && x <= COAL_RIDGE.x2 && y >= COAL_RIDGE.y1 && y <= COAL_RIDGE.y2) continue;
       const key = `${x},${y}`;
       if (taken.has(key) || landmarkKeys.has(key)) continue;
       // 彼此間至少隔 4 格,避免擠成一團
@@ -91,7 +92,8 @@ export function specialSites(): SpecialSite[] {
       y = Math.max(2, Math.min(MAP_HEIGHT - 3, y));
       const inExcluded = (xx: number, yy: number) =>
         (xx >= MAZE.x1 && xx <= MAZE.x2 && yy >= MAZE.y1 && yy <= MAZE.y2) ||
-        (xx >= POCKET_N.x1 && xx <= POCKET_N.x2 && yy >= POCKET_N.y1 && yy <= POCKET_N.y2);
+        (xx >= POCKET_N.x1 && xx <= POCKET_N.x2 && yy >= POCKET_N.y1 && yy <= POCKET_N.y2) ||
+        (xx >= COAL_RIDGE.x1 && xx <= COAL_RIDGE.x2 && yy >= COAL_RIDGE.y1 && yy <= COAL_RIDGE.y2);
       while (taken.has(`${x},${y}`) || landmarkKeys.has(`${x},${y}`) || inExcluded(x, y)) x++;
       const key = `${x},${y}`;
       taken.add(key);

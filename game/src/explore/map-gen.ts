@@ -345,6 +345,28 @@ export function generateMap(mapId: MapId = "A"): Tile[][] {
     }
   }
 
+  // 煤礦坑環山盆地(2026-09 用戶定案):山坡有走向——
+  // 東面整排 \(從東邊踏上山脊,往西下進盆地);西面整排 \(只有盆地裡踏得上去=回程出口);
+  // 南脊整排 /(兩端都接不到平地,等於封死從村莊來的直線路)。進東出西,看得到但得繞。
+  {
+    const R = COAL_RIDGE;
+    const protectedTile = (t: { type: string }) =>
+      t.type === "landmark" || t.type === "site" || t.type === "depot" || t.type === "exit" || t.type === "chest";
+    for (let y = R.y1; y <= R.y2; y++) {
+      for (let x = R.x1; x <= R.x2; x++) {
+        const t = grid[y]?.[x];
+        if (!t || protectedTile(t)) continue;
+        if (x === R.x1 || x === R.x2) {
+          grid[y][x] = { type: "slopeR", revealed: false };
+        } else if (y === R.y2) {
+          grid[y][x] = { type: "slopeL", revealed: false };
+        } else {
+          grid[y][x] = { type: "plain", revealed: false }; // 盆地內清空,別讓亂石堵住煤礦坑
+        }
+      }
+    }
+  }
+
   return grid;
 }
 
@@ -432,6 +454,9 @@ export const MAZE_ROWS = [
 
 /** 北圍場(數數的東西的家):種子撒點的排除區 */
 export const POCKET_N = { x1: 26, y1: 3, x2: 33, y2: 8 };
+
+/** 煤礦坑環山(2026-09):直線看得到、走路得繞——東面 \\ 可上、西面 \\ 只能從盆地裡上(出口)、南脊 / 封死直路 */
+export const COAL_RIDGE = { x1: 49, y1: 0, x2: 59, y2: 7 };
 
 /** 邊境據點座標(入口內側三格):相鄰地圖限定;引擎載入舊存檔時也用它補打 */
 export function borderDepotFor(mapId: MapId): { x: number; y: number } | null {

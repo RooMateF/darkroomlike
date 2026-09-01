@@ -4,7 +4,7 @@ import { buildPlayerCategories } from "./demo-data";
 import { WEAPONS, fineMaxDurability } from "./village/data";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
 import { loadCarried, saveCarried, clearCarried, addLoot, playerMaxHp, carriedMaxDurability, packUsed } from "./carried";
-import { pickRandomEnemy, pickMidEnemy, pickEnemyGroup, GUARDIANS, LANDMARK_REWARDS, LV3_BOSS, EVENT_BOSSES, TENTACLE_GUARD, type EnemyDef } from "./enemies";
+import { pickRandomEnemy, pickMidEnemy, pickEnemyGroup, GUARDIANS, LANDMARK_REWARDS, LV3_BOSS, EVENT_BOSSES, TENTACLE_GUARD, SPAWN_UNIT, type EnemyDef } from "./enemies";
 import { markLandmarkCleared, currentMapId, isAutoPickup } from "./explore/engine";
 
 // 蓋「這趟有收穫」章(空手計數的歸零依據;引導事件用)
@@ -59,7 +59,7 @@ if (localStorage.getItem("pending-group")) localStorage.removeItem("pending-grou
 const groupQueue: EnemyDef[] = isGroupFight ? pickEnemyGroup() : [];
 
 // 相鄰地圖(中央地圖以外)的野外更兇:一半機率抽中期梯隊
-const enemyDef = eventBossId
+const pickedDef = eventBossId
   ? (EVENT_BOSSES[eventBossId] ?? pickRandomEnemy())
   : dungeon
     ? pickDungeonEnemy(dungeon)
@@ -68,8 +68,31 @@ const enemyDef = eventBossId
       : currentMapId() !== "A" && Math.random() < 0.5
         ? pickMidEnemy()
         : pickRandomEnemy();
-/** 這一戰的完整陣容(多目標同時進攻):勝利時全隊戰利品合計 */
-const unitDefs: EnemyDef[] = [enemyDef];
+
+/** 成群的孳生體:資料上一筆,戰場上展開成 3 隻實體(2026-09 多目標系統) */
+function expandPack(defs: EnemyDef[]): EnemyDef[] {
+  const out: EnemyDef[] = [];
+  for (const d of defs) {
+    if (d.id === "spawn-pack") out.push(SPAWN_UNIT, SPAWN_UNIT, SPAWN_UNIT);
+    else out.push(d);
+  }
+  return out;
+}
+
+// 這一波的實際陣容(展開後);後面的波次見 chainWaves
+const initialWave = expandPack([pickedDef, ...groupQueue]);
+groupQueue.length = 0;
+const enemyDef = initialWave[0];
+
+// 高階遺跡連鎖戰(2026-09 用戶定案):Lv3+ 層間戰有一半機率連 2~3 場——
+// 波與波之間沒有補給、沒有拾取,結算(戰利品/掉落面板)全放最後
+const chainWaves: EnemyDef[][] = [];
+if (dungeon && dungeon.level >= 3 && dungeon.stage < dungeon.stages && Math.random() < 0.5) {
+  const extra = 1 + (Math.random() < 0.4 ? 1 : 0);
+  for (let i = 0; i < extra; i++) chainWaves.push(expandPack([pickMidEnemy()]));
+}
+/** 這一戰的完整陣容(含連鎖各波;勝利時戰利品合計、異晶逐隻擲骰) */
+const unitDefs: EnemyDef[] = [...initialWave];
 
 // 拾荒的長手 Boss 戰:贓物快照與歸還記帳(護贓觸手倒下即歸還那件)
 let stolenSnapshot: { kind: string; id?: string; durability?: number; fine?: boolean }[] = [];
@@ -595,6 +618,24 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
       localStorage.setItem("death-cause", "combat"); // 回村後代行者依死因給一句叮囑
       endCombat("你倒下了……但是一股溫暖的微光包裹著你。", "village.html", 2200);
     } else if (engine.enemyHp <= 0) {
+      // 連鎖戰:這一波清了,下一波直接壓上——沒有補給、沒有拾取,結算全放最後
+      if (chainWaves.length > 0) {
+        const wave = chainWaves.shift()!;
+        appendSystemLog("喘息未定,通道深處又傳來動靜——下一波壓了上來。");
+        engine.replaceEnemies(applyBlessing(wave[0].moves), {
+          hp: wave[0].hp,
+          label: wave[0].label,
+          freezeResist: wave[0].freezeResist,
+          pattern: wave[0].pattern,
+        });
+        for (const d of wave.slice(1)) {
+          engine.addEnemy(applyBlessing(d.moves), { hp: d.hp, label: d.label, freezeResist: d.freezeResist, pattern: d.pattern });
+        }
+        unitDefs.push(...wave);
+        appendSystemLog(wave[0].intro);
+        return;
+      }
+
       // 勝利(多目標:全滅):戰利品全隊合計;剩餘 HP 記回行囊——活著帶回村才真的入庫
       const gains: Record<string, number> = {};
       for (const d of unitDefs) {
@@ -612,7 +653,7 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
         const isFinal = dungeon.stage >= dungeon.stages;
         if (!isFinal) {
           saveSiteProgress(dungeon.key, { stage: dungeon.stage, cleared: false });
-          message = `擊倒了${enemyDef.label}——通道還在往深處延伸(${dungeon.stage}/${dungeon.stages})`;
+          message = `擊倒了${enemyDef.label}${unitDefs.length > 1 ? `等 ${unitDefs.length} 隻` : ""}——通道還在往深處延伸(${dungeon.stage}/${dungeon.stages})`;
         } else {
           saveSiteProgress(dungeon.key, { stage: dungeon.stage, cleared: true });
           delay = 3000;
@@ -684,12 +725,10 @@ if (carried) {
 } else {
   engine.playerHp = engine.playerMaxHp;
 }
-// 組隊遭遇:其餘敵人同時上場(多目標)
-for (const d of groupQueue) {
+// 這一波其餘敵人同時上場(組隊/孳生窩展開)
+for (const d of initialWave.slice(1)) {
   engine.addEnemy(applyBlessing(d.moves), { hp: d.hp, label: d.label, freezeResist: d.freezeResist, pattern: d.pattern });
-  unitDefs.push(d);
 }
-groupQueue.length = 0;
 // 拾荒的長手:每件贓物由一條護贓觸手纏著上場——打倒觸手直接取回
 if (dungeon?.landmarkId === "scavenger") {
   stolenSnapshot.slice(0, 5).forEach((_, i) => {
@@ -720,6 +759,7 @@ if (new URLSearchParams(window.location.search).has("dev")) {
   (window as unknown as { __combat?: unknown }).__combat = {
     engine,
     step: (dt: number) => (engine as unknown as { step: (dt: number) => void }).step(dt),
+    chainWaves, // 連鎖戰測試用:可窺可塞
   };
 }
 

@@ -6,7 +6,42 @@ import { siteAt, siteProgress, specialSites, hasChurchKey, DUNGEON_KEY, SITE_ARR
 import { RATIONS_PER_SLOT } from "../village/data";
 import { CHOICE_EVENTS, type ChoiceEventDef } from "./choice-events";
 
-const STATE_KEY = "explore-state-v9"; // v9:東南圍場擴建成迷宮(拾荒的長手),舊存檔不相容
+const STATE_KEY = "explore-state-v10"; // v10:煤礦坑外推(要比鐵礦坑遠),舊存檔不相容
+
+// ---- v9 → v10 一次性遷移(2026-09 煤礦坑外推)----
+(function migrateMapV10() {
+  if (localStorage.getItem("map-v10-migrated")) return;
+  try {
+    let rails = 0;
+    let lamps = 0;
+    for (const suffix of ["", ":N", ":E", ":S", ":W"]) {
+      const raw = localStorage.getItem("explore-state-v9" + suffix);
+      if (!raw) continue;
+      const st = JSON.parse(raw);
+      for (const row of (st.railRows ?? []) as string[]) rails += (row.match(/1/g) ?? []).length;
+      for (const row of (st.litRows ?? []) as string[]) lamps += (row.match(/1/g) ?? []).length;
+      localStorage.removeItem("explore-state-v9" + suffix);
+    }
+    if (rails > 0 || lamps > 0) {
+      const v = JSON.parse(localStorage.getItem("village-state") ?? "{}");
+      v.resources ??= {};
+      v.resources.rail = (v.resources.rail ?? 0) + rails;
+      v.resources.oil = (v.resources.oil ?? 0) + lamps;
+      localStorage.setItem("village-state", JSON.stringify(v));
+    }
+    if (rails > 0) localStorage.removeItem("rail-to-mine");
+    const progress = JSON.parse(localStorage.getItem("site-progress") ?? "{}");
+    const fresh: Record<string, unknown> = {};
+    for (const keep of ["7,5", "12,43", "77,46", "62,13", "73,47", "29,5"]) {
+      if (progress[keep]) fresh[keep] = progress[keep];
+    }
+    if (progress["48,8"]) fresh["54,4"] = progress["48,8"]; // 煤礦坑外推
+    localStorage.setItem("site-progress", JSON.stringify(fresh));
+  } catch {
+    /* 壞資料就放棄遷移,別擋開機 */
+  }
+  localStorage.setItem("map-v10-migrated", "1");
+})();
 
 // ---- v8 → v9 一次性遷移(2026-09 迷宮改建)----
 (function migrateMapV9() {
@@ -717,6 +752,16 @@ export class ExploreEngine {
     const target = this.grid[ny]?.[nx];
     if (!target || BLOCKED.includes(target.type)) {
       this.cb.onLog("那個方向走不過去。");
+      return;
+    }
+
+    // 山坡(2026-09 用戶定案):順著山勢才走得上去——/ 從左邊上、| 直上直下、\ 從右邊上
+    if (
+      (target.type === "slopeL" && !(dx === 1 && dy === 0)) ||
+      (target.type === "slopeV" && dx !== 0) ||
+      (target.type === "slopeR" && !(dx === -1 && dy === 0))
+    ) {
+      this.cb.onLog("山坡太陡,這一面爬不上去——得順著山勢繞。");
       return;
     }
 

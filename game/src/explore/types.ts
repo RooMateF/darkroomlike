@@ -1,6 +1,6 @@
 // 對應 design-notes.md § 3.2 的符號說明
 
-export type TileType = "plain" | "brush" | "rubble" | "wall" | "water" | "depot" | "resource" | "event" | "site" | "exit" | "landmark" | "chest";
+export type TileType = "plain" | "brush" | "rubble" | "wall" | "water" | "depot" | "resource" | "event" | "site" | "exit" | "landmark" | "chest" | "slopeL" | "slopeV" | "slopeR";
 
 export const TILE_SYMBOL: Record<TileType, string> = {
   plain: ".",
@@ -15,6 +15,10 @@ export const TILE_SYMBOL: Record<TileType, string> = {
   exit: "^", // 地圖邊緣的出口,通往相鄰地圖(存檔用統一符號;畫面上依方位畫 ^ v < >)
   landmark: "!", // 地標(存檔用統一符號;畫面上依 LANDMARKS 定義各自的字母)
   chest: "▣", // 寶箱(迷宮 Boss 房):打贏守著它的東西才開得了
+  // 山坡(2026-09 用戶定案):連續的 / | \\ 畫成山區;只有順著山勢的方向才走得上去
+  slopeL: "/", // 從左邊(西側)才踏得上去
+  slopeV: "|", // 直上直下(南北向)才走得過
+  slopeR: "\\", // 從右邊(東側)才踏得上去
 };
 
 /** 有名字的特別地點(骨架層手工放置,固定座標);Lv4 中盤級,Lv5 幾乎無法戰勝(design-notes.md § 3.10.1) */
@@ -74,8 +78,8 @@ export const LANDMARKS: LandmarkDef[] = [
     id: "coalmine",
     label: "煤礦坑",
     symbol: "K",
-    x: 48,
-    y: 8,
+    x: 54, // 2026-09 外推:煤(鋼階)要比鐵礦坑更遠(用戶確認的進度曲線)
+    y: 4,
     level: 4,
     introText: "半山腰裂開一道黑色的礦口,連風吹過都帶著煤灰味。坑道深處傳來規律的、像挖掘一樣的聲音——但這裡不該有任何人。",
     clearedText: "煤礦安全了。烏黑的煤層在礦燈下泛著油亮的光——村裡的爐火,可以燒得更旺了。",

@@ -159,6 +159,20 @@ export function pickMidEnemy(): EnemyDef {
   return MID_ENEMIES[Math.floor(Math.random() * MID_ENEMIES.length)];
 }
 
+/** 孳生體(單隻):成群的孳生體在戰場上展開成 3 隻這個(2026-09 多目標系統) */
+export const SPAWN_UNIT: EnemyDef = {
+  id: "spawn-one",
+  label: "孳生體",
+  intro: "牆縫裡湧出的東西比外面見過的更多、更急。",
+  hp: 7,
+  moves: [
+    { id: "bite", label: "圍咬", baseCost: 0.9, symbol: "·»", damage: 3, status: { kind: "poison", amount: 15 } },
+    { id: "lunge", label: "撲竄", baseCost: 1.5, symbol: "»»", damage: 5 },
+  ],
+  loot: { meat: 1 },
+  shardChance: 0.35,
+};
+
 /** 護贓的觸手(拾荒的長手 Boss 戰的隨從):每條纏著一件贓物——打倒牠,東西直接回到你手上 */
 export const TENTACLE_GUARD: EnemyDef = {
   id: "tentacle-guard",

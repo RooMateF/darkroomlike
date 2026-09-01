@@ -244,6 +244,15 @@ export class CombatEngine {
     return this.units.find((x) => x.hp > 0) ?? null;
   }
 
+  /** 連鎖戰(高階遺跡):清場換下一波——玩家血量/異常/行動條原封不動,敵方全新 */
+  replaceEnemies(moves: EnemyMove[], opts: EnemyUnitOpts) {
+    this.units = [new EnemyUnit(moves, opts)];
+    this.targetIdx = 0;
+    this.cb.onUnitsChanged?.();
+    this.cb.onHpChange();
+    if (this.units[0].tracker.currentMove.tell) this.cb.onTell?.(this.units[0].tracker.currentMove.tell);
+  }
+
   /** 切換攻擊目標(點敵欄或 Tab):只有活著的能選 */
   setTarget(idx: number) {
     if (this.units[idx] && this.units[idx].hp > 0) {
