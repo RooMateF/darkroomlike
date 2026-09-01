@@ -106,6 +106,43 @@ function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+export interface EnemyUnitOpts {
+  hp: number;
+  label: string;
+  freezeResist?: boolean;
+  pattern?: string[];
+  /** 自訂識別(拾荒的長手的護贓觸手掛 stolen:N,倒下即歸還那件贓物) */
+  tag?: string;
+}
+
+/** 戰場上的一隻敵人(2026-09 多目標改版):各自的血量/行動條/凍結/狂暴 */
+export class EnemyUnit {
+  tracker: EnemyTracker;
+  hp: number;
+  maxHp: number;
+  label: string;
+  tag?: string;
+  /** 敵方凍結值(名刀鬼雪):滿 100 → 這隻的下一招 CD ×2 + 我方下一擊 ×1.5 */
+  freeze = 0;
+  /** 寒滯中:這隻當前準備的招充能減半,出招後解除 */
+  chilled = false;
+  /** 狂暴倍率(拾荒的長手 50% 後 CD ×0.75 → 充能 ×1.333) */
+  hasteMult = 1;
+  readonly freezeResist: boolean;
+
+  constructor(
+    public readonly moves: EnemyMove[],
+    opts: EnemyUnitOpts,
+  ) {
+    this.hp = opts.hp;
+    this.maxHp = opts.hp;
+    this.label = opts.label;
+    this.tag = opts.tag;
+    this.freezeResist = opts.freezeResist ?? false;
+    this.tracker = new EnemyTracker(moves, () => (this.chilled ? 0.5 : 1) * this.hasteMult, opts.pattern);
+  }
+}
+
 export interface EngineCallbacks {
   onLog: (entry: LogEntry) => void;
   onPauseChange: (paused: boolean) => void;
@@ -118,22 +155,26 @@ export interface EngineCallbacks {
   onBlocked?: (perfect: boolean) => void;
   /** 偷竊招命中(完全格擋擋得下):由 UI 執行偷竊與記帳(每場限一次的守門也在 UI) */
   onSteal?: () => void;
+  /** 有一隻敵人倒下(多目標戰;最後一隻的勝利結算仍走 onHpChange) */
+  onEnemyDown?: (unit: EnemyUnit) => void;
+  /** 敵人陣容/目標變動(加入新敵、切換目標):UI 重建敵欄 */
+  onUnitsChanged?: () => void;
 }
 
 /**
  * 核心排程引擎,實作 design-notes.md § 2.1–2.9:
  * - 玩家行動槽跑滿即暫停等待輸入(Wait 模式,§2.6)
- * - 敵方不受暫停影響地持續運作,直到出招後重新選招(§2.9)
+ * - 敵方(可以是複數隻,2026-09 多目標改版)同時進攻;攻擊打「目前目標」
  */
 export class CombatEngine {
   playerCategories: CategoryTracker[];
-  enemy: EnemyTracker;
+  /** 戰場上的敵人們(多目標):全滅才算勝利 */
+  units: EnemyUnit[] = [];
+  /** 玩家目前選定的攻擊目標(死了自動跳到下一隻活的) */
+  targetIdx = 0;
   paused = false;
   playerHp = 30;
   playerMaxHp = 30;
-  enemyHp = 15;
-  enemyMaxHp = 15;
-  enemyLabel = "敵人";
   playerSpeed = 1;
   /** 玩家身上的異常狀態(§2.11.2 累積制):值滿 100 升一級(最高 3),等級越高持續傷害越重 */
   playerStatus: Record<StatusKind, { gauge: number; level: number }> = {
@@ -149,16 +190,8 @@ export class CombatEngine {
   controlImmuneLeft = 0;
   /** 危機意識(改造藥劑):開戰後第一次充能全體 ×2,放出任一行動即恢復正常 */
   firstStrikeBoost = false;
-  /** 敵方凍結值(名刀鬼雪):滿 100 → 敵下一招 CD ×2 + 我方下一擊 ×1.5,歸零重疊 */
-  enemyFreeze = 0;
-  /** 寒滯中:敵方當前準備的這一招充能減半(=CD ×2),出招後解除 */
-  enemyChilled = false;
   /** 我方下一擊傷害 ×1.5(凍結觸發的獎勵) */
   playerEmpowerNext = false;
-  /** 敵方狂暴倍率(拾荒的長手 50% 後 CD ×0.75 → 充能 ×1.333) */
-  enemyHasteMult = 1;
-  /** 這個敵人對凍結有抗性(Boss:每擊疊加減半) */
-  private freezeResist = false;
   /** 裝備中的盾(格擋參數;null=沒帶盾,不能格擋) */
   shield: { label: string; reduce: number; cd: number } | null = null;
   /** 格擋窗口剩餘秒數(0.5s;前 0.1s 完全格擋) */
@@ -186,13 +219,71 @@ export class CombatEngine {
     opts?: { enemyHp?: number; enemyLabel?: string; freezeResist?: boolean; pattern?: string[] },
   ) {
     this.playerCategories = categories.map((c) => new CategoryTracker(c, () => this.playerSpeed * (this.slowLeft > 0 ? 0.5 : 1) * (this.firstStrikeBoost ? 2 : 1)));
-    this.enemy = new EnemyTracker(enemyMoves, () => (this.enemyChilled ? 0.5 : 1) * this.enemyHasteMult, opts?.pattern);
-    this.freezeResist = opts?.freezeResist ?? false;
-    if (opts?.enemyHp) {
-      this.enemyHp = opts.enemyHp;
-      this.enemyMaxHp = opts.enemyHp;
+    this.units.push(
+      new EnemyUnit(enemyMoves, {
+        hp: opts?.enemyHp ?? 15,
+        label: opts?.enemyLabel ?? "敵人",
+        freezeResist: opts?.freezeResist,
+        pattern: opts?.pattern,
+      }),
+    );
+  }
+
+  /** 加一隻敵人上場(組隊遭遇/護贓觸手):開戰時一次排好 */
+  addEnemy(moves: EnemyMove[], opts: EnemyUnitOpts): EnemyUnit {
+    const u = new EnemyUnit(moves, opts);
+    this.units.push(u);
+    this.cb.onUnitsChanged?.();
+    return u;
+  }
+
+  /** 目前目標(選定的那隻;死了自動退到第一隻活的) */
+  get targetUnit(): EnemyUnit | null {
+    const u = this.units[this.targetIdx];
+    if (u && u.hp > 0) return u;
+    return this.units.find((x) => x.hp > 0) ?? null;
+  }
+
+  /** 切換攻擊目標(點敵欄或 Tab):只有活著的能選 */
+  setTarget(idx: number) {
+    if (this.units[idx] && this.units[idx].hp > 0) {
+      this.targetIdx = idx;
+      this.cb.onUnitsChanged?.();
     }
-    if (opts?.enemyLabel) this.enemyLabel = opts.enemyLabel;
+  }
+
+  // ---- 相容取值(模擬器與舊碼):單敵時代的欄位映射到多目標結構 ----
+
+  /** 全場剩餘血量總和(全滅 = 0,勝利判定沿用) */
+  get enemyHp(): number {
+    return this.units.reduce((s, u) => s + u.hp, 0);
+  }
+
+  /** dev/測試便利:直接設「目前目標」的血量 */
+  set enemyHp(v: number) {
+    const t = this.targetUnit;
+    if (t) t.hp = Math.max(0, Math.min(t.maxHp, v));
+  }
+
+  get enemyMaxHp(): number {
+    return this.units.reduce((s, u) => s + u.maxHp, 0);
+  }
+
+  get enemyLabel(): string {
+    return this.targetUnit?.label ?? this.units[0]?.label ?? "敵人";
+  }
+
+  /** 相容:目前目標的行動追蹤器(撤退追擊/模擬器讀 currentMove 用) */
+  get enemy(): EnemyTracker {
+    return (this.targetUnit ?? this.units[0]).tracker;
+  }
+
+  get enemyFreeze(): number {
+    return this.targetUnit?.freeze ?? 0;
+  }
+
+  get enemyChilled(): boolean {
+    return this.targetUnit?.chilled ?? false;
   }
 
   /** 舉盾格擋(§用戶規格 2026-09):開 0.5s 防禦窗,前 0.1s 完全格擋;冷卻由盾決定 */
@@ -209,20 +300,6 @@ export class CombatEngine {
     }
     this.cb.onLog({ id: this.logId++, actor: "你", target: "舉起了盾", symbol: "[]", damage: 0 });
     return true;
-  }
-
-  /** 換上下一隻敵人(車輪戰):玩家血量/異常/行動條原封不動,敵方側全部重置 */
-  nextEnemy(moves: EnemyMove[], opts: { hp: number; label: string; freezeResist?: boolean; pattern?: string[] }) {
-    this.enemy = new EnemyTracker(moves, () => (this.enemyChilled ? 0.5 : 1) * this.enemyHasteMult, opts.pattern);
-    this.enemyHp = opts.hp;
-    this.enemyMaxHp = opts.hp;
-    this.enemyLabel = opts.label;
-    this.freezeResist = opts.freezeResist ?? false;
-    this.enemyFreeze = 0;
-    this.enemyChilled = false;
-    this.enemyHasteMult = 1;
-    this.cb.onHpChange();
-    if (this.enemy.currentMove.tell) this.cb.onTell?.(this.enemy.currentMove.tell);
   }
 
   /** 解除控制效果並給予免疫窗口(醒神鹽)——混亂也是「腦子的事」,一併醒掉 */
@@ -279,11 +356,14 @@ export class CombatEngine {
       if (this.stunLeft <= 0) {
         for (const cat of this.playerCategories) cat.tick(dt);
       }
-      this.enemy.tick(dt);
-
-      // 敵方出招不受玩家暫停狀態影響,出招後立刻重選下一招(§2.9)
-      if (this.enemy.progress >= 1) {
-        this.resolveEnemyAttack();
+      // 每一隻活著的敵人各自進逼(多目標:同時進攻)
+      for (const u of this.units) {
+        if (u.hp <= 0) continue;
+        u.tracker.tick(dt);
+        if (u.tracker.progress >= 1) {
+          this.resolveEnemyAttack(u);
+          if (this.playerHp <= 0) return;
+        }
       }
 
       // 異常狀態持續傷害:每 2 秒依等級總和扣血(§2.11.2)
@@ -300,8 +380,7 @@ export class CombatEngine {
       }
 
       // 任一「尚未被回應過」的子行動跑滿 → 觸發決策點,模擬時鐘暫停(§2.6)
-      // 玩家可以選擇使用,也可以明確選擇「暫不使用」(見 skip()),讓速度較慢的類別有機會繼續累積,
-      // 不會因為冷兵器/熱武器天生較快,就強迫玩家每次都得用掉它們,永遠碰不到法術
+      // 玩家可以選擇使用,也可以明確選擇「暫不使用」(見 skip()),讓速度較慢的類別有機會繼續累積。
       // 道具類例外(2026-09 用戶反饋:每次出招道具歸零重充、一就緒又暫停,被迫狂點「暫不使用」)——
       // 道具就緒只是「隨時可用」,不打斷節奏;要用就在任何暫停時或即時點下去
       const hasNewlyReady = this.playerCategories.some(
@@ -314,11 +393,11 @@ export class CombatEngine {
     }
   }
 
-  private resolveEnemyAttack() {
-    const move = this.enemy.currentMove;
+  private resolveEnemyAttack(unit: EnemyUnit) {
+    const move = unit.tracker.currentMove;
     if (move.damage > 0) {
       // 格擋判定:防禦窗內接下這一擊——前 0.1s 完全格擋(傷害/控制/異常全免),
-      // 之後半格擋(依盾減傷,附帶效果照吃);一面盾一次窗只接一擊
+      // 之後半格擋(依盾減傷,附帶效果照吃);一面盾一次窗只接一擊(多敵齊上時擋最先到的那擊)
       let blocked: "perfect" | "partial" | null = null;
       let dmg = move.damage;
       if (this.blockWindowLeft > 0 && this.shield) {
@@ -328,12 +407,12 @@ export class CombatEngine {
         this.cb.onBlocked?.(blocked === "perfect");
       }
       if (blocked === "perfect") {
-        this.cb.onLog({ id: this.logId++, actor: "你", target: `完全格擋!盾面把${this.enemyLabel}的攻勢整個彈開`, symbol: "◎", damage: 0 });
+        this.cb.onLog({ id: this.logId++, actor: "你", target: `完全格擋!盾面把${unit.label}的攻勢整個彈開`, symbol: "◎", damage: 0 });
       } else {
         this.playerHp = Math.max(0, this.playerHp - dmg);
         this.cb.onLog({
           id: this.logId++,
-          actor: this.enemyLabel,
+          actor: unit.label,
           target: "你",
           symbol: move.symbol,
           damage: dmg,
@@ -376,13 +455,13 @@ export class CombatEngine {
       this.cb.onHpChange();
     } else {
       // 零傷害的行為(如發狂者的「顫抖」、哼歌者的「哼唱」):空轉或純異常疊加
-      this.cb.onLog({ id: this.logId++, actor: this.enemyLabel, target: move.label, symbol: move.symbol, damage: 0 });
+      this.cb.onLog({ id: this.logId++, actor: unit.label, target: move.label, symbol: move.symbol, damage: 0 });
       this.applyConfusion(move);
     }
-    this.enemy.rollNextMove();
-    this.enemyChilled = false; // 寒滯只吃一招
+    unit.tracker.rollNextMove();
+    unit.chilled = false; // 寒滯只吃一招
     // 大招才有蓄力描寫:「牠抬起了手」比招式名更能讓玩家學會判讀
-    if (this.enemy.currentMove.tell) this.cb.onTell?.(this.enemy.currentMove.tell);
+    if (unit.tracker.currentMove.tell) this.cb.onTell?.(unit.tracker.currentMove.tell);
   }
 
   /** 混亂值疊加:免疫窗口(醒神鹽)擋得掉;滿 100 進入「發作待機」 */
@@ -400,7 +479,7 @@ export class CombatEngine {
     }
   }
 
-  /** 玩家選擇使用某個已就緒的子行動;回傳是否真的執行了(未就緒時 false) */
+  /** 玩家選擇使用某個已就緒的子行動(攻擊打「目前目標」);回傳是否真的執行了 */
   useSubAction(categoryId: CategoryId, subActionId: string): boolean {
     const cat = this.playerCategories.find((c) => c.def.id === categoryId);
     if (!cat) return false;
@@ -413,26 +492,34 @@ export class CombatEngine {
       this.playerEmpowerNext = false;
     }
     const heal = tracker.subAction.heal ?? 0;
-    if (dmg > 0) this.enemyHp = Math.max(0, this.enemyHp - dmg);
-    // 名刀鬼雪:命中疊加凍結值(Boss 抗性減半);滿 100 → 寒滯+強化下一擊,歸零重疊
-    if (dmg > 0 && tracker.subAction.freeze && this.enemyHp > 0) {
-      this.enemyFreeze += this.freezeResist ? Math.round(tracker.subAction.freeze / 2) : tracker.subAction.freeze;
-      if (this.enemyFreeze >= 100) {
-        this.enemyFreeze = 0;
-        this.enemyChilled = true;
-        this.playerEmpowerNext = true;
-        this.cb.onLog({ id: this.logId++, actor: "你", target: "霜順著傷口炸開——牠的動作凍住了半拍", symbol: "*", damage: 0 });
+    const target = this.targetUnit;
+    if (dmg > 0 && target) {
+      target.hp = Math.max(0, target.hp - dmg);
+      // 名刀鬼雪:命中疊加凍結值(Boss 抗性減半);滿 100 → 寒滯+強化下一擊,歸零重疊
+      if (tracker.subAction.freeze && target.hp > 0) {
+        target.freeze += target.freezeResist ? Math.round(tracker.subAction.freeze / 2) : tracker.subAction.freeze;
+        if (target.freeze >= 100) {
+          target.freeze = 0;
+          target.chilled = true;
+          this.playerEmpowerNext = true;
+          this.cb.onLog({ id: this.logId++, actor: "你", target: "霜順著傷口炸開——牠的動作凍住了半拍", symbol: "*", damage: 0 });
+        }
       }
     }
     if (heal > 0) this.playerHp = Math.min(this.playerMaxHp, this.playerHp + heal);
     this.cb.onLog({
       id: this.logId++,
       actor: "你",
-      target: heal > 0 ? "自己" : "敵人",
+      target: heal > 0 ? "自己" : (dmg > 0 && target ? target.label : "敵人"),
       symbol: tracker.subAction.symbol,
       damage: dmg,
       heal,
     });
+    // 目標倒下:通知 UI(護贓觸手歸還贓物等),目標自動跳到下一隻活的
+    if (dmg > 0 && target && target.hp <= 0) {
+      this.cb.onEnemyDown?.(target);
+      this.cb.onUnitsChanged?.();
+    }
     this.cb.onHpChange();
 
     this.firstStrikeBoost = false; // 危機意識:第一個行動放出去之後恢復正常充能

@@ -159,7 +159,20 @@ export function pickMidEnemy(): EnemyDef {
   return MID_ENEMIES[Math.floor(Math.random() * MID_ENEMIES.length)];
 }
 
-/** 外圍組隊遭遇(2026-09 用戶定案):2~3 隻車輪戰——最多一隻中期梯隊,壓力靠數量不靠血量 */
+/** 護贓的觸手(拾荒的長手 Boss 戰的隨從):每條纏著一件贓物——打倒牠,東西直接回到你手上 */
+export const TENTACLE_GUARD: EnemyDef = {
+  id: "tentacle-guard",
+  label: "護贓的觸手",
+  intro: "",
+  hp: 12,
+  moves: [
+    { id: "jab", label: "戳刺", baseCost: 0.9, symbol: "~»", damage: 2 },
+    { id: "lash", label: "抽打", baseCost: 1.6, symbol: "»", damage: 4 },
+  ],
+  loot: {},
+};
+
+/** 外圍組隊遭遇(2026-09 用戶定案):2~3 隻同時進攻——最多一隻中期梯隊,壓力靠數量不靠血量 */
 export function pickEnemyGroup(): EnemyDef[] {
   const size = Math.random() < 0.5 ? 2 : 3;
   const group: EnemyDef[] = [];

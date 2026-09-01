@@ -1005,6 +1005,12 @@ hr {
 
 /* ---------- 戰後拾取面板 ---------- */
 
+/* 敵欄(多目標):每隻一塊,點塊選目標 */
+.enemy-block {
+  margin-bottom: 8px;
+  padding-bottom: 2px;
+}
+
 /* 整理背包的高亮選擇列(↑↓ 移動) */
 .loot-panel .row-grid.loot-sel {
   background: var(--fg-faint);

@@ -4,7 +4,7 @@ import { buildPlayerCategories } from "./demo-data";
 import { WEAPONS, fineMaxDurability } from "./village/data";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
 import { loadCarried, saveCarried, clearCarried, addLoot, playerMaxHp, carriedMaxDurability, packUsed } from "./carried";
-import { pickRandomEnemy, pickMidEnemy, pickEnemyGroup, GUARDIANS, LANDMARK_REWARDS, LV3_BOSS, EVENT_BOSSES, type EnemyDef } from "./enemies";
+import { pickRandomEnemy, pickMidEnemy, pickEnemyGroup, GUARDIANS, LANDMARK_REWARDS, LV3_BOSS, EVENT_BOSSES, TENTACLE_GUARD, type EnemyDef } from "./enemies";
 import { markLandmarkCleared, currentMapId, isAutoPickup } from "./explore/engine";
 
 // 蓋「這趟有收穫」章(空手計數的歸零依據;引導事件用)
@@ -68,9 +68,19 @@ const enemyDef = eventBossId
       : currentMapId() !== "A" && Math.random() < 0.5
         ? pickMidEnemy()
         : pickRandomEnemy();
-/** 目前面對的這一隻(車輪戰會換人);戰利品逐隻累積,最後一起掉 */
-let activeEnemy = enemyDef;
-const pooledGains: Record<string, number> = {};
+/** 這一戰的完整陣容(多目標同時進攻):勝利時全隊戰利品合計 */
+const unitDefs: EnemyDef[] = [enemyDef];
+
+// 拾荒的長手 Boss 戰:贓物快照與歸還記帳(護贓觸手倒下即歸還那件)
+let stolenSnapshot: { kind: string; id?: string; durability?: number; fine?: boolean }[] = [];
+const returnedIdx = new Set<number>();
+if (dungeon?.landmarkId === "scavenger") {
+  try {
+    stolenSnapshot = JSON.parse(localStorage.getItem("maze-stolen") ?? "[]");
+  } catch {
+    stolenSnapshot = [];
+  }
+}
 let lowHpWarned = false;
 
 const BAR_WIDTH = 16;
@@ -108,24 +118,7 @@ app.innerHTML = `
       </div>
     </div>
     <div class="combat-side">
-      <div class="section" style="margin-bottom:8px;">
-        <div class="section-title" id="enemy-label"></div>
-        <div class="row-grid">
-          <span class="row-name">HP <b id="enemy-hp-text"></b></span>
-          <span class="row-controls"><span class="bar hp-bar"><span class="filled" id="enemy-hp-filled"></span><span id="enemy-hp-empty"></span></span></span>
-          <span class="row-info"></span>
-        </div>
-        <div class="row-grid">
-          <span class="row-name" id="enemy-bar-label"></span>
-          <span class="row-controls"><span class="bar" id="enemy-bar"><span class="filled" id="enemy-bar-filled"></span><span id="enemy-bar-empty"></span></span></span>
-          <span class="row-info">敵方動作</span>
-        </div>
-        <div class="row-grid" id="enemy-freeze-row" style="display:none">
-          <span class="row-name">凍結</span>
-          <span class="row-controls"><span class="bar"><span class="filled" id="enemy-freeze-filled"></span><span id="enemy-freeze-empty"></span></span></span>
-          <span class="row-info" id="enemy-freeze-pct"></span>
-        </div>
-      </div>
+      <div class="section" style="margin-bottom:8px;" id="enemies"></div>
       <div class="section-title">戰鬥紀錄</div>
       <div class="log-panel scrollable combat-log" id="log"></div>
     </div>
@@ -174,20 +167,66 @@ const playerHpText = document.querySelector<HTMLElement>("#player-hp-text")!;
 const enemyHpText = document.querySelector<HTMLElement>("#enemy-hp-text")!;
 const playerHpFilled = document.querySelector<HTMLElement>("#player-hp-filled")!;
 const playerHpEmpty = document.querySelector<HTMLElement>("#player-hp-empty")!;
-const enemyHpFilled = document.querySelector<HTMLElement>("#enemy-hp-filled")!;
-const enemyHpEmpty = document.querySelector<HTMLElement>("#enemy-hp-empty")!;
-const enemyLabelEl = document.querySelector<HTMLElement>("#enemy-label")!;
-const enemyBarLabelEl = document.querySelector<HTMLElement>("#enemy-bar-label")!;
-const enemyBarFilled = document.querySelector<HTMLElement>("#enemy-bar-filled")!;
-const enemyBarEmpty = document.querySelector<HTMLElement>("#enemy-bar-empty")!;
-const enemyFreezeRow = document.querySelector<HTMLElement>("#enemy-freeze-row")!;
-const enemyFreezeFilled = document.querySelector<HTMLElement>("#enemy-freeze-filled")!;
-const enemyFreezeEmpty = document.querySelector<HTMLElement>("#enemy-freeze-empty")!;
-const enemyFreezePct = document.querySelector<HTMLElement>("#enemy-freeze-pct")!;
 const statusEffectsEl = document.querySelector<HTMLElement>("#status-effects")!;
 const statusPanelEl = document.querySelector<HTMLElement>("#status-panel")!;
-enemyLabelEl.textContent = enemyDef.label;
-enemyBarLabelEl.textContent = "動作";
+
+// ---- 敵欄(多目標):每隻一塊——標題(▶=目前目標)、HP 條、動作條、凍結條;點塊選目標,Tab 輪切 ----
+interface UnitEls {
+  root: HTMLDivElement;
+  title: HTMLDivElement;
+  hpText: HTMLElement;
+  hpF: HTMLElement;
+  hpE: HTMLElement;
+  actF: HTMLElement;
+  actE: HTMLElement;
+  frRow: HTMLElement;
+  frF: HTMLElement;
+  frE: HTMLElement;
+  frPct: HTMLElement;
+}
+let unitEls: UnitEls[] = [];
+
+function buildEnemyPanel() {
+  const host = document.querySelector<HTMLDivElement>("#enemies")!;
+  host.innerHTML = "";
+  unitEls = engine.units.map((u, i) => {
+    const root = document.createElement("div");
+    root.className = "enemy-block";
+    root.style.cursor = "pointer";
+    root.addEventListener("click", () => engine.setTarget(i));
+    const title = document.createElement("div");
+    title.className = "section-title";
+    const mkRow = (label: string, info: string) => {
+      const row = document.createElement("div");
+      row.className = "row-grid";
+      const name = document.createElement("span");
+      name.className = "row-name";
+      name.textContent = label;
+      const controls = document.createElement("span");
+      controls.className = "row-controls";
+      const bar = document.createElement("span");
+      bar.className = "bar";
+      const f = document.createElement("span");
+      f.className = "filled";
+      const e2 = document.createElement("span");
+      bar.append(f, e2);
+      controls.appendChild(bar);
+      const infoEl = document.createElement("span");
+      infoEl.className = "row-info";
+      infoEl.textContent = info;
+      row.append(name, controls, infoEl);
+      return { row, name, f, e: e2, infoEl };
+    };
+    const hp = mkRow("HP", "");
+    const act = mkRow("動作", "敵方動作");
+    const fr = mkRow("凍結", "");
+    fr.row.style.display = "none";
+    root.append(title, hp.row, act.row, fr.row);
+    host.appendChild(root);
+    void u;
+    return { root, title, hpText: hp.name, hpF: hp.f, hpE: hp.e, actF: act.f, actE: act.e, frRow: fr.row, frF: fr.f, frE: fr.e, frPct: fr.infoEl };
+  });
+}
 
 interface SubActionRow {
   categoryId: CategoryId;
@@ -475,6 +514,16 @@ window.addEventListener("keydown", (e) => {
     engine.useBlock();
     return;
   }
+  if (e.key === "Tab") {
+    e.preventDefault();
+    const living = engine.units.map((u, i) => ({ u, i })).filter((x) => x.u.hp > 0);
+    if (living.length > 1) {
+      const cur = engine.units.findIndex((u) => u === engine.targetUnit);
+      const next = living.find((x) => x.i > cur) ?? living[0];
+      engine.setTarget(next.i);
+    }
+    return;
+  }
   const idx = Number(e.key);
   if (idx >= 1 && idx <= rows.length) {
     const row = rows[idx - 1];
@@ -487,6 +536,23 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
   onTell: appendSystemLog,
   onBlocked: (perfect) => onShieldBlocked(perfect),
   onSteal: () => performSteal(),
+  onUnitsChanged: () => buildEnemyPanel(),
+  onEnemyDown: (unit) => {
+    // 護贓的觸手倒下:牠纏著的那件贓物直接回到你手上(2026-09 用戶定案)
+    if (unit.tag?.startsWith("stolen:")) {
+      returnStolenAt(Number(unit.tag.slice(7)));
+      return;
+    }
+    // 收贓者本體先倒:剩餘護贓觸手潰散,纏著的東西全數落下
+    if (dungeon?.landmarkId === "scavenger" && unit === engine.units[0]) {
+      for (const g of engine.units) {
+        if (g.hp > 0 && g.tag?.startsWith("stolen:")) {
+          g.hp = 0;
+          returnStolenAt(Number(g.tag.slice(7)));
+        }
+      }
+    }
+  },
   // 混亂發作:隨機執行一個「就緒且可用」的行動(行動條沒滿就等滿的那一刻,引擎每幀重試)
   onConfusedAct: () => {
     const candidates: { cat: CategoryId; id: string }[] = [];
@@ -505,6 +571,7 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
     return false;
   },
   onPauseChange: (paused) => {
+    if (lootPanelActive) return; // 勝利訊息別被收尾的 resume 洗掉
     statusEl.textContent = paused ? "▍等待你的指示…" : "";
     skipBtn.disabled = !paused;
     skipBtn.classList.toggle("ready", paused);
@@ -525,33 +592,15 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
       localStorage.setItem("death-cause", "combat"); // 回村後代行者依死因給一句叮囑
       endCombat("你倒下了……但是一股溫暖的微光包裹著你。", "village.html", 2200);
     } else if (engine.enemyHp <= 0) {
-      // 車輪戰:這一隻倒下,下一隻立刻補上——玩家狀態延續,戰利品累積到最後一起掉
-      if (groupQueue.length > 0) {
-        for (const [id, n] of Object.entries(activeEnemy.loot)) pooledGains[id] = (pooledGains[id] ?? 0) + n;
-        if (activeEnemy.shardChance && Math.random() < activeEnemy.shardChance) pooledGains.shard = (pooledGains.shard ?? 0) + 1;
-        appendSystemLog(`${activeEnemy.label}倒下了——影子後面,還有另一雙眼睛。`);
-        activeEnemy = groupQueue.shift()!;
-        engine.nextEnemy(applyBlessing(activeEnemy.moves), {
-          hp: activeEnemy.hp,
-          label: activeEnemy.label,
-          freezeResist: activeEnemy.freezeResist,
-          pattern: activeEnemy.pattern,
-        });
-        enemyLabelEl.textContent = activeEnemy.label;
-        appendSystemLog(activeEnemy.intro);
-        return;
+      // 勝利(多目標:全滅):戰利品全隊合計;剩餘 HP 記回行囊——活著帶回村才真的入庫
+      const gains: Record<string, number> = {};
+      for (const d of unitDefs) {
+        for (const [id, n] of Object.entries(d.loot)) gains[id] = (gains[id] ?? 0) + n;
+        // 汙染沾身的生物有機率額外掉「異晶」(逐隻擲骰)
+        if (d.shardChance && Math.random() < d.shardChance) gains.shard = (gains.shard ?? 0) + 1;
       }
-
-      // 勝利:剩餘 HP 記回行囊、收下戰利品——活著帶回村才真的入庫
-      const gains: Record<string, number> = { ...activeEnemy.loot };
-      for (const [id, n] of Object.entries(pooledGains)) gains[id] = (gains[id] ?? 0) + n;
-      let message = `擊倒了${activeEnemy.label}`;
+      let message = `擊倒了${enemyDef.label}${unitDefs.length > 1 ? `等 ${unitDefs.length} 隻` : ""}`;
       let delay = 1800;
-
-      // 汙染沾身的生物有機率額外掉「異晶」(人類敵人不會掉)——之後交易所開張,這是兌換稀有品的硬通貨
-      if (activeEnemy.shardChance && Math.random() < activeEnemy.shardChance) {
-        gains.shard = (gains.shard ?? 0) + 1;
-      }
 
       // 地城戰結算:推進層數;打通最深層 → 依等級發放報酬(design-notes.md § 3.10.1)
       if (dungeon) {
@@ -632,6 +681,21 @@ if (carried) {
 } else {
   engine.playerHp = engine.playerMaxHp;
 }
+// 組隊遭遇:其餘敵人同時上場(多目標)
+for (const d of groupQueue) {
+  engine.addEnemy(applyBlessing(d.moves), { hp: d.hp, label: d.label, freezeResist: d.freezeResist, pattern: d.pattern });
+  unitDefs.push(d);
+}
+groupQueue.length = 0;
+// 拾荒的長手:每件贓物由一條護贓觸手纏著上場——打倒觸手直接取回
+if (dungeon?.landmarkId === "scavenger") {
+  stolenSnapshot.slice(0, 5).forEach((_, i) => {
+    engine.addEnemy(TENTACLE_GUARD.moves, { hp: TENTACLE_GUARD.hp, label: TENTACLE_GUARD.label, tag: `stolen:${i}` });
+    unitDefs.push(TENTACLE_GUARD);
+  });
+}
+buildEnemyPanel();
+
 syncShieldToEngine();
 // 危機意識(改造藥劑):開戰首擊前全體充能 ×2
 try {
@@ -641,6 +705,11 @@ try {
   /* 沒存檔就算了 */
 }
 appendSystemLog(enemyDef.intro);
+if (dungeon?.landmarkId === "scavenger" && stolenSnapshot.length > 0) {
+  appendSystemLog("幾條蒼白的觸手從牆縫裡垂下,各自纏著你被搶走的東西。");
+} else if (unitDefs.length > 1) {
+  appendSystemLog(`影子不只一道——一共 ${unitDefs.length} 隻。(Tab 或點敵欄切換目標)`);
+}
 if (engine.enemy.currentMove.tell) appendSystemLog(engine.enemy.currentMove.tell);
 
 // ?dev:測試鉤子——console 可直接驅動戰鬥時鐘(嵌入式瀏覽器 rAF 不穩時,自動化測試用)
@@ -723,21 +792,15 @@ function performSteal() {
   saveCarried(carried);
 }
 
-/** Boss 血量門檻歸還贓物:95/85/75/65% 各還一件,50% 全還+狂暴(CD ×0.75) */
-let scavengerReturned = 0;
+/** 護贓觸手倒下 → 歸還牠纏著的那一件(拾荒的長手改版:打觸手取回,不再看 Boss 血量門檻) */
 let scavengerEnraged = false;
 
-function returnStolenOne(): boolean {
-  if (!carried) return false;
-  let stolen: { kind: string; id?: string; durability?: number; fine?: boolean }[] = [];
-  try {
-    stolen = JSON.parse(localStorage.getItem("maze-stolen") ?? "[]");
-  } catch {
-    return false;
-  }
-  const item = stolen.shift();
+function returnStolenAt(idx: number): boolean {
+  if (!carried || returnedIdx.has(idx)) return false;
+  const item = stolenSnapshot[idx];
   if (!item) return false;
-  localStorage.setItem("maze-stolen", JSON.stringify(stolen));
+  returnedIdx.add(idx);
+  localStorage.setItem("maze-stolen", JSON.stringify(stolenSnapshot.filter((_, i) => !returnedIdx.has(i))));
   if (item.kind === "weapon" && item.id) {
     carried.weapons[item.id] = (carried.weapons[item.id] ?? 0) + 1;
     if (item.fine) {
@@ -765,23 +828,15 @@ function returnStolenOne(): boolean {
   return true;
 }
 
+/** 拾荒的長手:半血狂暴(CD ×0.75)——贓物歸還改由護贓觸手負責 */
 function scavengerCheck() {
-  if (enemyDef.id !== "scavenger-guardian" || engine.enemyHp <= 0) return;
-  const frac = engine.enemyHp / engine.enemyMaxHp;
-  const thresholds = [0.95, 0.85, 0.75, 0.65];
-  while (scavengerReturned < thresholds.length && frac <= thresholds[scavengerReturned]) {
-    if (!returnStolenOne()) break;
-    scavengerReturned++;
-  }
-  if (frac <= 0.5) {
-    let any = false;
-    while (returnStolenOne()) any = true;
-    if (any) appendSystemLog("牠痛得縮起來,懷裡護著的收藏嘩啦散了一地——你的東西,回來了。");
-    if (!scavengerEnraged) {
-      scavengerEnraged = true;
-      engine.enemyHasteMult = 1 / 0.75;
-      appendSystemLog("失去收藏的長手抽搐著暴起,動作快得不像剛才的牠。");
-    }
+  if (dungeon?.landmarkId !== "scavenger" || scavengerEnraged) return;
+  const boss = engine.units[0];
+  if (!boss || boss.hp <= 0) return;
+  if (boss.hp / boss.maxHp <= 0.5) {
+    scavengerEnraged = true;
+    boss.hasteMult = 1 / 0.75;
+    appendSystemLog("失去收藏的長手抽搐著暴起,動作快得不像剛才的牠。");
   }
 }
 
@@ -1135,22 +1190,31 @@ function render() {
     blockRowEls.useLink.classList.toggle("ready", blockReady);
   }
 
-  // 敵方凍結(名刀鬼雪):有疊加才顯示;寒滯中整條亮起
-  if (engine.enemyFreeze > 0 || engine.enemyChilled) {
-    enemyFreezeRow.style.display = "";
-    const fFill = engine.enemyChilled ? BAR_WIDTH : Math.round((engine.enemyFreeze / 100) * BAR_WIDTH);
-    enemyFreezeFilled.textContent = "█".repeat(fFill);
-    enemyFreezeEmpty.textContent = "░".repeat(BAR_WIDTH - fFill);
-    enemyFreezePct.textContent = engine.enemyChilled ? "寒滯!" : `${Math.round(engine.enemyFreeze)}/100`;
-  } else {
-    enemyFreezeRow.style.display = "none";
-  }
-
-  // 敵方跑條(§2.9):速度本身就是威脅預告——招式越重跑條越慢,玩家看節奏自行判讀
-  const ePct = Math.round(engine.enemy.progress * 100);
-  const eFilled = Math.round((ePct / 100) * BAR_WIDTH);
-  enemyBarFilled.textContent = "█".repeat(eFilled);
-  enemyBarEmpty.textContent = "░".repeat(BAR_WIDTH - eFilled);
+  // 敵欄(多目標):每隻各自的 HP/動作/凍結;▶=目前目標,倒下的變暗
+  engine.units.forEach((u, i) => {
+    const el = unitEls[i];
+    if (!el) return;
+    const isTarget = engine.targetUnit === u;
+    el.title.textContent = `${isTarget ? "▶ " : "　"}${u.label}${u.hp <= 0 ? "(倒下)" : ""}`;
+    el.root.style.opacity = u.hp <= 0 ? "0.35" : "1";
+    el.hpText.textContent = `HP ${u.hp}/${u.maxHp}`;
+    const hFill = u.maxHp > 0 ? Math.round((u.hp / u.maxHp) * BAR_WIDTH) : 0;
+    el.hpF.textContent = "█".repeat(hFill);
+    el.hpE.textContent = "░".repeat(BAR_WIDTH - hFill);
+    const aPct = u.hp > 0 ? u.tracker.progress : 0;
+    const aFill = Math.round(aPct * BAR_WIDTH);
+    el.actF.textContent = "█".repeat(aFill);
+    el.actE.textContent = "░".repeat(BAR_WIDTH - aFill);
+    if (u.hp > 0 && (u.freeze > 0 || u.chilled)) {
+      el.frRow.style.display = "";
+      const fFill = u.chilled ? BAR_WIDTH : Math.round((u.freeze / 100) * BAR_WIDTH);
+      el.frF.textContent = "█".repeat(fFill);
+      el.frE.textContent = "░".repeat(BAR_WIDTH - fFill);
+      el.frPct.textContent = u.chilled ? "寒滯!" : `${Math.round(u.freeze)}/100`;
+    } else {
+      el.frRow.style.display = "none";
+    }
+  });
 
   for (const cat of engine.playerCategories) {
     for (const t of cat.trackers) {
