@@ -15,6 +15,8 @@ export interface LogEntry {
 /** 類別內每個子行動各自累積進度,但共用同一次歸零(見 design-notes.md § 2.3.2) */
 class SubActionTracker {
   elapsed = 0;
+  /** 一次性回轉倍率(道具轉盤:強力道具用完後下一輪 ×1.2),跑滿一輪自動歸 1 */
+  costMult = 1;
 
   constructor(
     public readonly subAction: SubAction,
@@ -22,7 +24,7 @@ class SubActionTracker {
   ) {}
 
   get actualCost(): number {
-    return (this.subAction.baseCost * BASE_INTERVAL) / this.speedMultiplier();
+    return (this.subAction.baseCost * this.costMult * BASE_INTERVAL) / this.speedMultiplier();
   }
 
   get progress(): number {
@@ -36,6 +38,11 @@ class SubActionTracker {
   tick(dt: number) {
     if (this.elapsed < this.actualCost) {
       this.elapsed = Math.min(this.actualCost, this.elapsed + dt);
+      // 拖長的那一輪跑滿了:倍率只吃一輪,之後(含被跨類別歸零重跑)回到正常速度
+      if (this.costMult !== 1 && this.elapsed >= this.actualCost) {
+        this.costMult = 1;
+        this.elapsed = this.actualCost; // 換回正常刻度仍保持滿格
+      }
     }
   }
 }
@@ -536,10 +543,21 @@ export class CombatEngine {
     // §2.3.2 定案(2026-09 用戶規格):
     // - 同類別:CD 補償——用掉的那一招歸零,其餘打對折保留(快招連刺時重招 0.2→0.3→0.35…收斂)
     // - 跨類別(近戰/遠程/法術/道具/格擋互相之間):重頭跑——出了別類的招,其他類全部歸零
+    // - 道具例外(2026-09 用戶定案):整類是一個轉盤——用任何道具全類重轉(無補償),
+    //   強力道具(slowReuse,如繃帶)讓下一輪回轉拖長為該秒數
     tracker.elapsed = 0;
-    for (const t of cat.trackers) {
-      if (t !== tracker) t.elapsed *= CARRYOVER_RATIO;
-      this.acknowledged.delete(this.key(cat.def.id, t.subAction.id));
+    if (cat.def.id === "item") {
+      const nextSeconds = tracker.subAction.slowReuse ?? 1; // 下一輪回轉的絕對秒數
+      for (const t of cat.trackers) {
+        t.elapsed = 0;
+        t.costMult = nextSeconds / (t.subAction.baseCost || 1);
+        this.acknowledged.delete(this.key(cat.def.id, t.subAction.id));
+      }
+    } else {
+      for (const t of cat.trackers) {
+        if (t !== tracker) t.elapsed *= CARRYOVER_RATIO;
+        this.acknowledged.delete(this.key(cat.def.id, t.subAction.id));
+      }
     }
     for (const other of this.playerCategories) {
       if (other === cat) continue;

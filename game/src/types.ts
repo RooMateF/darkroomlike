@@ -14,6 +14,8 @@ export interface SubAction {
   heal?: number;
   /** 名刀鬼雪:命中疊加敵方凍結值(Boss 抗性減半) */
   freeze?: number;
+  /** 道具類:強力道具用完後,下一輪道具回轉拖長為這個秒數(預設 1s;2026-09 用戶定案) */
+  slowReuse?: number;
 }
 
 export type CategoryId = "melee" | "ranged" | "magic" | "item";
