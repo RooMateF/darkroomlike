@@ -777,7 +777,7 @@ function showLootPanel(message: string, gains: Record<string, number>, href: str
   packLine.className = "hint-line";
   panel.appendChild(packLine);
   const updatePackLine = () => {
-    if (carried) packLine.textContent = `背包 ${packUsed(carried)}/${carried.packCap ?? 20}`;
+    if (carried) packLine.textContent = `背包 ${packUsed(carried)}/${carried.packCap ?? 20}・HP ${carried.hp}/${engine.playerMaxHp}`;
   };
   updatePackLine();
 
@@ -863,11 +863,31 @@ function showLootPanel(message: string, gains: Record<string, number>, href: str
   packBox.style.display = "none";
   panel.appendChild(packBox);
   let packOpen = false;
+  // 高亮選擇(↑↓ 移動、U 使用、D 丟):讓整理背包全程不用碰滑鼠
+  let packSel = 0;
+  let packEntries: { label: string; drop: () => void; use?: () => void }[] = [];
   const renderPackBox = () => {
     if (!carried) return;
     packBox.innerHTML = "";
     const bag = carried as unknown as Record<string, number | undefined>;
-    const entries: { label: string; drop: () => void }[] = [];
+    // 吃/用得掉的補給:肉乾 +10、繃帶 +20、藥劑 +15(與路上使用同一套數值)
+    const useHeal = (key: string, heal: number, text: string) => () => {
+      if (!carried) return;
+      if ((bag[key] ?? 0) <= 0) return;
+      if (carried.hp >= engine.playerMaxHp) {
+        appendSystemLog("HP 已滿,先留著吧。");
+        return;
+      }
+      bag[key] = (bag[key] ?? 0) - 1;
+      const before = carried.hp;
+      carried.hp = Math.min(engine.playerMaxHp, carried.hp + heal);
+      engine.playerHp = carried.hp; // 左欄血條同步
+      saveCarried(carried);
+      appendSystemLog(`${text}(HP +${carried.hp - before})`);
+      updatePackLine();
+      renderPackBox();
+    };
+    const entries: { label: string; drop: () => void; use?: () => void }[] = [];
     const sup: [string, string][] = [
       ["rations", "ration"],
       ["jerky", "jerky"],
@@ -880,9 +900,19 @@ function showLootPanel(message: string, gains: Record<string, number>, href: str
       ["elixirs", "elixir"],
       ["salts", "salt"],
     ];
+    const usable: Record<string, { heal: number; text: string }> = {
+      jerky: { heal: 10, text: "你嚼了一條肉乾。" },
+      bandages: { heal: 20, text: "你停下來,把傷口重新包紮好。" },
+      elixirs: { heal: 15, text: "你仰頭灌下一小口藥劑。" },
+    };
     for (const [key, rid] of sup) {
       const n = bag[key] ?? 0;
-      if (n > 0) entries.push({ label: `${RESOURCE_LABEL[rid as ResourceId]} ×${n}`, drop: () => (bag[key] = n - 1) });
+      if (n > 0)
+        entries.push({
+          label: `${RESOURCE_LABEL[rid as ResourceId]} ×${n}`,
+          drop: () => (bag[key] = n - 1),
+          use: usable[key] ? useHeal(key, usable[key].heal, usable[key].text) : undefined,
+        });
     }
     for (const [id, n] of Object.entries(carried.loot ?? {})) {
       if ((n ?? 0) <= 0) continue;
@@ -894,6 +924,8 @@ function showLootPanel(message: string, gains: Record<string, number>, href: str
         },
       });
     }
+    packEntries = entries;
+    if (packSel >= entries.length) packSel = Math.max(0, entries.length - 1);
     if (entries.length === 0) {
       const empty = document.createElement("div");
       empty.className = "hint-line";
@@ -901,18 +933,37 @@ function showLootPanel(message: string, gains: Record<string, number>, href: str
       packBox.appendChild(empty);
       return;
     }
-    for (const en of entries) {
+    const hint = document.createElement("div");
+    hint.className = "hint-line";
+    hint.textContent = "↑↓ 選擇・U 使用・D 丟棄";
+    packBox.appendChild(hint);
+    entries.forEach((en, i) => {
       const line = document.createElement("div");
-      line.className = "row-grid";
+      line.className = "row-grid" + (i === packSel ? " loot-sel" : "");
+      line.addEventListener("click", () => {
+        packSel = i;
+        renderPackBox();
+      });
       const name = document.createElement("span");
       name.className = "row-name";
-      name.textContent = en.label;
+      name.textContent = `${i === packSel ? "▶ " : "　"}${en.label}`;
       const controls = document.createElement("span");
       controls.className = "row-controls";
+      if (en.use) {
+        const useBtn = document.createElement("button");
+        useBtn.className = "use-link ready";
+        useBtn.textContent = "[使用]";
+        useBtn.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          en.use!();
+        });
+        controls.appendChild(useBtn);
+      }
       const dropBtn = document.createElement("button");
       dropBtn.className = "use-link";
       dropBtn.textContent = "[丟1]";
-      dropBtn.addEventListener("click", () => {
+      dropBtn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
         en.drop();
         if (carried) saveCarried(carried);
         updatePackLine();
@@ -921,7 +972,7 @@ function showLootPanel(message: string, gains: Record<string, number>, href: str
       controls.appendChild(dropBtn);
       line.append(name, controls);
       packBox.appendChild(line);
-    }
+    });
   };
   packToggle.addEventListener("click", () => {
     packOpen = !packOpen;
@@ -929,9 +980,32 @@ function showLootPanel(message: string, gains: Record<string, number>, href: str
     if (packOpen) renderPackBox();
   });
 
-  // 面板快捷鍵:數字=逐件撿、A=全拾、E=離開、B=整理背包
+  // 面板快捷鍵:數字=逐件撿、A=全拾、E=離開、B=整理背包;背包開著時 ↑↓ 選擇、U 使用、D 丟
   const onLootKey = (e: KeyboardEvent) => {
     if (e.repeat) return;
+    if (packOpen) {
+      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+        e.preventDefault();
+        const len = packEntries.length;
+        if (len > 0) packSel = (packSel + (e.key === "ArrowDown" ? 1 : len - 1)) % len;
+        renderPackBox();
+        return;
+      }
+      if (e.key === "u" || e.key === "U") {
+        packEntries[packSel]?.use?.();
+        return;
+      }
+      if (e.key === "d" || e.key === "D") {
+        const en = packEntries[packSel];
+        if (en) {
+          en.drop();
+          if (carried) saveCarried(carried);
+          updatePackLine();
+          renderPackBox();
+        }
+        return;
+      }
+    }
     const idx = Number(e.key);
     if (idx >= 1 && idx <= itemRows.length) {
       itemRows[idx - 1].pick();
