@@ -6,7 +6,45 @@ import { siteAt, siteProgress, specialSites, hasChurchKey, DUNGEON_KEY, SITE_ARR
 import { RATIONS_PER_SLOT } from "../village/data";
 import { CHOICE_EVENTS, type ChoiceEventDef } from "./choice-events";
 
-const STATE_KEY = "explore-state-v7"; // v7:地圖縮小 30%,舊存檔不相容(中央地圖沿用;相鄰地圖各自帶尾碼)
+const STATE_KEY = "explore-state-v8"; // v8:地標拉近+沼澤水域+圍場,舊存檔不相容(中央地圖沿用;相鄰地圖各自帶尾碼)
+
+// ---- v7 → v8 一次性遷移(2026-09 兩礦拉近、祭壇環水、高牆圍場)----
+// 舊圖作廢:鐵軌拆回材料、燃燈折回燈油退進村莊庫存;
+// 地標地城進度照新座標搬家(打贏的不用重打);Lv1~3 與北嶺哨站隨新地圖重置
+(function migrateMapV8() {
+  if (localStorage.getItem("map-v8-migrated")) return;
+  try {
+    let rails = 0;
+    let lamps = 0;
+    for (const suffix of ["", ":N", ":E", ":S", ":W"]) {
+      const raw = localStorage.getItem("explore-state-v7" + suffix);
+      if (!raw) continue;
+      const s = JSON.parse(raw);
+      for (const row of (s.railRows ?? []) as string[]) rails += (row.match(/1/g) ?? []).length;
+      for (const row of (s.litRows ?? []) as string[]) lamps += (row.match(/1/g) ?? []).length;
+      localStorage.removeItem("explore-state-v7" + suffix);
+    }
+    if (rails > 0 || lamps > 0) {
+      const v = JSON.parse(localStorage.getItem("village-state") ?? "{}");
+      v.resources ??= {};
+      v.resources.rail = (v.resources.rail ?? 0) + rails;
+      v.resources.oil = (v.resources.oil ?? 0) + lamps;
+      localStorage.setItem("village-state", JSON.stringify(v));
+    }
+    if (rails > 0) localStorage.removeItem("rail-to-mine");
+    const progress = JSON.parse(localStorage.getItem("site-progress") ?? "{}");
+    const fresh: Record<string, unknown> = {};
+    for (const keep of ["7,5", "12,43", "77,46"]) {
+      if (progress[keep]) fresh[keep] = progress[keep]; // 教堂/祭壇/觀測台座標不變
+    }
+    if (progress["72,8"]) fresh["62,13"] = progress["72,8"]; // 鐵礦坑拉近
+    if (progress["N:44,7"]) fresh["48,8"] = progress["N:44,7"]; // 煤礦坑搬進中央地圖
+    localStorage.setItem("site-progress", JSON.stringify(fresh));
+  } catch {
+    /* 壞資料就放棄遷移,別擋開機 */
+  }
+  localStorage.setItem("map-v8-migrated", "1");
+})();
 
 // ---- v6 → v7 一次性遷移(2026-09 地圖縮小 30%)----
 // 舊圖作廢:鋪過的鐵軌拆回材料、燃著的燈柱折回燈油,全數退進村莊庫存;

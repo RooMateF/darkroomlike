@@ -257,6 +257,53 @@ export function generateMap(mapId: MapId = "A"): Tile[][] {
     placed++;
   }
 
+  // 沼澤水域(2026-09 用戶定案):沼澤就該泡在水裡——
+  // 祭壇被黑水環抱,只留東側一條窄徑;西南象限再散幾窪黑水(結構性繞路,不是裝飾)
+  {
+    const sh = { x: 12, y: 43 }; // 沼澤祭壇(與 LANDMARKS 同步)
+    for (let y = sh.y - 5; y <= sh.y + 5; y++) {
+      for (let x = sh.x - 5; x <= sh.x + 5; x++) {
+        const t = grid[y]?.[x];
+        if (!t) continue;
+        const d = Math.hypot(x - sh.x, y - sh.y);
+        const onEastPath = y === sh.y && x > sh.x;
+        if (d >= 3 && d <= 5 && !onEastPath && (t.type === "plain" || t.type === "brush" || t.type === "rubble" || t.type === "wall")) {
+          grid[y][x] = { type: "water", revealed: false };
+        }
+      }
+    }
+    // 東側窄徑保證可走(環外再多清兩格,別被外圈牆堵住)
+    for (let x = sh.x + 1; x <= sh.x + 7; x++) {
+      const t = grid[sh.y]?.[x];
+      if (t && (t.type === "wall" || t.type === "water")) grid[sh.y][x] = { type: "plain", revealed: false };
+    }
+    for (let i = 0; i < 14; i++) {
+      const x = 4 + Math.floor(rng() * 34);
+      const y = 32 + Math.floor(rng() * (MAP_HEIGHT - 35));
+      if (Math.hypot(x - sh.x, y - sh.y) <= 7) continue; // 別把祭壇的窄徑堵死
+      const t = grid[y]?.[x];
+      if (t && (t.type === "plain" || t.type === "brush" || t.type === "rubble")) grid[y][x] = { type: "water", revealed: false };
+    }
+  }
+
+  // 高牆圍場 ×2(2026-09):難抵達的封閉點——之後把小 Boss 巢安進去(內容另定)
+  {
+    const pockets: [number, number, number, number, number, number][] = [
+      [66, 42, 73, 47, 66, 44], // 東南:西側單口
+      [26, 3, 33, 8, 29, 8], // 北緣:南側單口
+    ];
+    for (const [x1, y1, x2, y2, gx, gy] of pockets) {
+      for (let y = y1; y <= y2; y++) {
+        for (let x = x1; x <= x2; x++) {
+          const t = grid[y]?.[x];
+          if (!t || t.type === "landmark" || t.type === "site" || t.type === "depot" || t.type === "exit") continue;
+          const isPerimeter = x === x1 || x === x2 || y === y1 || y === y2;
+          grid[y][x] = { type: isPerimeter && !(x === gx && y === gy) ? "wall" : "plain", revealed: false };
+        }
+      }
+    }
+  }
+
   // Lv5 靜默教堂(7,5):用高牆把西北角圍成封閉區,只留北面一條窄道——
   // 牆的結構性用法:抵達本身就是一段「沿著牆找入口」的體驗
   {

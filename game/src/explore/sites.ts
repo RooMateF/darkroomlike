@@ -104,13 +104,7 @@ export function specialSites(): SpecialSite[] {
     sites.push({ key: `${lm.x},${lm.y}`, x: lm.x, y: lm.y, mapId: lm.mapId ?? "A", level: 5, stages: 4, landmarkId: lm.id });
   }
 
-  // 北嶺的哨站鏈(Lv1,一層):南緣入口通往煤礦坑的路上兩座——沒有它們,煤礦坑在水量網路外
-  for (const [ox, oy] of [
-    [44, 37],
-    [44, 20],
-  ] as const) {
-    sites.push({ key: `N:${ox},${oy}`, x: ox, y: oy, mapId: "N", level: 1, stages: 1 });
-  }
+  // (北嶺哨站鏈已退役:煤礦坑 2026-09 搬回中央地圖,自動納入 A 圖地標的哨站鏈)
 
   cache = sites;
   return sites;

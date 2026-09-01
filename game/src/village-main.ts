@@ -933,7 +933,7 @@ function startVillage() {
       if (d >= 3 && (!best || d < best.d)) best = { x, y, d };
     };
     try {
-      const raw = localStorage.getItem("explore-state-v7");
+      const raw = localStorage.getItem("explore-state-v8");
       if (raw) {
         // 已探索過:讀存檔格線($=還沒採走的資源)
         const rows = (JSON.parse(raw).typeRows ?? []) as string[];
