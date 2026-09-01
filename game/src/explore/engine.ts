@@ -191,6 +191,7 @@ export function markFreshExpedition() {
   }
   localStorage.removeItem("expedition-gained");
   // 迷宮五盜:偷竊紀錄與贓物跨遠征不保留——沒從 Boss 手上拿回來,就是沒了
+  localStorage.removeItem("pending-group");
   localStorage.removeItem("maze-stolen");
   localStorage.removeItem("maze-stolen-kinds");
   localStorage.removeItem("maze-theft");
@@ -922,12 +923,14 @@ export class ExploreEngine {
       this.encounterGrace--; // 戰後喘息中,不觸發隨機遭遇
     } else if (!devMode && Math.random() < ENCOUNTER_CHANCE * lampMult * stealthMult * homeMult) {
       this.cb.onLog("⚠ 你感覺到附近有什麼東西的氣息……");
-      // 外圍(離村莊遠/相鄰地圖)的野外更兇:一半機率是成群的(車輪戰,組成交給戰鬥頁)
+      // 外圍成群(2026-09 用戶定案「後期」):要離村夠遠(>32 格/相鄰圖),
+      // 且至少解放過一座 Lv4 地標(進度門檻)——新手村圈永遠不會被三隻圍上
       {
         const gcx = Math.floor(MAP_WIDTH / 2);
         const gcy = Math.floor(MAP_HEIGHT / 2);
-        const far = this.mapId !== "A" || Math.hypot(this.playerX - gcx, this.playerY - gcy) > 26;
-        if (far && Math.random() < 0.5) {
+        const far = this.mapId !== "A" || Math.hypot(this.playerX - gcx, this.playerY - gcy) > 32;
+        const lateGame = clearedLandmarks().length > 0;
+        if (far && lateGame && Math.random() < 0.5) {
           localStorage.setItem("pending-group", "1");
           this.cb.onLog("……而且氣息不只一道。");
         }

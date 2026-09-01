@@ -164,7 +164,6 @@ document.querySelector<HTMLButtonElement>("#theme-toggle")!.addEventListener("cl
   localStorage.setItem("theme", next);
 });
 const playerHpText = document.querySelector<HTMLElement>("#player-hp-text")!;
-const enemyHpText = document.querySelector<HTMLElement>("#enemy-hp-text")!;
 const playerHpFilled = document.querySelector<HTMLElement>("#player-hp-filled")!;
 const playerHpEmpty = document.querySelector<HTMLElement>("#player-hp-empty")!;
 const statusEffectsEl = document.querySelector<HTMLElement>("#status-effects")!;
@@ -1119,14 +1118,10 @@ function endCombat(message: string, href: string, delayMs: number) {
 
 function render() {
   playerHpText.textContent = `${engine.playerHp}/${engine.playerMaxHp}`;
-  enemyHpText.textContent = `${engine.enemyHp}/${engine.enemyMaxHp}`;
-  // 血量條(2026-09 用戶要求:數字之外的視覺表示)——沿用 █░ 條語言
+  // 血量條(2026-09 用戶要求:數字之外的視覺表示)——沿用 █░ 條語言;敵方各自的條在敵欄逐塊畫
   const pFill = Math.round((engine.playerHp / engine.playerMaxHp) * BAR_WIDTH);
   playerHpFilled.textContent = "█".repeat(pFill);
   playerHpEmpty.textContent = "░".repeat(BAR_WIDTH - pFill);
-  const eFill = engine.enemyMaxHp > 0 ? Math.round((engine.enemyHp / engine.enemyMaxHp) * BAR_WIDTH) : 0;
-  enemyHpFilled.textContent = "█".repeat(eFill);
-  enemyHpEmpty.textContent = "░".repeat(BAR_WIDTH - eFill);
 
   // 異常狀態欄(2026-08 用戶要求:計量值明示)——中毒/流血含累積值,控制含剩餘秒數
   const effects: string[] = [];
