@@ -33,14 +33,14 @@ export interface LandmarkDef {
   clearedText: string;
 }
 
-// 座標以 105x65 地圖為準(中心 52,32)
+// 座標以 88x54 地圖為準(中心 44,27);2026-09 縮圖時等比換算
 export const LANDMARKS: LandmarkDef[] = [
   {
     id: "mine",
     label: "鐵礦坑",
     symbol: "M",
-    x: 86, // 東北廢墟深處
-    y: 10,
+    x: 72, // 東北廢墟深處
+    y: 8,
     level: 4,
     introText: "山壁上一道人工開鑿的坑口,軌道的殘骸沒入黑暗。深處傳來沉重的呼吸聲——有什麼把這裡當成了巢穴。",
     clearedText: "礦坑已經安全了。村裡的人可以來這裡採鐵。",
@@ -49,8 +49,8 @@ export const LANDMARKS: LandmarkDef[] = [
     id: "observatory",
     label: "廢棄觀測台",
     symbol: "O",
-    x: 92, // 東南平原遠端
-    y: 55,
+    x: 77, // 東南平原遠端
+    y: 46,
     level: 4,
     introText: "山丘上立著一座奇怪的圓頂建築,頂端裂開一道縫,像一隻半闔的眼睛。門內有人影晃動——他似乎不歡迎訪客。",
     clearedText: "圓頂下滿地都是手寫的紙頁。牆上用炭條反覆寫著同一句話,你決定翻翻那些還能讀的紀錄。",
@@ -59,8 +59,8 @@ export const LANDMARKS: LandmarkDef[] = [
     id: "shrine",
     label: "沼澤祭壇",
     symbol: "A",
-    x: 14, // 西南濕地深處
-    y: 52,
+    x: 12, // 西南濕地深處
+    y: 43,
     level: 4,
     introText: "水面中央露出一座石砌的平台,擺著燒過的痕跡與奇怪的刻紋。守著它的東西從水下浮了上來。",
     clearedText: "祭壇安靜了下來。石縫裡的刻紋在光線下泛著微弱的暖意,像是餘燼。",
@@ -70,8 +70,8 @@ export const LANDMARKS: LandmarkDef[] = [
     id: "coalmine",
     label: "煤礦坑",
     symbol: "K",
-    x: 52,
-    y: 8,
+    x: 44,
+    y: 7,
     mapId: "N",
     level: 4,
     introText: "半山腰裂開一道黑色的礦口,連風吹過都帶著煤灰味。坑道深處傳來規律的、像挖掘一樣的聲音——但這裡不該有任何人。",

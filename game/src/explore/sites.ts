@@ -106,8 +106,8 @@ export function specialSites(): SpecialSite[] {
 
   // 北嶺的哨站鏈(Lv1,一層):南緣入口通往煤礦坑的路上兩座——沒有它們,煤礦坑在水量網路外
   for (const [ox, oy] of [
-    [52, 44],
-    [52, 24],
+    [44, 37],
+    [44, 20],
   ] as const) {
     sites.push({ key: `N:${ox},${oy}`, x: ox, y: oy, mapId: "N", level: 1, stages: 1 });
   }

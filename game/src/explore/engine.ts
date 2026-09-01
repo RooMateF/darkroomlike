@@ -5,7 +5,54 @@ import { RESOURCE_LABEL, type ResourceId } from "../village/types";
 import { siteAt, siteProgress, specialSites, hasChurchKey, DUNGEON_KEY, SITE_ARRIVAL_TEXT, type DungeonRun } from "./sites";
 import { RATIONS_PER_SLOT } from "../village/data";
 
-const STATE_KEY = "explore-state-v6"; // v6:移除隨機水域,舊存檔不相容(中央地圖沿用;相鄰地圖各自帶尾碼)
+const STATE_KEY = "explore-state-v7"; // v7:地圖縮小 30%,舊存檔不相容(中央地圖沿用;相鄰地圖各自帶尾碼)
+
+// ---- v6 → v7 一次性遷移(2026-09 地圖縮小 30%)----
+// 舊圖作廢:鋪過的鐵軌拆回材料、燃著的燈柱折回燈油,全數退進村莊庫存;
+// 地標的地城進度照 landmarkId 搬到新座標的 key(打贏的不用重打);Lv1~3 隨新地圖重置
+(function migrateMapV7() {
+  if (localStorage.getItem("map-v7-migrated")) return;
+  try {
+    let rails = 0;
+    let lamps = 0;
+    for (const suffix of ["", ":N", ":E", ":S", ":W"]) {
+      const raw = localStorage.getItem("explore-state-v6" + suffix);
+      if (!raw) continue;
+      const s = JSON.parse(raw);
+      for (const row of (s.railRows ?? []) as string[]) rails += (row.match(/1/g) ?? []).length;
+      for (const row of (s.litRows ?? []) as string[]) lamps += (row.match(/1/g) ?? []).length;
+      localStorage.removeItem("explore-state-v6" + suffix);
+    }
+    if (rails > 0 || lamps > 0) {
+      const v = JSON.parse(localStorage.getItem("village-state") ?? "{}");
+      v.resources ??= {};
+      v.resources.rail = (v.resources.rail ?? 0) + rails;
+      v.resources.oil = (v.resources.oil ?? 0) + lamps;
+      localStorage.setItem("village-state", JSON.stringify(v));
+    }
+    // 鐵軌拆光了,礦車加成也得重新接
+    if (rails > 0) localStorage.removeItem("rail-to-mine");
+    // 地標地城進度搬家(座標制 key:舊 105x65 座標 → 新 88x54 座標)
+    const moves: [string, string][] = [
+      ["86,10", "72,8"], // 鐵礦坑
+      ["92,55", "77,46"], // 觀測台
+      ["14,52", "12,43"], // 祭壇
+      ["N:52,8", "N:44,7"], // 煤礦坑
+      ["N:52,44", "N:44,37"], // 北嶺哨站
+      ["N:52,24", "N:44,20"],
+    ];
+    const progress = JSON.parse(localStorage.getItem("site-progress") ?? "{}");
+    const fresh: Record<string, unknown> = {};
+    if (progress["7,5"]) fresh["7,5"] = progress["7,5"]; // 教堂座標不變
+    for (const [oldKey, newKey] of moves) {
+      if (progress[oldKey]) fresh[newKey] = progress[oldKey];
+    }
+    localStorage.setItem("site-progress", JSON.stringify(fresh));
+  } catch {
+    /* 壞資料就放棄遷移,別擋開機 */
+  }
+  localStorage.setItem("map-v7-migrated", "1");
+})();
 const FRESH_KEY = "expedition-fresh";
 const CURRENT_MAP_KEY = "current-map";
 const MAP_ENTRY_KEY = "map-entry"; // 跨圖移動時的落點(一次性)

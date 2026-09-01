@@ -1,9 +1,10 @@
 import type { Tile, TileType } from "./types";
 import { specialSites } from "./sites";
 
-// 25 倍面積(21x13 → 105x65),整張地圖一次完整呈現(小字體)
-export const MAP_WIDTH = 105;
-export const MAP_HEIGHT = 65;
+// 2026-09 縮圖 30%(105x65 → 88x54,用戶反饋:原野太空曠無趣)——
+// 同量的探勘點/事件點擠進更小的地,密度自然上來
+export const MAP_WIDTH = 88;
+export const MAP_HEIGHT = 54;
 
 // 固定種子:每張地圖都是固定的,不會每次遠征重新生成
 const MAP_SEED = 20260821;
@@ -108,21 +109,21 @@ function pickNeighborTerrain(mapId: MapId): TileType {
       if (r < 0.52) return "brush";
       if (r < 0.83) return "rubble";
       if (r < 0.9) return "wall";
-      if (r < 0.965) return "resource";
+      if (r < 0.955) return "resource";
       return "event";
     case "E": // 東郊廢墟:斷牆密,事件與拾荒點最多
       if (r < 0.42) return "plain";
       if (r < 0.5) return "brush";
       if (r < 0.76) return "rubble";
       if (r < 0.87) return "wall";
-      if (r < 0.94) return "resource";
+      if (r < 0.93) return "resource";
       return "event";
     case "S": // 南原:開闊好走,但也貧瘠——用腳程換安全
       if (r < 0.8) return "plain";
       if (r < 0.9) return "brush";
       if (r < 0.94) return "rubble";
       if (r < 0.95) return "wall";
-      if (r < 0.985) return "resource";
+      if (r < 0.98) return "resource";
       return "event";
     case "W": // 西澤:灌木與軟地,擋路的黑水潭多
     default:
@@ -130,7 +131,7 @@ function pickNeighborTerrain(mapId: MapId): TileType {
       if (r < 0.76) return "brush";
       if (r < 0.8) return "rubble";
       if (r < 0.9) return "wall";
-      if (r < 0.965) return "resource";
+      if (r < 0.955) return "resource";
       return "event";
   }
 }
@@ -154,21 +155,21 @@ function pickTerrain(dx: number, dy: number, _dist: number, _maxDist: number): T
       if (r2 < 0.81) return "brush";
       if (r2 < 0.87) return "rubble";
       if (r2 < 0.89) return "wall";
-      if (r2 < 0.965) return "resource";
+      if (r2 < 0.95) return "resource";
       return "event";
     case "ruins":
       if (r2 < 0.53) return "plain";
       if (r2 < 0.61) return "brush";
       if (r2 < 0.85) return "rubble";
       if (r2 < 0.9) return "wall";
-      if (r2 < 0.95) return "resource";
+      if (r2 < 0.93) return "resource";
       return "event";
     case "marsh":
       if (r2 < 0.52) return "plain";
       if (r2 < 0.82) return "brush";
       if (r2 < 0.87) return "rubble";
       if (r2 < 0.88) return "wall";
-      if (r2 < 0.97) return "resource";
+      if (r2 < 0.955) return "resource";
       return "event";
     case "plains":
     default:
@@ -176,7 +177,7 @@ function pickTerrain(dx: number, dy: number, _dist: number, _maxDist: number): T
       if (r2 < 0.85) return "brush";
       if (r2 < 0.92) return "rubble";
       if (r2 < 0.93) return "wall";
-      if (r2 < 0.98) return "resource";
+      if (r2 < 0.97) return "resource";
       return "event";
   }
 }
