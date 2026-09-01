@@ -570,15 +570,19 @@ export class ExploreEngine {
 
     // 水:每步扣(軌上每 4 步扣 1);食物:每 2 步吃一餐(軌上每 8 步)——先吃輕便的乾糧(不回血),
     // 乾糧見底改咬肉乾(重但滋養,回血),兩者都空了才是真正的斷糧
+    // 測試模式(工具列 DEV 鈕):水糧不耗、不遇敵——走遍地圖驗地形用;正式發布前移除
+    const devMode = localStorage.getItem("explore-dev") === "1";
     const wasDry = this.water <= 0; // 這一步出發前就已經沒水了
     const trainRunning = onRail && hasTrainBuilt(); // 火車通車:車廂代步,軌上零消耗
-    if (onRail) {
+    if (devMode) {
+      // 測試模式不耗水
+    } else if (onRail) {
       if (!trainRunning && this.railSteps % 4 === 0) this.water = Math.max(0, this.water - 1);
     } else {
       this.water = Math.max(0, this.water - MOVE_WATER_COST);
     }
     let ateThisStep = false;
-    const foodDue = onRail ? !trainRunning && this.railSteps % 8 === 0 : this.stepCount % FOOD_EVERY_STEPS === 0;
+    const foodDue = !devMode && (onRail ? !trainRunning && this.railSteps % 8 === 0 : this.stepCount % FOOD_EVERY_STEPS === 0);
     if (this.carried && foodDue) {
       if (this.carried.rations > 0) {
         this.carried.rations--;
@@ -606,7 +610,7 @@ export class ExploreEngine {
     } else if (this.water > 0) {
       this.thirstSteps = 0;
     }
-    const noFood = this.carried && this.carried.rations <= 0 && (this.carried.jerky ?? 0) <= 0;
+    const noFood = !devMode && this.carried && this.carried.rations <= 0 && (this.carried.jerky ?? 0) <= 0;
     if (noFood && !ateThisStep) {
       this.hungerSteps++;
       if (this.hungerSteps === 1) this.cb.onLog("最後一點吃的也沒了。胃在絞痛——撐不了多久了。");
@@ -636,7 +640,7 @@ export class ExploreEngine {
       // 軌道是人開出來的路:牠們不靠近鐵軌——完全不遇敵(滿狀態抵達 Boss 的戰略通道)
     } else if (this.encounterGrace > 0) {
       this.encounterGrace--; // 戰後喘息中,不觸發隨機遭遇
-    } else if (Math.random() < ENCOUNTER_CHANCE * lampMult * stealthMult * homeMult) {
+    } else if (!devMode && Math.random() < ENCOUNTER_CHANCE * lampMult * stealthMult * homeMult) {
       this.cb.onLog("⚠ 你感覺到附近有什麼東西的氣息……");
       this.encounterGrace = 3;
       this.saveState();

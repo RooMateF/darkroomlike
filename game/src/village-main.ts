@@ -135,8 +135,8 @@ function startVillage() {
     </div>
   `;
 
-  // DEV/加速按鈕只在網址帶 ?dev 時出現(正式遊玩不暴露測試工具)
-  if (new URLSearchParams(location.search).has("dev")) {
+  // DEV/加速按鈕:開發期常駐(用戶要求);正式發布前改回「?dev 才出現」的門控
+  {
     document.querySelector<HTMLButtonElement>("#dev-btn")!.style.display = "";
     document.querySelector<HTMLButtonElement>("#speed-btn")!.style.display = "";
   }

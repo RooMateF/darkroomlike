@@ -39,6 +39,7 @@ app.innerHTML = `
         <button id="pack-toggle">背包</button>
         <button id="zoom-out" title="縮小(看更大範圍)">−</button>
         <button id="zoom-in" title="放大(看更清楚)">+</button>
+        <button id="explore-dev-toggle" title="測試用:水糧不耗、不遇敵(正式發布前移除)">DEV</button>
       </div>
       <div class="status-line" id="status-line"></div>
       <div class="status-line" id="pickup-panel"></div>
@@ -118,6 +119,20 @@ zoomInBtn.addEventListener("click", () => {
   const i = ZOOM_LEVELS.indexOf(zoomPx);
   if (i < ZOOM_LEVELS.length - 1) setZoom(ZOOM_LEVELS[i + 1]);
 });
+
+// 測試模式切換(常駐開發工具):水糧不耗、不遇敵——引擎在 step 裡讀同一把鑰匙
+const exploreDevBtn = app.querySelector<HTMLButtonElement>("#explore-dev-toggle")!;
+function renderExploreDevBtn() {
+  const on = localStorage.getItem("explore-dev") === "1";
+  exploreDevBtn.textContent = on ? "DEV:開" : "DEV";
+  exploreDevBtn.classList.toggle("ready", on);
+}
+exploreDevBtn.addEventListener("click", () => {
+  const on = localStorage.getItem("explore-dev") === "1";
+  localStorage.setItem("explore-dev", on ? "0" : "1");
+  renderExploreDevBtn();
+});
+renderExploreDevBtn();
 
 /** 量測目前字級下一個等寬字元的實際寬度(px) */
 function measureCharWidth(): number {
