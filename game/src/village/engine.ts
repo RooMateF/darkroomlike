@@ -336,6 +336,11 @@ export class VillageEngine {
     if (!def) return false;
     if (def.requiresResourceSeen && !this.seenResources.has(def.requiresResourceSeen)) return false;
     if (def.minTrades !== undefined && this.tradeCount < def.minTrades) return false;
+    if (def.minExpeditions !== undefined) {
+      // 出門超過 N 次才悄然上架(讀遠征序號;不提示,讓玩家某天自己在攤子上看到)
+      const trips = Number(localStorage.getItem("expedition-serial") ?? "0");
+      if (trips <= def.minExpeditions) return false;
+    }
     if (def.grantModification && this.modifications[def.grantModification]) return false; // 只有一瓶,買過就下架
     return true;
   }

@@ -71,6 +71,8 @@ export interface TradeDef {
   requiresResourceSeen?: import("./types").ResourceId;
   /** 熟客門檻:累積交易滿 N 次,買家才亮出這件私貨(交易所獨賣品的解鎖路徑) */
   minTrades?: number;
+  /** 遠征門檻:出門超過 N 次才悄然上架(不提示,自己發現) */
+  minExpeditions?: number;
 }
 
 export const TRADES: TradeDef[] = [
@@ -91,7 +93,7 @@ export const TRADES: TradeDef[] = [
     label: "改造藥劑-危機意識",
     shards: 50,
     grantModification: "crisis-awareness",
-    minTrades: 5,
+    minExpeditions: 15,
     flavor: "一小瓶綠得發亮的藥劑,瓶塞用蠟封得嚴嚴實實。買家比劃了半天,你只看懂一件事:只有這一瓶。",
   },
 ];

@@ -78,24 +78,38 @@ app.innerHTML = `
     <h1>戰鬥</h1>
     <button id="theme-toggle">切換底色</button>
   </div>
-  <div class="hp-line" style="margin-bottom:8px;">你 <b id="player-hp-text"></b><span id="status-effects"></span>　　<span id="enemy-label"></span> <b id="enemy-hp-text"></b></div>
   <div class="combat-split">
     <div class="combat-main" id="combat-main">
       <div class="section">
+        <div class="section-title">你</div>
+        <div class="row-grid">
+          <span class="row-name">HP <b id="player-hp-text"></b><span id="status-effects"></span></span>
+          <span class="row-controls"><span class="bar hp-bar"><span class="filled" id="player-hp-filled"></span><span id="player-hp-empty"></span></span></span>
+          <span class="row-info"></span>
+        </div>
+      </div>
+
+      <div class="section" id="categories"></div>
+      <div class="status-line"><span id="status-text"></span> <button class="use-link" id="skip-btn" disabled>暫不使用</button> <button class="use-link" id="retreat-btn" disabled>撤退</button></div>
+
+      <div class="section" style="margin-top:8px;">
+        <div class="section-title">你的異常狀態</div>
+        <div id="status-panel"></div>
+      </div>
+    </div>
+    <div class="combat-side">
+      <div class="section" style="margin-bottom:8px;">
+        <div class="section-title" id="enemy-label"></div>
+        <div class="row-grid">
+          <span class="row-name">HP <b id="enemy-hp-text"></b></span>
+          <span class="row-controls"><span class="bar hp-bar"><span class="filled" id="enemy-hp-filled"></span><span id="enemy-hp-empty"></span></span></span>
+          <span class="row-info"></span>
+        </div>
         <div class="row-grid">
           <span class="row-name" id="enemy-bar-label"></span>
           <span class="row-controls"><span class="bar" id="enemy-bar"><span class="filled" id="enemy-bar-filled"></span><span id="enemy-bar-empty"></span></span></span>
           <span class="row-info">敵方動作</span>
         </div>
-        <div class="status-line"><span id="status-text"></span> <button class="use-link" id="skip-btn" disabled>暫不使用</button> <button class="use-link" id="retreat-btn" disabled>撤退</button></div>
-      </div>
-
-      <div class="section" id="categories"></div>
-    </div>
-    <div class="combat-side">
-      <div class="section" style="margin-bottom:8px;">
-        <div class="section-title">你的異常狀態</div>
-        <div id="status-panel"></div>
       </div>
       <div class="section-title">戰鬥紀錄</div>
       <div class="log-panel scrollable combat-log" id="log"></div>
@@ -143,6 +157,10 @@ document.querySelector<HTMLButtonElement>("#theme-toggle")!.addEventListener("cl
 });
 const playerHpText = document.querySelector<HTMLElement>("#player-hp-text")!;
 const enemyHpText = document.querySelector<HTMLElement>("#enemy-hp-text")!;
+const playerHpFilled = document.querySelector<HTMLElement>("#player-hp-filled")!;
+const playerHpEmpty = document.querySelector<HTMLElement>("#player-hp-empty")!;
+const enemyHpFilled = document.querySelector<HTMLElement>("#enemy-hp-filled")!;
+const enemyHpEmpty = document.querySelector<HTMLElement>("#enemy-hp-empty")!;
 const enemyLabelEl = document.querySelector<HTMLElement>("#enemy-label")!;
 const enemyBarLabelEl = document.querySelector<HTMLElement>("#enemy-bar-label")!;
 const enemyBarFilled = document.querySelector<HTMLElement>("#enemy-bar-filled")!;
@@ -150,7 +168,7 @@ const enemyBarEmpty = document.querySelector<HTMLElement>("#enemy-bar-empty")!;
 const statusEffectsEl = document.querySelector<HTMLElement>("#status-effects")!;
 const statusPanelEl = document.querySelector<HTMLElement>("#status-panel")!;
 enemyLabelEl.textContent = enemyDef.label;
-enemyBarLabelEl.textContent = enemyDef.label;
+enemyBarLabelEl.textContent = "動作";
 
 interface SubActionRow {
   categoryId: CategoryId;
@@ -678,6 +696,13 @@ function endCombat(message: string, href: string, delayMs: number) {
 function render() {
   playerHpText.textContent = `${engine.playerHp}/${engine.playerMaxHp}`;
   enemyHpText.textContent = `${engine.enemyHp}/${engine.enemyMaxHp}`;
+  // 血量條(2026-09 用戶要求:數字之外的視覺表示)——沿用 █░ 條語言
+  const pFill = Math.round((engine.playerHp / engine.playerMaxHp) * BAR_WIDTH);
+  playerHpFilled.textContent = "█".repeat(pFill);
+  playerHpEmpty.textContent = "░".repeat(BAR_WIDTH - pFill);
+  const eFill = engine.enemyMaxHp > 0 ? Math.round((engine.enemyHp / engine.enemyMaxHp) * BAR_WIDTH) : 0;
+  enemyHpFilled.textContent = "█".repeat(eFill);
+  enemyHpEmpty.textContent = "░".repeat(BAR_WIDTH - eFill);
 
   // 異常狀態欄(2026-08 用戶要求:計量值明示)——中毒/流血含累積值,控制含剩餘秒數
   const effects: string[] = [];
