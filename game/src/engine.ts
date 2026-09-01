@@ -180,7 +180,12 @@ export class CombatEngine {
     if (this.stunLeft > 0) return false; // 暈眩中舉不起盾
     this.blockWindowLeft = BLOCK_WINDOW;
     this.blockCooldownLeft = this.shield.cd;
-    // 格擋自成一類(2026-09 用戶定案):跨類別互不干擾——舉盾不動任何行動條,只吃自己的冷卻
+    // 格擋自成一類(2026-09 用戶定案):對其他類別而言就是「別類的招」——舉盾讓所有行動條重頭跑;
+    // 反向不成立:出招不重置盾的冷卻(盾 CD 是裝備計時,不是充能條,否則盾永遠舉不起來)
+    for (const c of this.playerCategories) {
+      c.resetAll();
+      for (const t of c.trackers) this.acknowledged.delete(this.key(c.def.id, t.subAction.id));
+    }
     this.cb.onLog({ id: this.logId++, actor: "你", target: "舉起了盾", symbol: "[]", damage: 0 });
     return true;
   }
@@ -379,13 +384,18 @@ export class CombatEngine {
 
     this.firstStrikeBoost = false; // 危機意識:第一個行動放出去之後恢復正常充能
 
-    // §2.3.2 修訂(2026-09 用戶定案):CD 補償只在「同類別內」作用——
-    // 用掉的那一招歸零,同類別其他行動打對折保留(快招連刺時重招 0.2 → 0.3 → 0.35 …收斂);
-    // 跨類別(近戰/遠程/法術/道具/格擋)彼此完全獨立,互不干擾
+    // §2.3.2 定案(2026-09 用戶規格):
+    // - 同類別:CD 補償——用掉的那一招歸零,其餘打對折保留(快招連刺時重招 0.2→0.3→0.35…收斂)
+    // - 跨類別(近戰/遠程/法術/道具/格擋互相之間):重頭跑——出了別類的招,其他類全部歸零
     tracker.elapsed = 0;
     for (const t of cat.trackers) {
       if (t !== tracker) t.elapsed *= CARRYOVER_RATIO;
       this.acknowledged.delete(this.key(cat.def.id, t.subAction.id));
+    }
+    for (const other of this.playerCategories) {
+      if (other === cat) continue;
+      other.resetAll();
+      for (const t of other.trackers) this.acknowledged.delete(this.key(other.def.id, t.subAction.id));
     }
 
     this.resume();

@@ -3,7 +3,7 @@ import { CombatEngine, type LogEntry } from "./engine";
 import { buildPlayerCategories } from "./demo-data";
 import { WEAPONS, fineMaxDurability } from "./village/data";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
-import { loadCarried, saveCarried, clearCarried, addLoot, playerMaxHp, carriedMaxDurability } from "./carried";
+import { loadCarried, saveCarried, clearCarried, addLoot, playerMaxHp, carriedMaxDurability, packUsed } from "./carried";
 import { pickRandomEnemy, pickMidEnemy, GUARDIANS, LANDMARK_REWARDS, LV3_BOSS, EVENT_BOSSES, type EnemyDef } from "./enemies";
 import { markLandmarkCleared, currentMapId, isAutoPickup } from "./explore/engine";
 
@@ -429,6 +429,7 @@ try {
 // 鍵盤快捷鍵(戰鬥的出手頻率高,全滑鼠會累死):數字 1~9 = 使用對應列;空白鍵 = 暫不使用;R = 撤退
 window.addEventListener("keydown", (e) => {
   if (e.repeat) return;
+  if (lootPanelActive) return; // 掉落面板開著:按鍵交給面板
   if (e.key === " ") {
     e.preventDefault();
     if (!skipBtn.disabled) engine.skip();
@@ -595,9 +596,13 @@ if (new URLSearchParams(window.location.search).has("dev")) {
   };
 }
 
-/** 勝利掉落的手動拾取面板:一件件決定撿不撿;背包空間把關與探索頁一致 */
+/** 掉落面板開著:主戰鬥快捷鍵(1~9/空白/R/0)全部讓路給面板自己的按鍵 */
+let lootPanelActive = false;
+
+/** 勝利掉落的手動拾取面板:數字鍵逐件撿、A 全拾、E 離開、B 整理背包(就地丟東西騰空間) */
 function showLootPanel(message: string, gains: Record<string, number>, href: string) {
   engine.stop();
+  lootPanelActive = true;
   statusEl.textContent = message;
   skipBtn.style.display = "none";
   retreatBtn.style.display = "none";
@@ -609,29 +614,40 @@ function showLootPanel(message: string, gains: Record<string, number>, href: str
   title.textContent = "牠身上留下了一些東西:";
   panel.appendChild(title);
 
+  // 背包占用即時反映:撿與丟都會更新——整理背包不用離開這個畫面
+  const packLine = document.createElement("div");
+  packLine.className = "hint-line";
+  panel.appendChild(packLine);
+  const updatePackLine = () => {
+    if (carried) packLine.textContent = `背包 ${packUsed(carried)}/${carried.packCap ?? 20}`;
+  };
+  updatePackLine();
+
   const leave = () => {
+    lootPanelActive = false;
+    window.removeEventListener("keydown", onLootKey);
     if (carried) saveCarried(carried);
     window.location.href = href;
   };
 
-  const itemRows: { id: string; n: number; line: HTMLDivElement }[] = [];
+  const itemRows: { id: string; n: number; line: HTMLDivElement; pick: () => void }[] = [];
   const leaveIfEmpty = () => {
     if (itemRows.every((r) => r.line.style.display === "none")) window.setTimeout(leave, 500);
   };
 
-  for (const [id, n] of Object.entries(gains)) {
+  Object.entries(gains).forEach(([id, n], idx) => {
     const line = document.createElement("div");
     line.className = "row-grid";
     const name = document.createElement("span");
     name.className = "row-name";
-    name.textContent = `${RESOURCE_LABEL[id as ResourceId] ?? id} ×${n}`;
+    name.textContent = `${idx + 1}. ${RESOURCE_LABEL[id as ResourceId] ?? id} ×${n}`;
     const controls = document.createElement("span");
     controls.className = "row-controls";
     const btn = document.createElement("button");
     btn.className = "use-link ready";
     btn.textContent = "[撿]";
-    btn.addEventListener("click", () => {
-      if (!carried) return;
+    const pick = () => {
+      if (!carried || line.style.display === "none") return;
       const { added, overflow } = addLoot(carried, { [id]: n });
       markExpeditionGained(added);
       saveCarried(carried);
@@ -642,19 +658,21 @@ function showLootPanel(message: string, gains: Record<string, number>, href: str
       }
       appendSystemLog(`拾獲:${RESOURCE_LABEL[id as ResourceId] ?? id} +${got}${overflow ? "(塞不下的只能放棄)" : ""}`);
       line.style.display = "none";
+      updatePackLine();
       leaveIfEmpty();
-    });
+    };
+    btn.addEventListener("click", pick);
     controls.appendChild(btn);
     line.append(name, controls);
     panel.appendChild(line);
-    itemRows.push({ id, n, line });
-  }
+    itemRows.push({ id, n, line, pick });
+  });
 
   const actions = document.createElement("div");
   actions.className = "button-row";
   const allBtn = document.createElement("button");
   allBtn.className = "use-link ready";
-  allBtn.textContent = "[全部拾取]";
+  allBtn.textContent = "[A. 全部拾取]";
   allBtn.addEventListener("click", () => {
     if (!carried) return leave();
     let anyOverflow = false;
@@ -674,10 +692,98 @@ function showLootPanel(message: string, gains: Record<string, number>, href: str
   });
   const leaveBtn = document.createElement("button");
   leaveBtn.className = "use-link ready";
-  leaveBtn.textContent = "[放棄並離開]";
+  leaveBtn.textContent = "[E. 放棄並離開]";
   leaveBtn.addEventListener("click", leave);
-  actions.append(allBtn, leaveBtn);
+  const packToggle = document.createElement("button");
+  packToggle.className = "use-link";
+  packToggle.textContent = "[B. 整理背包]";
+  actions.append(allBtn, leaveBtn, packToggle);
   panel.appendChild(actions);
+
+  // 整理背包:就地丟補給/戰利品騰空間(丟掉的留在原地,拿不回來)
+  const packBox = document.createElement("div");
+  packBox.style.display = "none";
+  panel.appendChild(packBox);
+  let packOpen = false;
+  const renderPackBox = () => {
+    if (!carried) return;
+    packBox.innerHTML = "";
+    const bag = carried as unknown as Record<string, number | undefined>;
+    const entries: { label: string; drop: () => void }[] = [];
+    const sup: [string, string][] = [
+      ["rations", "ration"],
+      ["jerky", "jerky"],
+      ["bandages", "bandage"],
+      ["arrows", "arrow"],
+      ["bullets", "bullet"],
+      ["rails", "rail"],
+      ["scrolls", "scroll"],
+      ["oil", "oil"],
+      ["elixirs", "elixir"],
+      ["salts", "salt"],
+    ];
+    for (const [key, rid] of sup) {
+      const n = bag[key] ?? 0;
+      if (n > 0) entries.push({ label: `${RESOURCE_LABEL[rid as ResourceId]} ×${n}`, drop: () => (bag[key] = n - 1) });
+    }
+    for (const [id, n] of Object.entries(carried.loot ?? {})) {
+      if ((n ?? 0) <= 0) continue;
+      entries.push({
+        label: `${RESOURCE_LABEL[id as ResourceId] ?? id} ×${n}(戰利品)`,
+        drop: () => {
+          carried!.loot![id] = (n ?? 0) - 1;
+          if (carried!.loot![id] <= 0) delete carried!.loot![id];
+        },
+      });
+    }
+    if (entries.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "hint-line";
+      empty.textContent = "背包裡沒有可丟的補給。";
+      packBox.appendChild(empty);
+      return;
+    }
+    for (const en of entries) {
+      const line = document.createElement("div");
+      line.className = "row-grid";
+      const name = document.createElement("span");
+      name.className = "row-name";
+      name.textContent = en.label;
+      const controls = document.createElement("span");
+      controls.className = "row-controls";
+      const dropBtn = document.createElement("button");
+      dropBtn.className = "use-link";
+      dropBtn.textContent = "[丟1]";
+      dropBtn.addEventListener("click", () => {
+        en.drop();
+        if (carried) saveCarried(carried);
+        updatePackLine();
+        renderPackBox();
+      });
+      controls.appendChild(dropBtn);
+      line.append(name, controls);
+      packBox.appendChild(line);
+    }
+  };
+  packToggle.addEventListener("click", () => {
+    packOpen = !packOpen;
+    packBox.style.display = packOpen ? "" : "none";
+    if (packOpen) renderPackBox();
+  });
+
+  // 面板快捷鍵:數字=逐件撿、A=全拾、E=離開、B=整理背包
+  const onLootKey = (e: KeyboardEvent) => {
+    if (e.repeat) return;
+    const idx = Number(e.key);
+    if (idx >= 1 && idx <= itemRows.length) {
+      itemRows[idx - 1].pick();
+      return;
+    }
+    if (e.key === "a" || e.key === "A") allBtn.click();
+    else if (e.key === "e" || e.key === "E") leave();
+    else if (e.key === "b" || e.key === "B") packToggle.click();
+  };
+  window.addEventListener("keydown", onLootKey);
 
   document.querySelector<HTMLDivElement>("#combat-main")?.appendChild(panel);
 }
