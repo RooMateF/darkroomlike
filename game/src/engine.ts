@@ -137,6 +137,8 @@ export class CombatEngine {
   slowLeft = 0;
   /** 控制免疫剩餘秒數(醒神鹽):期間不吃暈眩/遲緩/混亂 */
   controlImmuneLeft = 0;
+  /** 危機意識(改造藥劑):開戰後第一次充能全體 ×2,放出任一行動即恢復正常 */
+  firstStrikeBoost = false;
   /** 裝備中的盾(格擋參數;null=沒帶盾,不能格擋) */
   shield: { label: string; reduce: number; cd: number } | null = null;
   /** 格擋窗口剩餘秒數(0.5s;前 0.1s 完全格擋) */
@@ -163,7 +165,7 @@ export class CombatEngine {
     private readonly cb: EngineCallbacks,
     opts?: { enemyHp?: number; enemyLabel?: string },
   ) {
-    this.playerCategories = categories.map((c) => new CategoryTracker(c, () => this.playerSpeed * (this.slowLeft > 0 ? 0.5 : 1)));
+    this.playerCategories = categories.map((c) => new CategoryTracker(c, () => this.playerSpeed * (this.slowLeft > 0 ? 0.5 : 1) * (this.firstStrikeBoost ? 2 : 1)));
     this.enemy = new EnemyTracker(enemyMoves, () => 1);
     if (opts?.enemyHp) {
       this.enemyHp = opts.enemyHp;
@@ -377,6 +379,8 @@ export class CombatEngine {
       heal,
     });
     this.cb.onHpChange();
+
+    this.firstStrikeBoost = false; // 危機意識:第一個行動放出去之後恢復正常充能
 
     // §2.3.2 修訂(2026-09 用戶規格):同類別的其他行動不再整組歸零——
     // 和跨類別同一把尺,打對折保留進度;只有用掉的那一招從頭充。

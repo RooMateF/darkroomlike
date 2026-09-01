@@ -77,6 +77,8 @@ export class VillageEngine {
   weaponDurability: Record<string, number> = {};
   /** 精工品數量(是 ownedWeapons 的子集):打造完美的產物,耐久上限 +25%,永遠優先上手 */
   fineWeapons: Record<string, number> = {};
+  /** 永久改造(改造藥劑,喝了就是永久;不占被動裝備欄):如 crisis-awareness 危機意識 */
+  modifications: Record<string, boolean> = {};
   /** 累積交易次數(交易所獨賣品的熟客解鎖依據) */
   tradeCount = 0;
   private tickCount = 0;
@@ -102,6 +104,7 @@ export class VillageEngine {
         seenResources: [...this.seenResources],
         ownedWeapons: this.ownedWeapons,
         fineWeapons: this.fineWeapons,
+        modifications: this.modifications,
         upgrades: this.upgrades,
         perks: this.perks,
         equippedPerks: this.equippedPerks,
@@ -129,6 +132,7 @@ export class VillageEngine {
       for (const id of s.seenResources ?? []) this.seenResources.add(id as ResourceId);
       this.ownedWeapons = s.ownedWeapons ?? {};
       this.fineWeapons = s.fineWeapons ?? {};
+      this.modifications = s.modifications ?? {};
       this.upgrades = s.upgrades ?? {};
       this.perks = s.perks ?? {};
       // 舊存檔遷移:沒有裝備欄資料時,把已擁有的被動依序裝上(維持原「全部生效」的體感)
@@ -332,6 +336,7 @@ export class VillageEngine {
     if (!def) return false;
     if (def.requiresResourceSeen && !this.seenResources.has(def.requiresResourceSeen)) return false;
     if (def.minTrades !== undefined && this.tradeCount < def.minTrades) return false;
+    if (def.grantModification && this.modifications[def.grantModification]) return false; // 只有一瓶,買過就下架
     return true;
   }
 
@@ -339,11 +344,19 @@ export class VillageEngine {
     const def = TRADES.find((t) => t.id === tradeId);
     if (!def || !this.hasBuilding("trading-post") || !this.isTradeVisible(tradeId) || this.resources.shard < def.shards) return false;
     this.resources.shard -= def.shards;
-    this.resources[def.get] += def.qty * 1;
     this.tradeCount++;
+    if (def.grantModification) {
+      // 改造藥劑:兌換即飲下,永久生效(2026-09 用戶核可文本)
+      this.modifications[def.grantModification] = true;
+      this.saveState();
+      this.cb.onLog("眼前的綠色藥劑擺在你的面前,你拿起瓶子露出猶豫的神情。");
+      this.cb.onLog("『別擔心,雖然他不是我們能製作出來的東西,但是基本上他對人體無害』她說道『可以放心的喝下,說不定還會有一點小小的幫助呢!』");
+      return true;
+    }
+    this.resources[def.get!] += (def.qty ?? 1) * 1;
     this.syncSeenResources();
     this.saveState();
-    this.cb.onLog(`用 ${def.shards} 顆異晶換得了「${RESOURCE_LABEL[def.get]}」${def.qty > 1 ? ` ×${def.qty}` : ""}。`);
+    this.cb.onLog(`用 ${def.shards} 顆異晶換得了「${RESOURCE_LABEL[def.get!]}」${(def.qty ?? 1) > 1 ? ` ×${def.qty}` : ""}。`);
     return true;
   }
 

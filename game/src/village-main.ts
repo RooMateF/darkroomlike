@@ -841,7 +841,7 @@ function startVillage() {
     head.className = "building-head";
     const name = document.createElement("span");
     name.className = "building-name";
-    name.textContent = def.qty > 1 ? `${RESOURCE_LABEL[def.get]} ×${def.qty}` : RESOURCE_LABEL[def.get];
+    name.textContent = def.label ?? ((def.qty ?? 1) > 1 ? `${RESOURCE_LABEL[def.get!]} ×${def.qty}` : RESOURCE_LABEL[def.get!]);
     const cost = document.createElement("span");
     cost.className = "building-cost";
     cost.textContent = `異晶 ${def.shards}`;

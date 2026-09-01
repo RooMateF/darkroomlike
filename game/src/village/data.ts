@@ -57,9 +57,12 @@ export const BUILDINGS: BuildingDef[] = [
 
 export interface TradeDef {
   id: string;
-  /** 兌換所得(進資源庫存) */
-  get: import("./types").ResourceId;
-  qty: number;
+  /** 兌換所得(進資源庫存);永久改造品(grantModification)不填 */
+  get?: import("./types").ResourceId;
+  qty?: number;
+  /** 兌換即飲下的永久改造(一次性商品,喝了就是永久);顯示名稱用 label */
+  grantModification?: string;
+  label?: string;
   /** 花費的異晶數 */
   shards: number;
   /** 一句來歷敘事(show-don't-tell:交易的對象是誰,玩家自己想) */
@@ -82,6 +85,15 @@ export const TRADES: TradeDef[] = [
   { id: "trade-meat", get: "meat", qty: 40, shards: 2, flavor: "用油紙包好的肉,新鮮得不像跋涉過荒野。", requiresResourceSeen: "meat" },
   { id: "trade-hide", get: "hide", qty: 30, shards: 2, flavor: "疊得厚厚的獸皮,每張都取得乾乾淨淨——獵人看了會沉默的那種。", requiresResourceSeen: "hide" },
   { id: "trade-iron", get: "iron", qty: 15, shards: 3, flavor: "沉甸甸的礦石,挑得極純——對方似乎很清楚哪些石頭有用。", requiresResourceSeen: "iron" },
+  // 改造藥劑(2026-09 用戶定案):一次性的身體改造,喝了就是永久——只有一瓶,買走就沒了
+  {
+    id: "trade-crisis-awareness",
+    label: "改造藥劑-危機意識",
+    shards: 50,
+    grantModification: "crisis-awareness",
+    minTrades: 5,
+    flavor: "一小瓶綠得發亮的藥劑,瓶塞用蠟封得嚴嚴實實。買家比劃了半天,你只看懂一件事:只有這一瓶。",
+  },
 ];
 
 /** 這把武器是否屬於鐵製以上(配方吃鐵/鋼)——修理它需要升格後的鐵匠鋪 */
