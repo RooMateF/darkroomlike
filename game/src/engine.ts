@@ -104,6 +104,8 @@ export interface EngineCallbacks {
   onHpChange: () => void;
   /** 敵方開始蓄力大招時的敘述(可選;模擬器不接) */
   onTell?: (text: string) => void;
+  /** 混亂發作:UI 隨機執行一個「就緒且可用」的行動,執行了回 true(可選;模擬器不接) */
+  onConfusedAct?: () => boolean;
 }
 
 /**
@@ -131,8 +133,12 @@ export class CombatEngine {
   stunLeft = 0;
   /** 遲緩剩餘秒數:行動條充能減半 */
   slowLeft = 0;
-  /** 控制免疫剩餘秒數(醒神鹽):期間不吃暈眩/遲緩 */
+  /** 控制免疫剩餘秒數(醒神鹽):期間不吃暈眩/遲緩/混亂 */
   controlImmuneLeft = 0;
+  /** 混亂條(§用戶規格 2026-09):滿 100 後,下一個充能完成的行動被隨機執行 */
+  confusionGauge = 0;
+  /** 混亂已滿,等著奪走下一個行動(行動條未滿就等它滿的那一刻) */
+  confusionPending = false;
   /** 各計時的總量(UI 畫倒數條用:剩餘/總量) */
   stunTotal = 0;
   slowTotal = 0;
@@ -158,10 +164,12 @@ export class CombatEngine {
     if (opts?.enemyLabel) this.enemyLabel = opts.enemyLabel;
   }
 
-  /** 解除控制效果並給予免疫窗口(醒神鹽) */
+  /** 解除控制效果並給予免疫窗口(醒神鹽)——混亂也是「腦子的事」,一併醒掉 */
   clearControl(immuneSeconds: number) {
     this.stunLeft = 0;
     this.slowLeft = 0;
+    this.confusionGauge = 0;
+    this.confusionPending = false;
     this.controlImmuneLeft = Math.max(this.controlImmuneLeft, immuneSeconds);
     this.controlImmuneTotal = Math.max(this.controlImmuneTotal, this.controlImmuneLeft);
   }
@@ -188,6 +196,16 @@ export class CombatEngine {
 
   private step(dt: number) {
     if (this.enemyHp <= 0 || this.playerHp <= 0) return;
+
+    // 混亂發作(在暫停中也會作祟——它奪走的就是「你的決定」):
+    // 任何行動就緒的瞬間,隨機執行一個可用行動(UI 依 canUse 挑,執行成功才解除)
+    if (this.confusionPending && this.stunLeft <= 0) {
+      const anyReady = this.playerCategories.some((c) => c.trackers.some((t) => t.ready));
+      if (anyReady && this.cb.onConfusedAct?.()) {
+        this.confusionPending = false;
+        this.confusionGauge = 0;
+      }
+    }
 
     if (!this.paused) {
       // 控制效果倒數
@@ -271,14 +289,31 @@ export class CombatEngine {
           s.gauge = 100; // 已滿級,計量封頂
         }
       }
+      this.applyConfusion(move);
       this.cb.onHpChange();
     } else {
-      // 零傷害的行為(如發狂者的「顫抖」):純粹的空轉,呈現不連貫感
+      // 零傷害的行為(如發狂者的「顫抖」、哼歌者的「哼唱」):空轉或純異常疊加
       this.cb.onLog({ id: this.logId++, actor: this.enemyLabel, target: move.label, symbol: move.symbol, damage: 0 });
+      this.applyConfusion(move);
     }
     this.enemy.rollNextMove();
     // 大招才有蓄力描寫:「牠抬起了手」比招式名更能讓玩家學會判讀
     if (this.enemy.currentMove.tell) this.cb.onTell?.(this.enemy.currentMove.tell);
+  }
+
+  /** 混亂值疊加:免疫窗口(醒神鹽)擋得掉;滿 100 進入「發作待機」 */
+  private applyConfusion(move: EnemyMove) {
+    if (!move.confusion) return;
+    if (this.controlImmuneLeft > 0) {
+      this.cb.onLog({ id: this.logId++, actor: "你", target: "咬住舌尖,把歌聲擋在腦子外", symbol: "=", damage: 0 });
+      return;
+    }
+    if (this.confusionPending) return; // 發作待機中不再疊
+    this.confusionGauge = Math.min(100, this.confusionGauge + move.confusion);
+    if (this.confusionGauge >= 100) {
+      this.confusionPending = true;
+      this.cb.onLog({ id: this.logId++, actor: "你", target: "歌聲在你腦子裡打轉——你分不清哪個念頭是自己的", symbol: "??", damage: 0 });
+    }
   }
 
   /** 玩家選擇使用某個已就緒的子行動;回傳是否真的執行了(未就緒時 false) */

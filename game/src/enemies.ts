@@ -73,6 +73,25 @@ export const ENEMIES: EnemyDef[] = [
   },
 ];
 
+// 事件小 Boss(選擇式小劇情觸發;文本 2026-09 核可)
+// 哼歌的東西:混亂機制的教學者——哼唱不傷血但疊混亂,滿了行動被奪走;
+// 醒神鹽是解法(解混亂+免疫窗口),沒鹽就得搶節奏速戰
+export const EVENT_BOSSES: Record<string, EnemyDef> = {
+  siren: {
+    id: "siren",
+    label: "哼歌的東西",
+    intro: "牠沒有嘴,歌聲卻從牠身體的某處滲出來。三個音,重複——你聽過這段旋律。",
+    hp: 45,
+    moves: [
+      { id: "hum", label: "哼唱", baseCost: 2.0, symbol: "~♪", damage: 0, confusion: 35, tell: "牠的身體鼓了起來,像在吸氣。歌聲變近了。" },
+      { id: "pounce", label: "撲抓", baseCost: 2.0, symbol: "»", damage: 5 },
+      { id: "shriek", label: "走音尖鳴", baseCost: 2.5, symbol: "»!", damage: 3, control: { kind: "slow", duration: 2 } },
+    ],
+    loot: { hide: 3, shard: 2 },
+    shardChance: 1,
+  },
+};
+
 export function pickRandomEnemy(): EnemyDef {
   return ENEMIES[Math.floor(Math.random() * ENEMIES.length)];
 }

@@ -4,7 +4,7 @@ import { buildPlayerCategories } from "./demo-data";
 import { WEAPONS, fineMaxDurability } from "./village/data";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
 import { loadCarried, saveCarried, clearCarried, addLoot, playerMaxHp, carriedMaxDurability } from "./carried";
-import { pickRandomEnemy, pickMidEnemy, GUARDIANS, LANDMARK_REWARDS, LV3_BOSS, type EnemyDef } from "./enemies";
+import { pickRandomEnemy, pickMidEnemy, GUARDIANS, LANDMARK_REWARDS, LV3_BOSS, EVENT_BOSSES, type EnemyDef } from "./enemies";
 import { markLandmarkCleared, currentMapId, isAutoPickup } from "./explore/engine";
 
 // 蓋「這趟有收穫」章(空手計數的歸零依據;引導事件用)
@@ -49,12 +49,18 @@ if (!carried && !dungeon) {
   window.location.replace("village.html");
 }
 
+// 事件小 Boss(選擇式小劇情觸發,如「唱歌的風」):優先於地城與隨機遭遇
+const eventBossId = localStorage.getItem("pending-event-boss");
+if (eventBossId) localStorage.removeItem("pending-event-boss");
+
 // 相鄰地圖(中央地圖以外)的野外更兇:一半機率抽中期梯隊
-const enemyDef = dungeon
-  ? pickDungeonEnemy(dungeon)
-  : currentMapId() !== "A" && Math.random() < 0.5
-    ? pickMidEnemy()
-    : pickRandomEnemy();
+const enemyDef = eventBossId
+  ? (EVENT_BOSSES[eventBossId] ?? pickRandomEnemy())
+  : dungeon
+    ? pickDungeonEnemy(dungeon)
+    : currentMapId() !== "A" && Math.random() < 0.5
+      ? pickMidEnemy()
+      : pickRandomEnemy();
 let lowHpWarned = false;
 
 const BAR_WIDTH = 16;
@@ -355,6 +361,23 @@ window.addEventListener("keydown", (e) => {
 const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
   onLog: appendLog,
   onTell: appendSystemLog,
+  // 混亂發作:隨機執行一個「就緒且可用」的行動(行動條沒滿就等滿的那一刻,引擎每幀重試)
+  onConfusedAct: () => {
+    const candidates: { cat: CategoryId; id: string }[] = [];
+    for (const c of engine.playerCategories) {
+      for (const t of c.trackers) {
+        if (t.ready && canUse(t.subAction.id)) candidates.push({ cat: c.def.id, id: t.subAction.id });
+      }
+    }
+    if (candidates.length === 0) return false;
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    appendSystemLog("你的手自己動了。");
+    if (engine.useSubAction(pick.cat, pick.id)) {
+      afterUse(pick.id);
+      return true;
+    }
+    return false;
+  },
   onPauseChange: (paused) => {
     statusEl.textContent = paused ? "▍等待你的指示…" : "";
     skipBtn.disabled = !paused;
@@ -599,6 +622,8 @@ function render() {
     if (bl.level > 0 || bl.gauge > 0) gaugeRow("流血", bl);
     const dot = po.level + bl.level;
     if (dot > 0) rows.push(`<div class="status-line">持續傷害 每 2 秒 -${dot}</div>`);
+    if (engine.confusionPending) spRow("混亂(發作)", 1, "!!");
+    else if (engine.confusionGauge > 0) spRow("混亂", engine.confusionGauge / 100, `${Math.round(engine.confusionGauge)}/100`);
     if (engine.stunLeft > 0) spRow("暈眩", engine.stunTotal > 0 ? engine.stunLeft / engine.stunTotal : 1, `${engine.stunLeft.toFixed(1)}s`);
     if (engine.slowLeft > 0) spRow("遲緩", engine.slowTotal > 0 ? engine.slowLeft / engine.slowTotal : 1, `${engine.slowLeft.toFixed(1)}s`);
     if (engine.controlImmuneLeft > 0) spRow("免疫(鹽)", engine.controlImmuneTotal > 0 ? engine.controlImmuneLeft / engine.controlImmuneTotal : 1, `${engine.controlImmuneLeft.toFixed(1)}s`);

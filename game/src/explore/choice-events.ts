@@ -2,7 +2,7 @@
 // 每則一場遊戲只出現一次(觸發即記名,抽完後事件點回到平常的碎片/補給)。
 // 寫作原則:worldbuilding.md § 8.2 認知揭露弧線——只給線索,不說破;
 // 效果都是小補給或純氛圍,不碰主線。
-// ⑥「唱歌的風」帶小 Boss 戰(混亂機制),Boss 文本核可後另行加入。
+// ⑥「唱歌的風」帶小 Boss 戰(哼歌的東西:混亂機制;文本 2026-09 核可)。
 // ⑧「埋在土裡的門」是長線伏筆:「帶著能開它的東西回來」——之後章節接回收。
 
 export interface ChoiceEventOption {
@@ -11,7 +11,8 @@ export interface ChoiceEventOption {
   effect?:
     | { kind: "gain"; gains: Record<string, number> }
     | { kind: "water"; amount: number }
-    | { kind: "trade"; gains: Record<string, number>; costs: Record<string, number> };
+    | { kind: "trade"; gains: Record<string, number>; costs: Record<string, number> }
+    | { kind: "boss"; enemyId: string };
 }
 
 export interface ChoiceEventDef {
@@ -114,6 +115,26 @@ export const CHOICE_EVENTS: ChoiceEventDef[] = [
       {
         label: "沿石圈找腳印",
         result: "腳印朝北去,步距很長,走得很急。第七步之後,腳印沒有了——不是被蓋掉,是沒有了。",
+      },
+    ],
+  },
+  {
+    id: "singing-wind",
+    text: "風穿過蘆葦的時候,有一段聲音不太像風——像誰在很遠的地方哼一支忘了一半的歌。",
+    options: [
+      {
+        label: "跟著哼",
+        result: "你低聲跟了一遍。風停了一拍——一個不可名狀的生物哼著歌朝你衝過來。",
+        effect: { kind: "boss", enemyId: "siren" },
+      },
+      {
+        label: "朝聲音走近一點",
+        result: "聲音永遠在「再過去一點」的地方。走了十幾步,你的靴子灌了水,聲音卻沒近半分。腳邊的泥裡半埋著一捲繃帶,還乾著。",
+        effect: { kind: "gain", gains: { bandage: 1 } },
+      },
+      {
+        label: "摀住耳朵快步離開",
+        result: "你走出很遠才把手放下。風還是風的聲音了。",
       },
     ],
   },

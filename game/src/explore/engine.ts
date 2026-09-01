@@ -230,6 +230,8 @@ export class ExploreEngine {
   pendingChoiceEvent: ChoiceEventDef | null = null;
   /** 抉擇後的結果文本(第二幕):按「繼續」才收起 */
   pendingChoiceResult: string | null = null;
+  /** 結果收起後要開打的事件小 Boss(如「唱歌的風」的哼歌者) */
+  private pendingBossAfterResult = false;
   /** 這趟遠征已領過乾糧儲備的據點("x,y"):每個據點每趟只給一次,新遠征重置 */
   private depotGrantsUsed = new Set<string>();
   /** 這趟遠征已在哪些據點休整過(同上,防止進出刷血) */
@@ -957,6 +959,10 @@ export class ExploreEngine {
         if (overflow) this.cb.onLog("(背包塞不下,一部分留在了原地)");
       } else if (fx.kind === "water") {
         this.water = Math.min(this.maxWater, this.water + fx.amount);
+      } else if (fx.kind === "boss") {
+        // 事件小 Boss:結果文本收起的那一刻開戰(戰鬥頁優先讀這把鑰匙)
+        localStorage.setItem("pending-event-boss", fx.enemyId);
+        this.pendingBossAfterResult = true;
       } else if (fx.kind === "trade") {
         const { added } = addLoot(this.carried, fx.gains);
         this.markGained(added);
@@ -970,9 +976,14 @@ export class ExploreEngine {
     this.saveState();
   }
 
-  /** 收起結果文本(第二幕結束,恢復行動) */
+  /** 收起結果文本(第二幕結束,恢復行動;帶著 Boss 的事件在這一刻開戰) */
   dismissChoiceResult() {
     this.pendingChoiceResult = null;
+    if (this.pendingBossAfterResult) {
+      this.pendingBossAfterResult = false;
+      this.saveState();
+      this.cb.onEncounter();
+    }
   }
 
   /** 蓋「這趟有收穫」章(引導事件據此歸零空手計數) */
