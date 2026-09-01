@@ -156,9 +156,9 @@ export interface WeaponDef {
 // 位階:木/石 → 鐵(冶煉的鐵)→ 鋼(鐵+煤)。槍械只有鋼階才做得出來。
 export const WEAPONS: WeaponDef[] = [
   // 位階 0:木製——開局唯一做得出來的武器,快而輕(0.8s/3,DPS 3.8)
-  { id: "wood-spear", label: "木槍", cost: { wood: 40 }, category: "melee", baseCost: 0.8, damage: 3, symbol: ">>", durability: 30, packSize: 3 },
+  { id: "wood-spear", label: "木槍", cost: { wood: 40 }, category: "melee", baseCost: 0.9, damage: 3, symbol: ">>", durability: 30, packSize: 3 },
   // 位階 1:石製——重攻擊的代表(2.0s/11,DPS 5.5):兩秒的破綻換一記真正的重斬
-  { id: "stone-axe", label: "石斧", cost: { wood: 30, stone: 40 }, category: "melee", baseCost: 2.0, damage: 11, symbol: ">>>", durability: 45, packSize: 4 },
+  { id: "stone-axe", label: "石斧", cost: { wood: 30, stone: 40 }, category: "melee", baseCost: 1.8, damage: 11, symbol: ">>>", durability: 45, packSize: 4 },
   { id: "hunting-bow", label: "獵弓", cost: { wood: 50, hide: 10 }, category: "ranged", baseCost: 1.0, damage: 4, symbol: "→", durability: 40, ammo: "arrow", ammoPerUse: 1, packSize: 3 },
   // ---- 鐵階(冶煉的鐵) ----
   { id: "iron-knife", label: "鐵刀", cost: { ingot: 6, wood: 10 }, category: "melee", baseCost: 0.4, damage: 3, symbol: ">|", durability: 40, packSize: 2 },

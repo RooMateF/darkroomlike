@@ -302,8 +302,10 @@ export class CombatEngine {
       // 任一「尚未被回應過」的子行動跑滿 → 觸發決策點,模擬時鐘暫停(§2.6)
       // 玩家可以選擇使用,也可以明確選擇「暫不使用」(見 skip()),讓速度較慢的類別有機會繼續累積,
       // 不會因為冷兵器/熱武器天生較快,就強迫玩家每次都得用掉它們,永遠碰不到法術
-      const hasNewlyReady = this.playerCategories.some((c) =>
-        c.trackers.some((t) => t.ready && !this.acknowledged.has(this.key(c.def.id, t.subAction.id))),
+      // 道具類例外(2026-09 用戶反饋:每次出招道具歸零重充、一就緒又暫停,被迫狂點「暫不使用」)——
+      // 道具就緒只是「隨時可用」,不打斷節奏;要用就在任何暫停時或即時點下去
+      const hasNewlyReady = this.playerCategories.some(
+        (c) => c.def.id !== "item" && c.trackers.some((t) => t.ready && !this.acknowledged.has(this.key(c.def.id, t.subAction.id))),
       );
       if (hasNewlyReady) {
         this.paused = true;
