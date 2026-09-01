@@ -178,6 +178,10 @@ export class CombatEngine {
     if (this.stunLeft > 0) return false; // 暈眩中舉不起盾
     this.blockWindowLeft = BLOCK_WINDOW;
     this.blockCooldownLeft = this.shield.cd;
+    // 舉盾也是出手(共同 CD,2026-09 用戶規格):所有行動條打對折——防禦是拿節奏換的
+    for (const c of this.playerCategories) {
+      for (const t of c.trackers) t.elapsed *= CARRYOVER_RATIO;
+    }
     this.cb.onLog({ id: this.logId++, actor: "你", target: "舉起了盾", symbol: "[]", damage: 0 });
     return true;
   }
@@ -374,12 +378,15 @@ export class CombatEngine {
     });
     this.cb.onHpChange();
 
-    // 使用的類別:內部所有子行動計時一起歸零(§2.3.2),並清掉這個類別的「已回應」紀錄
-    cat.resetAll();
-    for (const t of cat.trackers) this.acknowledged.delete(this.key(cat.def.id, t.subAction.id));
-
-    // 其他類別:不是完全不受影響,而是打折保留原本的預讀進度(「一回合一動」的節奏感)
-    // 例如魔法原本預讀到 60%,近戰出手後,魔法會打折保留成 30% 繼續往下跑,而不是歸零重來
+    // §2.3.2 修訂(2026-09 用戶規格):同類別的其他行動不再整組歸零——
+    // 和跨類別同一把尺,打對折保留進度;只有用掉的那一招從頭充。
+    // 例:快招連刺時,重招的進度 0.2 → 0.3 → 0.35 …往快招的週期收斂——
+    // 快招會拖慢重招,但不再把它按回原點;想掄大的,就得忍住不出快手
+    tracker.elapsed = 0;
+    for (const t of cat.trackers) {
+      if (t !== tracker) t.elapsed *= CARRYOVER_RATIO;
+      this.acknowledged.delete(this.key(cat.def.id, t.subAction.id));
+    }
     for (const other of this.playerCategories) {
       if (other === cat) continue;
       for (const t of other.trackers) {
