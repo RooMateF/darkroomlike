@@ -303,6 +303,22 @@ h1 {
   min-height: 1.6em;
 }
 
+/* 戰鬥控制列(2026-09 用戶要求):固定在行動區頂端的一條框,暫不使用/撤退永遠在同一個位置 */
+.combat-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--fg-faint);
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  min-height: 2em;
+  color: var(--fg);
+}
+
+.combat-controls-spacer {
+  flex: 1;
+}
+
 /* ---------- 數值列(生命值/水量等單行標籤) ---------- */
 
 .hp-line {

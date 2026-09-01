@@ -67,7 +67,12 @@ class CategoryTracker {
 
   /** 使用其中一個子行動時,整個類別的計時器一起歸零(§ 2.3.2) */
   resetAll() {
-    for (const t of this.trackers) t.elapsed = 0;
+    for (const t of this.trackers) {
+      t.elapsed = 0;
+      // 被別的類別打斷重跑=全新的一輪:道具的「拖長下一輪」懲罰不跨越重置
+      // (2026-09 用戶確認:攻擊重置道具盤後,適用的是 1s 而不是殘留的 1.2s)
+      t.costMult = 1;
+    }
   }
 }
 

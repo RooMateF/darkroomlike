@@ -132,8 +132,9 @@ app.innerHTML = `
         </div>
       </div>
 
+      <!-- 控制列固定在行動區頂端(2026-09 用戶要求):不隨武器變多往下漂,位置顯眼 -->
+      <div class="combat-controls"><span id="status-text"></span><span class="combat-controls-spacer"></span><button class="btn" id="skip-btn" disabled>暫不使用</button> <button class="btn" id="retreat-btn" disabled>撤退</button></div>
       <div class="section" id="categories"></div>
-      <div class="status-line"><span id="status-text"></span> <button class="use-link" id="skip-btn" disabled>暫不使用</button> <button class="use-link" id="retreat-btn" disabled>撤退</button></div>
 
       <div class="section" style="margin-top:8px;">
         <div class="section-title">你的異常狀態</div>
