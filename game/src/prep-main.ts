@@ -57,6 +57,7 @@ Object.assign(village, loadVillage() ?? {});
 // ---- 選擇狀態 ----
 const pick = {
   weapons: {} as Record<string, number>,
+  fineW: {} as Record<string, number>,
   rations: 0,
   jerky: 0,
   bandages: 0,
@@ -104,6 +105,10 @@ const capacity = carryCapacity(upgrades);
 function packPicked(): number {
   let used = 0;
   for (const [id, n] of Object.entries(pick.weapons)) {
+    const def = WEAPONS.find((w) => w.id === id);
+    used += (def?.packSize ?? 3) * n;
+  }
+  for (const [id, n] of Object.entries(pick.fineW)) {
     const def = WEAPONS.find((w) => w.id === id);
     used += (def?.packSize ?? 3) * n;
   }
@@ -207,25 +212,47 @@ type PickRow = ReturnType<typeof makePickRow>;
 const rows: PickRow[] = [];
 
 for (const w of WEAPONS) {
-  const stock = () => village.ownedWeapons[w.id] ?? 0;
-  if (stock() <= 0) continue;
-  const fineN = village.fineWeapons?.[w.id] ?? 0;
-  const curMax = fineN > 0 ? fineMaxDurability(w.id) : w.durability;
-  const remainingDur = village.weaponDurability?.[w.id] ?? curMax;
-  const row = makePickRow(
-    fineN > 0 ? `${w.label}(精工 ×${fineN})` : w.label,
-    `占 ${w.packSize} 格・耐久 ${remainingDur}/${curMax}${w.ammo === "arrow" ? "・需要弓矢" : w.ammo === "bullet" ? `・需要子彈(每擊 ${w.ammoPerUse ?? 1} 發)` : ""}`,
-    stock,
-    () => pick.weapons[w.id] ?? 0,
-    (n) => (pick.weapons[w.id] = n),
-    () =>
-      fitsAfterAdd(
-        () => (pick.weapons[w.id] = (pick.weapons[w.id] ?? 0) + 1),
-        () => (pick.weapons[w.id] = (pick.weapons[w.id] ?? 1) - 1),
-      ),
-  );
-  weaponListEl.appendChild(row.line);
-  rows.push(row);
+  const total = village.ownedWeapons[w.id] ?? 0;
+  if (total <= 0) continue;
+  const fineTotal = village.fineWeapons?.[w.id] ?? 0;
+  const normalTotal = total - fineTotal;
+  const ammoText = w.ammo === "arrow" ? "・需要弓矢" : w.ammo === "bullet" ? `・需要子彈(每擊 ${w.ammoPerUse ?? 1} 發)` : "";
+  // 普通與精工分列各自挑(2026-09 用戶要求);戰鬥中普通優先消耗、精工墊後
+  if (normalTotal > 0) {
+    const remainingDur = village.weaponDurability?.[w.id] ?? w.durability;
+    const row = makePickRow(
+      w.label,
+      `占 ${w.packSize} 格・耐久 ${remainingDur}/${w.durability}${ammoText}`,
+      () => normalTotal,
+      () => pick.weapons[w.id] ?? 0,
+      (n) => (pick.weapons[w.id] = n),
+      () =>
+        fitsAfterAdd(
+          () => (pick.weapons[w.id] = (pick.weapons[w.id] ?? 0) + 1),
+          () => (pick.weapons[w.id] = (pick.weapons[w.id] ?? 1) - 1),
+        ),
+    );
+    weaponListEl.appendChild(row.line);
+    rows.push(row);
+  }
+  if (fineTotal > 0) {
+    const fineMax = fineMaxDurability(w.id);
+    const fineDur = normalTotal <= 0 ? (village.weaponDurability?.[w.id] ?? fineMax) : fineMax;
+    const row = makePickRow(
+      `精工${w.label}`,
+      `占 ${w.packSize} 格・耐久 ${fineDur}/${fineMax}(精工:上限 +25%)${ammoText}`,
+      () => fineTotal,
+      () => pick.fineW[w.id] ?? 0,
+      (n) => (pick.fineW[w.id] = n),
+      () =>
+        fitsAfterAdd(
+          () => (pick.fineW[w.id] = (pick.fineW[w.id] ?? 0) + 1),
+          () => (pick.fineW[w.id] = (pick.fineW[w.id] ?? 1) - 1),
+        ),
+    );
+    weaponListEl.appendChild(row.line);
+    rows.push(row);
+  }
 }
 if (rows.length === 0) {
   weaponListEl.innerHTML = `<div class="hint-line">沒有可攜帶的武器。</div>`;
@@ -266,7 +293,11 @@ try {
   const last = JSON.parse(localStorage.getItem("last-loadout") ?? "null");
   if (last) {
     for (const [id, n] of Object.entries(last.weapons ?? {})) {
-      pick.weapons[id] = Math.min(village.ownedWeapons[id] ?? 0, n as number);
+      const fineStock = village.fineWeapons?.[id] ?? 0;
+      pick.weapons[id] = Math.min((village.ownedWeapons[id] ?? 0) - fineStock, n as number);
+    }
+    for (const [id, n] of Object.entries((last.fineW ?? {}) as Record<string, number>)) {
+      pick.fineW[id] = Math.min(village.fineWeapons?.[id] ?? 0, n);
     }
     pick.rations = Math.min(Math.floor(village.resources.ration ?? 0), last.rations ?? 0);
     pick.jerky = Math.min(Math.floor(village.resources.jerky ?? 0), last.jerky ?? 0);
@@ -298,18 +329,19 @@ try {
 const departBtn = app.querySelector<HTMLButtonElement>("#depart-btn")!;
 departBtn.addEventListener("click", () => {
   localStorage.setItem("last-loadout", JSON.stringify(pick));
-  // 從村莊庫存扣掉帶走的份(精工品優先帶出門——帶了就要用最好的)
+  // 從村莊庫存扣掉帶走的份:普通與精工各自照玩家挑的數量扣(2026-09 用戶要求)
   const fineTaken: Record<string, number> = {};
-  for (const [id, n] of Object.entries(pick.weapons)) {
+  for (const [id, n] of Object.entries(pick.fineW)) {
     if (n > 0) {
-      const f = Math.min(n, village.fineWeapons?.[id] ?? 0);
-      if (f > 0) {
-        fineTaken[id] = f;
-        village.fineWeapons![id] -= f;
-        if (village.fineWeapons![id] <= 0) delete village.fineWeapons![id];
-      }
+      fineTaken[id] = n;
+      village.fineWeapons ??= {};
+      village.fineWeapons[id] = (village.fineWeapons[id] ?? 0) - n;
+      if (village.fineWeapons[id] <= 0) delete village.fineWeapons[id];
       village.ownedWeapons[id] = (village.ownedWeapons[id] ?? 0) - n;
     }
+  }
+  for (const [id, n] of Object.entries(pick.weapons)) {
+    if (n > 0) village.ownedWeapons[id] = (village.ownedWeapons[id] ?? 0) - n;
   }
   village.resources.ration = (village.resources.ration ?? 0) - pick.rations;
   village.resources.jerky = (village.resources.jerky ?? 0) - pick.jerky;
@@ -323,8 +355,11 @@ departBtn.addEventListener("click", () => {
   village.resources.elixir = (village.resources.elixir ?? 0) - pick.elixirs;
   saveVillage(village);
 
+  const totalWeapons: Record<string, number> = {};
+  for (const [id, n] of Object.entries(pick.weapons)) if (n > 0) totalWeapons[id] = (totalWeapons[id] ?? 0) + n;
+  for (const [id, n] of Object.entries(pick.fineW)) if (n > 0) totalWeapons[id] = (totalWeapons[id] ?? 0) + n;
   const carried: Carried = {
-    weapons: Object.fromEntries(Object.entries(pick.weapons).filter(([, n]) => n > 0)),
+    weapons: totalWeapons,
     fineWeapons: fineTaken,
     durability: {},
     rations: pick.rations,
@@ -344,8 +379,17 @@ departBtn.addEventListener("click", () => {
   // 攜帶武器的耐久:受損的延續上次的剩餘值(沒修就是帶著傷上路),沒受損的為全滿
   for (const id of Object.keys(carried.weapons)) {
     const def = WEAPONS.find((w) => w.id === id)!;
-    const full = (fineTaken[id] ?? 0) > 0 ? fineMaxDurability(id) : def.durability;
-    carried.durability[id] = village.weaponDurability?.[id] ?? full;
+    const normalTaken = pick.weapons[id] ?? 0;
+    // 使用中那把 = 普通優先(2026-09 修訂);殘耐久紀錄只在帶了普通品時延續
+    // (只帶精工=全新精工滿耐久;例外:庫存本來就只剩精工,紀錄屬於精工)
+    const fineStockOnly = ((village.ownedWeapons[id] ?? 0) + normalTaken + (fineTaken[id] ?? 0)) - ((village.fineWeapons?.[id] ?? 0) + (fineTaken[id] ?? 0)) <= 0;
+    if (normalTaken > 0) {
+      carried.durability[id] = village.weaponDurability?.[id] ?? def.durability;
+    } else if (fineStockOnly) {
+      carried.durability[id] = village.weaponDurability?.[id] ?? fineMaxDurability(id);
+    } else {
+      carried.durability[id] = fineMaxDurability(id);
+    }
   }
   saveCarried(carried);
   // 新遠征:地圖固定、迷霧保留,但人回到出發點、水補滿、檢查點重設

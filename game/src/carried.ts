@@ -22,7 +22,7 @@ export interface Carried {
   weapons: Record<string, number>;
   /** 目前「使用中那一把」的剩餘耐久(壞了換下一把,重置為滿) */
   durability: Record<string, number>;
-  /** 精工品數量(是 weapons 的子集):耐久上限 +25%,永遠優先當「使用中那把」 */
+  /** 精工品數量(是 weapons 的子集):耐久上限 +25%;普通優先消耗,精工墊後(2026-09 修訂) */
   fineWeapons?: Record<string, number>;
   /** 損毀的特殊武器(如鬼雪):不占攻擊列,回村後鐵匠鋪用異晶修復 */
   broken?: Record<string, number>;
@@ -55,11 +55,13 @@ export interface Carried {
 
 import { WEAPONS, ARROWS_PER_SLOT, RATIONS_PER_SLOT, BULLETS_PER_SLOT, RAILS_PER_SLOT, OIL_SLOTS, fineMaxDurability } from "./village/data";
 
-/** 這一型「使用中那把」的耐久上限:行囊裡有精工品時精工優先上手 */
+/** 這一型「使用中那把」的耐久上限(2026-09 修訂:普通優先上手,先耗普通、精工墊後) */
 export function carriedMaxDurability(carried: Carried, weaponId: string): number {
   const w = WEAPONS.find((x) => x.id === weaponId);
   if (!w) return 0;
-  return (carried.fineWeapons?.[weaponId] ?? 0) > 0 ? fineMaxDurability(weaponId) : w.durability;
+  const fine = carried.fineWeapons?.[weaponId] ?? 0;
+  const normal = (carried.weapons[weaponId] ?? 0) - fine;
+  return normal <= 0 && fine > 0 ? fineMaxDurability(weaponId) : w.durability;
 }
 
 /**

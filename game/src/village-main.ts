@@ -1151,11 +1151,11 @@ function startVillage() {
     }
     for (const w of WEAPONS.filter((w) => engine.weaponCount(w.id) > 0)) {
       const fineN = engine.fineWeapons[w.id] ?? 0;
-      const dmg = engine.isWeaponDamaged(w.id) ? `(耐 ${engine.weaponDurability[w.id]}/${engine.currentMaxDurability(w.id)})` : "";
-      // 精工另立一列(用戶定案的二級制);受損標記跟著「使用中那把」= 精工優先
-      if (fineN > 0) addArmoryLine(`精工${w.label}${dmg}`, `×${fineN}`);
       const normalN = engine.weaponCount(w.id) - fineN;
-      if (normalN > 0) addArmoryLine(`${w.label}${fineN > 0 ? "" : dmg}`, `×${normalN}`);
+      const dmg = engine.isWeaponDamaged(w.id) ? `(耐 ${engine.weaponDurability[w.id]}/${engine.currentMaxDurability(w.id)})` : "";
+      // 精工另立一列;受損標記跟著「使用中那把」= 普通優先(2026-09 修訂)
+      if (fineN > 0) addArmoryLine(`精工${w.label}${normalN > 0 ? "" : dmg}`, `×${fineN}`);
+      if (normalN > 0) addArmoryLine(`${w.label}${dmg}`, `×${normalN}`);
     }
     // 出門用的消耗品(弓矢/乾糧/肉乾/繃帶/卷軸/燈油/藥劑)也一併列出
     for (const id of ["arrow", "ration", "jerky", "bandage", "scroll", "oil", "elixir", "salt", "rail"] as ResourceId[]) {

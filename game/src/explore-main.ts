@@ -347,7 +347,8 @@ function renderPack() {
     const n = c.weapons[w.id] ?? 0;
     if (n <= 0) continue;
     const fineN = c.fineWeapons?.[w.id] ?? 0;
-    const curMax = fineN > 0 ? fineMaxDurability(w.id) : w.durability;
+    const normalN = n - fineN;
+    const curMax = normalN <= 0 && fineN > 0 ? fineMaxDurability(w.id) : w.durability;
     const worn = c.durability[w.id] ?? curMax;
     const line = document.createElement("div");
     line.className = "row-grid";
@@ -360,15 +361,9 @@ function renderPack() {
     const btns = document.createElement("span");
     const dropWeapon = (dropWorn: boolean) => {
       const f = c.fineWeapons?.[w.id] ?? 0;
-      if (dropWorn) {
-        // 使用中那把 = 精工優先:有精工存量時丟耗損的就是丟精工
-        if (f > 0) c.fineWeapons![w.id] = f - 1;
-      } else {
-        // 丟全新的備用:先丟普通品;備用只剩精工時才丟精工
-        const normalSpares = f > 0 ? n - f : n - f - 1;
-        if (normalSpares <= 0 && f > 0) c.fineWeapons![w.id] = f - 1;
-      }
-      if (c.fineWeapons && (c.fineWeapons[w.id] ?? 0) <= 0) delete c.fineWeapons[w.id];
+      // 2026-09 修訂:普通優先——不論丟哪種都先丟普通品,精工留到最後
+      if (n - f <= 0 && f > 0) c.fineWeapons![w.id] = f - 1;
+        if (c.fineWeapons && (c.fineWeapons[w.id] ?? 0) <= 0) delete c.fineWeapons[w.id];
       c.weapons[w.id] = n - 1;
       if (c.weapons[w.id] <= 0) {
         delete c.weapons[w.id];

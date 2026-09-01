@@ -280,15 +280,17 @@ function afterUse(subActionId: string) {
       carried.broken[subActionId] = (carried.broken[subActionId] ?? 0) + 1;
       appendSystemLog(`${weapon.label}的刀刃崩出裂紋,寒氣散了。(損毀——鐵匠鋪可用異晶修復)`);
     } else if (carried.durability[subActionId] <= 0) {
-      // 壞的是「使用中那把」:精工優先上手,所以有精工存量時壞掉的就是精工
-      if ((carried.fineWeapons?.[subActionId] ?? 0) > 0) {
+      // 壞的是「使用中那把」:普通優先上手(2026-09 修訂)——有普通存量時壞的是普通,精工墊後
+      const fineNow = carried.fineWeapons?.[subActionId] ?? 0;
+      const normalNow = (carried.weapons[subActionId] ?? 0) - fineNow;
+      if (normalNow <= 0 && fineNow > 0) {
         carried.fineWeapons![subActionId]--;
         if (carried.fineWeapons![subActionId] <= 0) delete carried.fineWeapons![subActionId];
       }
       carried.weapons[subActionId] = Math.max(0, (carried.weapons[subActionId] ?? 0) - 1);
       if (carried.weapons[subActionId] > 0) {
-        // 換上備用的那把(還有精工存量就還是精工)
-        carried.durability[subActionId] = (carried.fineWeapons?.[subActionId] ?? 0) > 0 ? fineMaxDurability(subActionId) : weapon.durability;
+        // 換上備用的那把(普通先頂,普通耗盡才輪到精工)
+        carried.durability[subActionId] = carriedMaxDurability(carried, subActionId);
         appendSystemLog(`${weapon.label}壞了——你換上了備用的一把。`);
       } else {
         delete carried.durability[subActionId];
@@ -426,13 +428,15 @@ function onShieldBlocked(perfect: boolean) {
   const def = WEAPONS.find((w) => w.id === shieldId)!;
   carried.durability[shieldId] = (carried.durability[shieldId] ?? carriedMaxDurability(carried, shieldId)) - 1;
   if (carried.durability[shieldId] <= 0) {
-    if ((carried.fineWeapons?.[shieldId] ?? 0) > 0) {
+    const fineNow = carried.fineWeapons?.[shieldId] ?? 0;
+    const normalNow = (carried.weapons[shieldId] ?? 0) - fineNow;
+    if (normalNow <= 0 && fineNow > 0) {
       carried.fineWeapons![shieldId]--;
       if (carried.fineWeapons![shieldId] <= 0) delete carried.fineWeapons[shieldId];
     }
     carried.weapons[shieldId] = Math.max(0, (carried.weapons[shieldId] ?? 0) - 1);
     if (carried.weapons[shieldId] > 0) {
-      carried.durability[shieldId] = (carried.fineWeapons?.[shieldId] ?? 0) > 0 ? fineMaxDurability(shieldId) : def.durability;
+      carried.durability[shieldId] = carriedMaxDurability(carried, shieldId);
       appendSystemLog(`${def.label}被打得裂開——你換上了備用的一面。`);
     } else {
       delete carried.durability[shieldId];
@@ -746,19 +750,24 @@ function performSteal() {
     for (let i = WEAPONS.length - 1; i >= 0; i--) {
       const w = WEAPONS[i];
       if ((carried.weapons[w.id] ?? 0) <= 0) continue;
-      const fine = (carried.fineWeapons?.[w.id] ?? 0) > 0;
-      const dur = carried.durability[w.id] ?? carriedMaxDurability(carried, w.id);
-      record = { kind: "weapon", id: w.id, durability: dur, fine };
+      const fineN = carried.fineWeapons?.[w.id] ?? 0;
+      const normalN = (carried.weapons[w.id] ?? 0) - fineN;
+      // 收藏家的品味:同型裡偷亮的那把(精工優先);耐久照那一把的實況記
+      const stealFine = fineN > 0;
+      const dur = stealFine
+        ? (normalN <= 0 ? (carried.durability[w.id] ?? fineMaxDurability(w.id)) : fineMaxDurability(w.id))
+        : (carried.durability[w.id] ?? w.durability);
+      record = { kind: "weapon", id: w.id, durability: dur, fine: stealFine };
       carried.weapons[w.id] = (carried.weapons[w.id] ?? 0) - 1;
-      if (fine) {
+      if (stealFine) {
         carried.fineWeapons![w.id]--;
         if (carried.fineWeapons![w.id] <= 0) delete carried.fineWeapons![w.id];
       }
       if (carried.weapons[w.id] <= 0) {
         delete carried.weapons[w.id];
         delete carried.durability[w.id];
-      } else {
-        delete carried.durability[w.id]; // 備用頂上(全新)
+      } else if (!stealFine || normalN <= 0) {
+        delete carried.durability[w.id]; // 使用中那把被偷走:備用頂上(全新)
       }
       appendSystemLog(`一條過長的手臂從黑暗裡閃出——等你回過神,${w.label}已經不在手上了。`);
       break;

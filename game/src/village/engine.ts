@@ -221,11 +221,13 @@ export class VillageEngine {
     return true;
   }
 
-  /** 這一型「使用中那把」的耐久上限:有精工品時精工優先上手 */
+  /** 這一型「使用中那把」的耐久上限(2026-09 修訂:普通優先上手,精工墊後) */
   currentMaxDurability(weaponId: string): number {
     const weapon = WEAPONS.find((w) => w.id === weaponId);
     if (!weapon) return 0;
-    return (this.fineWeapons[weaponId] ?? 0) > 0 ? fineMaxDurability(weaponId) : weapon.durability;
+    const fine = this.fineWeapons[weaponId] ?? 0;
+    const normal = (this.ownedWeapons[weaponId] ?? 0) - fine;
+    return normal <= 0 && fine > 0 ? fineMaxDurability(weaponId) : weapon.durability;
   }
 
   /** 消耗品打造(乾糧/繃帶/弓矢),成品直接進資源庫存 */
@@ -311,14 +313,9 @@ export class VillageEngine {
     const n = this.ownedWeapons[weaponId] ?? 0;
     if (n <= 0) return;
     const fine = this.fineWeapons[weaponId] ?? 0;
-    if (dropWorn) {
-      // 使用中那把 = 精工優先上手:有精工存量時,丟耗損的就是丟精工
-      if (fine > 0) this.fineWeapons[weaponId] = fine - 1;
-    } else {
-      // 丟全新的備用:先丟普通品,別誤扔精工;備用只剩精工時才丟精工
-      const normalSpares = fine > 0 ? n - fine : n - fine - 1;
-      if (normalSpares <= 0 && fine > 0) this.fineWeapons[weaponId] = fine - 1;
-    }
+    const normal = n - fine;
+    // 2026-09 修訂:普通優先——不論丟耗損的還是丟備用都先丟普通品,精工永遠留到最後
+    if (normal <= 0 && fine > 0) this.fineWeapons[weaponId] = fine - 1;
     if ((this.fineWeapons[weaponId] ?? 0) <= 0) delete this.fineWeapons[weaponId];
     this.ownedWeapons[weaponId] = n - 1;
     if (this.ownedWeapons[weaponId] <= 0) {
