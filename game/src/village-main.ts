@@ -92,12 +92,12 @@ function startVillage() {
 
         <div class="section" id="affairs-buildings" style="display:none;">
           <div class="section-title">建築</div>
-          <div id="buildings"></div>
+          <div id="buildings" class="card-grid"></div>
         </div>
 
         <div class="section" id="armory-section" style="display:none;">
           <div class="section-title">裝備庫</div>
-          <div id="armory"></div>
+          <div id="armory" class="resource-grid"></div>
         </div>
 
         <div class="section" id="craft-section" style="display:none;">
@@ -109,7 +109,7 @@ function startVillage() {
         <div class="section" id="market-section" style="display:none;">
           <div class="section-title">交易所</div>
           <div class="hint-line" id="market-shards" style="margin-bottom:6px;"></div>
-          <div id="trades"></div>
+          <div id="trades" class="card-grid"></div>
         </div>
 
         <div class="section" id="prep-section" style="display:none;"></div>

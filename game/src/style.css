@@ -1005,6 +1005,20 @@ hr {
 
 /* ---------- 戰後拾取面板 ---------- */
 
+/* 兩欄卡格(2026-09 用戶反饋:單欄留白太多要捲):建築/交易所等卡片式列表 */
+.card-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 24px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* 敵欄(多目標):每隻一塊,點塊選目標 */
 .enemy-block {
   margin-bottom: 8px;
