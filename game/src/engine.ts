@@ -211,6 +211,20 @@ export class CombatEngine {
     return true;
   }
 
+  /** 換上下一隻敵人(車輪戰):玩家血量/異常/行動條原封不動,敵方側全部重置 */
+  nextEnemy(moves: EnemyMove[], opts: { hp: number; label: string; freezeResist?: boolean; pattern?: string[] }) {
+    this.enemy = new EnemyTracker(moves, () => (this.enemyChilled ? 0.5 : 1) * this.enemyHasteMult, opts.pattern);
+    this.enemyHp = opts.hp;
+    this.enemyMaxHp = opts.hp;
+    this.enemyLabel = opts.label;
+    this.freezeResist = opts.freezeResist ?? false;
+    this.enemyFreeze = 0;
+    this.enemyChilled = false;
+    this.enemyHasteMult = 1;
+    this.cb.onHpChange();
+    if (this.enemy.currentMove.tell) this.cb.onTell?.(this.enemy.currentMove.tell);
+  }
+
   /** 解除控制效果並給予免疫窗口(醒神鹽)——混亂也是「腦子的事」,一併醒掉 */
   clearControl(immuneSeconds: number) {
     this.stunLeft = 0;

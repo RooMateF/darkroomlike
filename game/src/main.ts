@@ -4,7 +4,7 @@ import { buildPlayerCategories } from "./demo-data";
 import { WEAPONS, fineMaxDurability } from "./village/data";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
 import { loadCarried, saveCarried, clearCarried, addLoot, playerMaxHp, carriedMaxDurability, packUsed } from "./carried";
-import { pickRandomEnemy, pickMidEnemy, GUARDIANS, LANDMARK_REWARDS, LV3_BOSS, EVENT_BOSSES, type EnemyDef } from "./enemies";
+import { pickRandomEnemy, pickMidEnemy, pickEnemyGroup, GUARDIANS, LANDMARK_REWARDS, LV3_BOSS, EVENT_BOSSES, type EnemyDef } from "./enemies";
 import { markLandmarkCleared, currentMapId, isAutoPickup } from "./explore/engine";
 
 // 蓋「這趟有收穫」章(空手計數的歸零依據;引導事件用)
@@ -53,14 +53,24 @@ if (!carried && !dungeon) {
 const eventBossId = localStorage.getItem("pending-event-boss");
 if (eventBossId) localStorage.removeItem("pending-event-boss");
 
+// 外圍組隊(探索頁標記):2~3 隻車輪戰;地城/事件 Boss 不組隊
+const isGroupFight = !eventBossId && !dungeon && localStorage.getItem("pending-group") === "1";
+if (localStorage.getItem("pending-group")) localStorage.removeItem("pending-group");
+const groupQueue: EnemyDef[] = isGroupFight ? pickEnemyGroup() : [];
+
 // 相鄰地圖(中央地圖以外)的野外更兇:一半機率抽中期梯隊
 const enemyDef = eventBossId
   ? (EVENT_BOSSES[eventBossId] ?? pickRandomEnemy())
   : dungeon
     ? pickDungeonEnemy(dungeon)
-    : currentMapId() !== "A" && Math.random() < 0.5
-      ? pickMidEnemy()
-      : pickRandomEnemy();
+    : isGroupFight
+      ? groupQueue.shift()!
+      : currentMapId() !== "A" && Math.random() < 0.5
+        ? pickMidEnemy()
+        : pickRandomEnemy();
+/** 目前面對的這一隻(車輪戰會換人);戰利品逐隻累積,最後一起掉 */
+let activeEnemy = enemyDef;
+const pooledGains: Record<string, number> = {};
 let lowHpWarned = false;
 
 const BAR_WIDTH = 16;
@@ -434,16 +444,19 @@ function trimBattleLog() {
 }
 
 // 【祝禱】(教徒的禱詞):敵方攻擊附帶的中毒/流血累積減半
-let combatMoves = enemyDef.moves;
-try {
-  const v = JSON.parse(localStorage.getItem("village-state") ?? "{}");
-  const blessingOn = Array.isArray(v.equippedPerks) ? v.equippedPerks.includes("blessing") : v.perks?.blessing === true;
-  if (blessingOn) {
-    combatMoves = enemyDef.moves.map((m) => (m.status ? { ...m, status: { ...m.status, amount: Math.ceil(m.status.amount / 2) } } : m));
+function applyBlessing(moves: EnemyMove[]): EnemyMove[] {
+  try {
+    const v = JSON.parse(localStorage.getItem("village-state") ?? "{}");
+    const blessingOn = Array.isArray(v.equippedPerks) ? v.equippedPerks.includes("blessing") : v.perks?.blessing === true;
+    if (blessingOn) {
+      return moves.map((m) => (m.status ? { ...m, status: { ...m.status, amount: Math.ceil(m.status.amount / 2) } } : m));
+    }
+  } catch {
+    /* 沒有存檔就照原樣 */
   }
-} catch {
-  /* 沒有存檔就照原樣 */
+  return moves;
 }
+const combatMoves = applyBlessing(enemyDef.moves);
 
 // 鍵盤快捷鍵(戰鬥的出手頻率高,全滑鼠會累死):數字 1~9 = 使用對應列;空白鍵 = 暫不使用;R = 撤退
 window.addEventListener("keydown", (e) => {
@@ -512,13 +525,31 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
       localStorage.setItem("death-cause", "combat"); // 回村後代行者依死因給一句叮囑
       endCombat("你倒下了……但是一股溫暖的微光包裹著你。", "village.html", 2200);
     } else if (engine.enemyHp <= 0) {
+      // 車輪戰:這一隻倒下,下一隻立刻補上——玩家狀態延續,戰利品累積到最後一起掉
+      if (groupQueue.length > 0) {
+        for (const [id, n] of Object.entries(activeEnemy.loot)) pooledGains[id] = (pooledGains[id] ?? 0) + n;
+        if (activeEnemy.shardChance && Math.random() < activeEnemy.shardChance) pooledGains.shard = (pooledGains.shard ?? 0) + 1;
+        appendSystemLog(`${activeEnemy.label}倒下了——影子後面,還有另一雙眼睛。`);
+        activeEnemy = groupQueue.shift()!;
+        engine.nextEnemy(applyBlessing(activeEnemy.moves), {
+          hp: activeEnemy.hp,
+          label: activeEnemy.label,
+          freezeResist: activeEnemy.freezeResist,
+          pattern: activeEnemy.pattern,
+        });
+        enemyLabelEl.textContent = activeEnemy.label;
+        appendSystemLog(activeEnemy.intro);
+        return;
+      }
+
       // 勝利:剩餘 HP 記回行囊、收下戰利品——活著帶回村才真的入庫
-      const gains: Record<string, number> = { ...enemyDef.loot };
-      let message = `擊倒了${enemyDef.label}`;
+      const gains: Record<string, number> = { ...activeEnemy.loot };
+      for (const [id, n] of Object.entries(pooledGains)) gains[id] = (gains[id] ?? 0) + n;
+      let message = `擊倒了${activeEnemy.label}`;
       let delay = 1800;
 
       // 汙染沾身的生物有機率額外掉「異晶」(人類敵人不會掉)——之後交易所開張,這是兌換稀有品的硬通貨
-      if (enemyDef.shardChance && Math.random() < enemyDef.shardChance) {
+      if (activeEnemy.shardChance && Math.random() < activeEnemy.shardChance) {
         gains.shard = (gains.shard ?? 0) + 1;
       }
 

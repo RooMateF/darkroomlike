@@ -922,6 +922,16 @@ export class ExploreEngine {
       this.encounterGrace--; // 戰後喘息中,不觸發隨機遭遇
     } else if (!devMode && Math.random() < ENCOUNTER_CHANCE * lampMult * stealthMult * homeMult) {
       this.cb.onLog("⚠ 你感覺到附近有什麼東西的氣息……");
+      // 外圍(離村莊遠/相鄰地圖)的野外更兇:一半機率是成群的(車輪戰,組成交給戰鬥頁)
+      {
+        const gcx = Math.floor(MAP_WIDTH / 2);
+        const gcy = Math.floor(MAP_HEIGHT / 2);
+        const far = this.mapId !== "A" || Math.hypot(this.playerX - gcx, this.playerY - gcy) > 26;
+        if (far && Math.random() < 0.5) {
+          localStorage.setItem("pending-group", "1");
+          this.cb.onLog("……而且氣息不只一道。");
+        }
+      }
       this.encounterGrace = 3;
       this.saveState();
       this.cb.onEncounter();

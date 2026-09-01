@@ -102,7 +102,7 @@ export const EVENT_BOSSES: Record<string, EnemyDef> = {
     intro: "牠沒有嘴,歌聲卻從牠身體的某處滲出來。三個音,重複——你聽過這段旋律。",
     hp: 45,
     moves: [
-      { id: "hum", label: "哼唱", baseCost: 2.0, symbol: "~♪", damage: 0, confusion: 35, tell: "牠的身體鼓了起來,像在吸氣。歌聲變近了。" },
+      { id: "hum", label: "哼唱", baseCost: 2.0, symbol: "~♪", damage: 0, confusion: 60, tell: "牠的身體鼓了起來,像在吸氣。歌聲變近了。" },
       { id: "pounce", label: "撲抓", baseCost: 2.0, symbol: "»", damage: 7 },
       { id: "shriek", label: "走音尖鳴", baseCost: 2.5, symbol: "»!", damage: 4, control: { kind: "slow", duration: 2 } },
     ],
@@ -157,6 +157,22 @@ export const MID_ENEMIES: EnemyDef[] = [
 
 export function pickMidEnemy(): EnemyDef {
   return MID_ENEMIES[Math.floor(Math.random() * MID_ENEMIES.length)];
+}
+
+/** 外圍組隊遭遇(2026-09 用戶定案):2~3 隻車輪戰——最多一隻中期梯隊,壓力靠數量不靠血量 */
+export function pickEnemyGroup(): EnemyDef[] {
+  const size = Math.random() < 0.5 ? 2 : 3;
+  const group: EnemyDef[] = [];
+  let midUsed = false;
+  for (let i = 0; i < size; i++) {
+    if (!midUsed && Math.random() < 0.3) {
+      group.push(pickMidEnemy());
+      midUsed = true;
+    } else {
+      group.push(pickRandomEnemy());
+    }
+  }
+  return group;
 }
 
 // 2026-09 格擋改版:Boss 傷害整體上調(約 +30~40%)——盾牌格擋(完美 0.1s 全免)
@@ -244,7 +260,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     intro: "水面炸開。比人還大的節肢生物撐開甲殼,無數細足在石台上敲出急促的聲響。",
     hp: 100,
     moves: [
-      { id: "skitter", label: "亂刺", baseCost: 0.6, symbol: "·»", damage: 4, status: { kind: "poison", amount: 20 } },
+      { id: "skitter", label: "亂刺", baseCost: 0.6, symbol: "·»", damage: 4, status: { kind: "poison", amount: 30 } },
       { id: "pincer", label: "鉗擊", baseCost: 1.7, symbol: "»»»»", damage: 12, tell: "細足全部停住了。甲殼下的巨鉗張到了最開。" },
     ],
     loot: { meat: 5, hide: 3, shard: 3 },
@@ -260,7 +276,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     hp: 220,
     moves: [
       { id: "dig", label: "鑿擊", baseCost: 0.8, symbol: "»»", damage: 8 },
-      { id: "dust", label: "揚塵", baseCost: 1.4, symbol: "…", damage: 4, status: { kind: "poison", amount: 40 }, tell: "牠的環節一節節收緊,甲縫裡滲出灰黑色的粉末。" },
+      { id: "dust", label: "揚塵", baseCost: 1.4, symbol: "…", damage: 4, status: { kind: "poison", amount: 55 }, tell: "牠的環節一節節收緊,甲縫裡滲出灰黑色的粉末。" },
       // 崩落:高傷+暈眩——被震住的那一秒多,補血條也是凍結的;醒神鹽是針對性的解法
       { id: "collapse", label: "崩落", baseCost: 2.6, symbol: "»»»»»»", damage: 22, control: { kind: "stun", duration: 1.2 }, tell: "牠高高抬起了雙螯——坑道頂上簌簌落下灰來。" },
     ],
@@ -279,7 +295,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     moves: [
       // 低語:鑽進骨頭裡的聲音讓手腳發沉(遲緩)——充能減半,補血與輸出一起變慢
       { id: "whisper", label: "低語", baseCost: 1.6, symbol: "…", damage: 6, control: { kind: "slow", duration: 2.5 }, tell: "那個高大的輪廓朝你微微傾了過來。" },
-      { id: "rend", label: "撕裂", baseCost: 1.2, symbol: "»»»»", damage: 13, status: { kind: "bleed", amount: 40 } },
+      { id: "rend", label: "撕裂", baseCost: 1.2, symbol: "»»»»", damage: 13, status: { kind: "bleed", amount: 55 } },
       // 鐘鳴:整座教堂共振的一擊——高傷+暈眩;不帶醒神鹽硬扛,補血節奏會被打碎
       { id: "toll", label: "鐘鳴", baseCost: 3.0, symbol: "»»»»»»»", damage: 27, control: { kind: "stun", duration: 1.5 }, tell: "它緩緩抬起了手,指向頭頂的鐘。空氣忽地緊繃。" },
     ],
