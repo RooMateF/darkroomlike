@@ -44,6 +44,7 @@ export class VillageEngine {
     scroll: 0,
     shard: 0,
     oil: 0,
+    bigshard: 0,
     elixir: 0,
   };
   /** 每種建築已建成的數量(可重複建造的如小木屋會 >1) */
@@ -79,6 +80,8 @@ export class VillageEngine {
   fineWeapons: Record<string, number> = {};
   /** 永久改造(改造藥劑,喝了就是永久;不占被動裝備欄):如 crisis-awareness 危機意識 */
   modifications: Record<string, boolean> = {};
+  /** 損毀的特殊武器(鬼雪等):鐵匠鋪用異晶修復(cost 即修復費) */
+  brokenWeapons: Record<string, number> = {};
   /** 累積交易次數(交易所獨賣品的熟客解鎖依據) */
   tradeCount = 0;
   private tickCount = 0;
@@ -104,6 +107,7 @@ export class VillageEngine {
         seenResources: [...this.seenResources],
         ownedWeapons: this.ownedWeapons,
         fineWeapons: this.fineWeapons,
+        brokenWeapons: this.brokenWeapons,
         modifications: this.modifications,
         upgrades: this.upgrades,
         perks: this.perks,
@@ -132,6 +136,7 @@ export class VillageEngine {
       for (const id of s.seenResources ?? []) this.seenResources.add(id as ResourceId);
       this.ownedWeapons = s.ownedWeapons ?? {};
       this.fineWeapons = s.fineWeapons ?? {};
+      this.brokenWeapons = s.brokenWeapons ?? {};
       this.modifications = s.modifications ?? {};
       this.upgrades = s.upgrades ?? {};
       this.perks = s.perks ?? {};
@@ -279,6 +284,26 @@ export class VillageEngine {
     this.saveState();
     const weapon = WEAPONS.find((w) => w.id === weaponId);
     this.cb.onLog(`修理好了「${weapon?.label ?? weaponId}」。`);
+  }
+
+  /** 修復損毀的特殊武器(鬼雪):鐵匠鋪(鐵級)限定,費用=cost(異晶) */
+  canRepairBroken(weaponId: string): boolean {
+    if ((this.brokenWeapons[weaponId] ?? 0) <= 0) return false;
+    return this.hasBuilding("smithy") && this.isSmithyIronCapable();
+  }
+
+  repairBrokenWeapon(weaponId: string) {
+    const weapon = WEAPONS.find((w) => w.id === weaponId);
+    if (!weapon || !this.canRepairBroken(weaponId) || !this.canAfford(weapon.cost)) return;
+    for (const [id, amount] of Object.entries(weapon.cost)) {
+      this.resources[id as ResourceId] -= amount ?? 0;
+    }
+    this.brokenWeapons[weaponId]--;
+    if (this.brokenWeapons[weaponId] <= 0) delete this.brokenWeapons[weaponId];
+    this.ownedWeapons[weaponId] = (this.ownedWeapons[weaponId] ?? 0) + 1;
+    delete this.weaponDurability[weaponId]; // 修復後全滿
+    this.saveState();
+    this.cb.onLog(`「${weapon.label}」修復好了——寒氣重新纏上了刀身。`);
   }
 
   /** 丟棄一把武器:有備用且使用中那把有耗損時,可挑丟哪一把(dropWorn=丟耗損的) */

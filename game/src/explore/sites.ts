@@ -2,7 +2,7 @@
 // 位置用獨立種子確定性生成:地圖固定,地點也固定;進度存 localStorage "site-progress"
 
 import { LANDMARKS } from "./types";
-import { MAP_WIDTH, MAP_HEIGHT } from "./map-gen";
+import { MAP_WIDTH, MAP_HEIGHT, MAZE, POCKET_N } from "./map-gen";
 
 export interface SpecialSite {
   key: string; // "map:x,y" 或 "x,y"(中央地圖沿用舊格式,存檔相容)
@@ -64,6 +64,8 @@ export function specialSites(): SpecialSite[] {
       }
       const dist = Math.hypot(x - cx, y - cy);
       if (dist < minDist || dist > maxDist) continue;
+      if (x >= MAZE.x1 && x <= MAZE.x2 && y >= MAZE.y1 && y <= MAZE.y2) continue; // 迷宮/圍場裡不撒點
+      if (x >= POCKET_N.x1 && x <= POCKET_N.x2 && y >= POCKET_N.y1 && y <= POCKET_N.y2) continue;
       const key = `${x},${y}`;
       if (taken.has(key) || landmarkKeys.has(key)) continue;
       // 彼此間至少隔 4 格,避免擠成一團
@@ -81,13 +83,16 @@ export function specialSites(): SpecialSite[] {
   // 通往四大地標的舊哨站(Lv1,一層):沿路線固定兩座,打通後升格補給點——
   // 沒有這條哨站鏈,地標外圍會出現超過水袋上限的無補給區,地標物理性不可達。
   // 玩家要先打通哨站、把水量網路一段段修出去,才推得到地標(ADR 式的前哨推進)
-  for (const lm of LANDMARKS.filter((l) => l.level >= 4 && (l.mapId ?? "A") === "A")) {
+  for (const lm of LANDMARKS.filter((l) => l.level >= 4 && (l.mapId ?? "A") === "A" && l.stages === undefined)) {
     for (const f of [0.42, 0.75]) {
       let x = Math.round(cx + (lm.x - cx) * f);
       let y = Math.round(cy + (lm.y - cy) * f);
       x = Math.max(2, Math.min(MAP_WIDTH - 3, x));
       y = Math.max(2, Math.min(MAP_HEIGHT - 3, y));
-      while (taken.has(`${x},${y}`) || landmarkKeys.has(`${x},${y}`)) x++;
+      const inExcluded = (xx: number, yy: number) =>
+        (xx >= MAZE.x1 && xx <= MAZE.x2 && yy >= MAZE.y1 && yy <= MAZE.y2) ||
+        (xx >= POCKET_N.x1 && xx <= POCKET_N.x2 && yy >= POCKET_N.y1 && yy <= POCKET_N.y2);
+      while (taken.has(`${x},${y}`) || landmarkKeys.has(`${x},${y}`) || inExcluded(x, y)) x++;
       const key = `${x},${y}`;
       taken.add(key);
       sites.push({ key, x, y, level: 1, stages: 1 });
@@ -97,7 +102,7 @@ export function specialSites(): SpecialSite[] {
   // Lv4:有名字的地方(鐵礦坑/觀測台/祭壇/煤礦坑),三層——非中央地圖的 key 帶地圖前綴
   for (const lm of LANDMARKS.filter((l) => l.level === 4)) {
     const key = lm.mapId && lm.mapId !== "A" ? `${lm.mapId}:${lm.x},${lm.y}` : `${lm.x},${lm.y}`;
-    sites.push({ key, x: lm.x, y: lm.y, mapId: lm.mapId ?? "A", level: 4, stages: 3, landmarkId: lm.id });
+    sites.push({ key, x: lm.x, y: lm.y, mapId: lm.mapId ?? "A", level: 4, stages: lm.stages ?? 3, landmarkId: lm.id });
   }
   // Lv5:幾乎無法戰勝的地方,四層
   for (const lm of LANDMARKS.filter((l) => l.level === 5)) {

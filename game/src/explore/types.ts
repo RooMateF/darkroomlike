@@ -1,6 +1,6 @@
 // 對應 design-notes.md § 3.2 的符號說明
 
-export type TileType = "plain" | "brush" | "rubble" | "wall" | "water" | "depot" | "resource" | "event" | "site" | "exit" | "landmark";
+export type TileType = "plain" | "brush" | "rubble" | "wall" | "water" | "depot" | "resource" | "event" | "site" | "exit" | "landmark" | "chest";
 
 export const TILE_SYMBOL: Record<TileType, string> = {
   plain: ".",
@@ -14,6 +14,7 @@ export const TILE_SYMBOL: Record<TileType, string> = {
   site: "?", // 可深入探索的地點(類似 ADR 的洞穴/礦坑/廢屋)
   exit: "^", // 地圖邊緣的出口,通往相鄰地圖(存檔用統一符號;畫面上依方位畫 ^ v < >)
   landmark: "!", // 地標(存檔用統一符號;畫面上依 LANDMARKS 定義各自的字母)
+  chest: "▣", // 寶箱(迷宮 Boss 房):打贏守著它的東西才開得了
 };
 
 /** 有名字的特別地點(骨架層手工放置,固定座標);Lv4 中盤級,Lv5 幾乎無法戰勝(design-notes.md § 3.10.1) */
@@ -27,6 +28,8 @@ export interface LandmarkDef {
   mapId?: string;
   /** 特殊探勘地點等級(4 或 5) */
   level: 4 | 5;
+  /** 地城層數覆寫(未填:Lv4=3 層、Lv5=4 層);圍場 Boss 是單場決戰 */
+  stages?: number;
   /** 踩上未解放的地標時的敘事 */
   introText: string;
   /** 解放後再訪的敘事(觀測台會輪播觀測紀錄,見 explore engine) */
@@ -76,6 +79,30 @@ export const LANDMARKS: LandmarkDef[] = [
     level: 4,
     introText: "半山腰裂開一道黑色的礦口,連風吹過都帶著煤灰味。坑道深處傳來規律的、像挖掘一樣的聲音——但這裡不該有任何人。",
     clearedText: "煤礦安全了。烏黑的煤層在礦燈下泛著油亮的光——村裡的爐火,可以燒得更旺了。",
+  },
+  {
+    // 北圍場的住客(2026-09 核可):單場決戰;掉「藥劑配方-數數攻擊」(醫院解鎖後可製作,第二章內容)
+    id: "counter",
+    label: "數數的東西",
+    symbol: "D",
+    x: 29,
+    y: 5,
+    level: 4,
+    stages: 1,
+    introText: "圍牆裡側坐著一個灰色的輪廓,背對著你。牠的手指動個不停——一根、兩根、三根。你進來的那一刻,牠停了。",
+    clearedText: "圍場安靜了。地上只留下一排排刻痕,數到一半。",
+  },
+  {
+    // 東南迷宮的收贓者(2026-09 定案):單場決戰;勝利後迷宮視野全開、寶箱(名刀鬼雪)現身
+    id: "scavenger",
+    label: "拾荒的長手",
+    symbol: "L",
+    x: 73,
+    y: 47,
+    level: 4,
+    stages: 1,
+    introText: "牆縫裡塞滿了東西:水袋、鞋、認不得用途的工具,分門別類,擺得整整齊齊。牆的深處,一條過長的手臂緩緩收了回去。",
+    clearedText: "牆縫的收藏還在,但再沒有東西守著它們了。",
   },
   {
     id: "church",

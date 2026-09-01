@@ -742,7 +742,8 @@ function startVillage() {
     repairBtn.className = "btn";
     repairBtn.style.display = "none";
     repairBtn.addEventListener("click", () => {
-      engine.repairWeapon(weapon.id);
+      if (repairBtn.dataset.brokenRepair) engine.repairBrokenWeapon(weapon.id);
+      else engine.repairWeapon(weapon.id);
       render();
     });
 
@@ -1144,6 +1145,10 @@ function startVillage() {
       armoryEl.appendChild(line);
     };
 
+    for (const [bid, bn] of Object.entries(engine.brokenWeapons)) {
+      const bw = WEAPONS.find((w) => w.id === bid);
+      if (bw && bn > 0) addArmoryLine(`${bw.label}(損毀)`, `×${bn}`);
+    }
     for (const w of WEAPONS.filter((w) => engine.weaponCount(w.id) > 0)) {
       const fineN = engine.fineWeapons[w.id] ?? 0;
       const dmg = engine.isWeaponDamaged(w.id) ? `(耐 ${engine.weaponDurability[w.id]}/${engine.currentMaxDurability(w.id)})` : "";
@@ -1195,7 +1200,8 @@ function startVillage() {
     let anyCraftVisible = false;
     for (const row of weaponRows) {
       // lootOnly(如異質短刃):不開放打造——沒入手前整列隱藏,入手後只顯示持有/修理
-      const visible = row.weapon.lootOnly ? engine.weaponCount(row.weapon.id) > 0 : engine.isWeaponVisible(row.weapon.id);
+      const brokenN = engine.brokenWeapons[row.weapon.id] ?? 0;
+      const visible = row.weapon.lootOnly ? engine.weaponCount(row.weapon.id) > 0 || brokenN > 0 : engine.isWeaponVisible(row.weapon.id);
       row.row.style.display = visible && tab === "weapon" ? "" : "none";
       if (!visible) continue;
       anyCraftVisible = true;
@@ -1224,6 +1230,23 @@ function startVillage() {
         row.repairBtn.textContent = `修理(${rcText})`;
         row.repairBtn.disabled = !affordable;
         row.repairBtn.classList.toggle("ready", affordable);
+      }
+
+      // 損毀的特殊武器:鐵匠鋪(鐵級)修復,費用=cost(鬼雪=異晶 30)
+      if (brokenN > 0) {
+        const rc = row.weapon.cost;
+        const rcText = Object.entries(rc)
+          .map(([id, n]) => `${RESOURCE_LABEL[id as ResourceId]}${n}`)
+          .join(" ");
+        const can = engine.canRepairBroken(row.weapon.id);
+        const affordable = can && engine.canAfford(rc);
+        row.repairBtn.style.display = "";
+        row.repairBtn.textContent = can ? `修復損毀(${rcText})` : `修復損毀(需鐵匠鋪)`;
+        row.repairBtn.disabled = !affordable;
+        row.repairBtn.classList.toggle("ready", affordable);
+        row.repairBtn.dataset.brokenRepair = "1";
+      } else {
+        delete row.repairBtn.dataset.brokenRepair;
       }
 
       // 丟棄鈕:持有才出現;有備用且使用中那把受損 → 挑丟哪一把,否則單顆「丟棄」

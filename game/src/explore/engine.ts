@@ -1,12 +1,51 @@
 import { BLOCKED, LANDMARKS, TILE_SYMBOL, type Checkpoint, type Tile, type TileType } from "./types";
-import { generateMap, startPosition, exitLinkAt, borderDepotFor, MAP_DEFS, MAP_WIDTH, MAP_HEIGHT, type MapId, type ExitLink } from "./map-gen";
+import { generateMap, startPosition, exitLinkAt, borderDepotFor, MAP_DEFS, MAP_WIDTH, MAP_HEIGHT, MAZE, type MapId, type ExitLink } from "./map-gen";
 import { loadCarried, saveCarried, clearCarried, addLoot, packUsed, playerMaxHp, type Carried } from "../carried";
 import { RESOURCE_LABEL, type ResourceId } from "../village/types";
 import { siteAt, siteProgress, specialSites, hasChurchKey, DUNGEON_KEY, SITE_ARRIVAL_TEXT, type DungeonRun } from "./sites";
 import { RATIONS_PER_SLOT } from "../village/data";
 import { CHOICE_EVENTS, type ChoiceEventDef } from "./choice-events";
 
-const STATE_KEY = "explore-state-v8"; // v8:地標拉近+沼澤水域+圍場,舊存檔不相容(中央地圖沿用;相鄰地圖各自帶尾碼)
+const STATE_KEY = "explore-state-v9"; // v9:東南圍場擴建成迷宮(拾荒的長手),舊存檔不相容
+
+// ---- v8 → v9 一次性遷移(2026-09 迷宮改建)----
+(function migrateMapV9() {
+  if (localStorage.getItem("map-v9-migrated")) return;
+  try {
+    let rails = 0;
+    let lamps = 0;
+    for (const suffix of ["", ":N", ":E", ":S", ":W"]) {
+      const raw = localStorage.getItem("explore-state-v8" + suffix);
+      if (!raw) continue;
+      const st = JSON.parse(raw);
+      for (const row of (st.railRows ?? []) as string[]) rails += (row.match(/1/g) ?? []).length;
+      for (const row of (st.litRows ?? []) as string[]) lamps += (row.match(/1/g) ?? []).length;
+      localStorage.removeItem("explore-state-v8" + suffix);
+    }
+    if (rails > 0 || lamps > 0) {
+      const v = JSON.parse(localStorage.getItem("village-state") ?? "{}");
+      v.resources ??= {};
+      v.resources.rail = (v.resources.rail ?? 0) + rails;
+      v.resources.oil = (v.resources.oil ?? 0) + lamps;
+      localStorage.setItem("village-state", JSON.stringify(v));
+    }
+    if (rails > 0) localStorage.removeItem("rail-to-mine");
+    const progress = JSON.parse(localStorage.getItem("site-progress") ?? "{}");
+    const fresh: Record<string, unknown> = {};
+    for (const keep of ["7,5", "12,43", "77,46", "62,13", "48,8"]) {
+      if (progress[keep]) fresh[keep] = progress[keep]; // 地標座標未動,進度全留
+    }
+    localStorage.setItem("site-progress", JSON.stringify(fresh));
+  } catch {
+    /* 壞資料就放棄遷移,別擋開機 */
+  }
+  localStorage.setItem("map-v9-migrated", "1");
+})();
+
+/** 迷宮牆內(不含外圈牆):視野與偷竊規則的適用範圍 */
+function isMazeInterior(x: number, y: number): boolean {
+  return x > MAZE.x1 && x < MAZE.x2 && y > MAZE.y1 && y < MAZE.y2;
+}
 
 // ---- v7 → v8 一次性遷移(2026-09 兩礦拉近、祭壇環水、高牆圍場)----
 // 舊圖作廢:鐵軌拆回材料、燃燈折回燈油退進村莊庫存;
@@ -151,6 +190,12 @@ export function markFreshExpedition() {
     localStorage.setItem("fruitless-expeditions", String(fruitless ? n + 1 : 0));
   }
   localStorage.removeItem("expedition-gained");
+  // 迷宮五盜:偷竊紀錄與贓物跨遠征不保留——沒從 Boss 手上拿回來,就是沒了
+  localStorage.removeItem("maze-stolen");
+  localStorage.removeItem("maze-stolen-kinds");
+  localStorage.removeItem("maze-theft");
+  localStorage.removeItem("maze-entered");
+  localStorage.removeItem("maze-stash-seen");
   localStorage.setItem(FRESH_KEY, "1");
   // 每趟遠征都從村莊(中央地圖)出發;遠征序號 +1,各地圖據此重置據點儲備
   localStorage.setItem(CURRENT_MAP_KEY, "A");
@@ -341,6 +386,16 @@ export class ExploreEngine {
       }
     } catch {
       /* 壞資料忽略 */
+    }
+
+    // 拾荒的長手已敗:迷宮視野永久全開(原野上也看得到內部)
+    if (this.mapId === "A" && clearedLandmarks().includes("scavenger")) {
+      for (let y = MAZE.y1; y <= MAZE.y2; y++) {
+        for (let x = MAZE.x1; x <= MAZE.x2; x++) {
+          const t = this.grid[y]?.[x];
+          if (t) t.revealed = true;
+        }
+      }
     }
 
     // 新遠征序號:每張地圖第一次在這趟被載入時,重置據點儲備
@@ -554,12 +609,18 @@ export class ExploreEngine {
   }
 
   private reveal(cx: number, cy: number) {
-    // 菱形視野:曼哈頓距離 |dx|+|dy| <= REVEAL_RADIUS,而不是正方形範圍
-    for (let dy = -REVEAL_RADIUS; dy <= REVEAL_RADIUS; dy++) {
-      const remain = REVEAL_RADIUS - Math.abs(dy);
+    // 迷宮視野(§2026-09 用戶定案):牆內只看得到貼身一圈(不透牆);
+    // 打贏拾荒的長手之前,從外面完全看不進迷宮內部——勝利後全開(見建構子)
+    const scavCleared = clearedLandmarks().includes("scavenger");
+    const inMazeNow = this.mapId === "A" && !scavCleared && isMazeInterior(cx, cy);
+    const radius = inMazeNow ? 1 : REVEAL_RADIUS;
+    // 菱形視野:曼哈頓距離 |dx|+|dy| <= radius,而不是正方形範圍
+    for (let dy = -radius; dy <= radius; dy++) {
+      const remain = radius - Math.abs(dy);
       for (let dx = -remain; dx <= remain; dx++) {
         const x = cx + dx;
         const y = cy + dy;
+        if (this.mapId === "A" && !scavCleared && !inMazeNow && isMazeInterior(x, y)) continue; // 外面看不進迷宮
         const tile = this.grid[y]?.[x];
         if (tile && !tile.revealed) {
           tile.revealed = true;
@@ -567,6 +628,69 @@ export class ExploreEngine {
         }
       }
     }
+  }
+
+  // ---- 迷宮五盜(拾荒的長手,§2026-09)----
+
+  private mazeDepthMap: Map<string, number> | null = null;
+
+  /** 迷宮內各格離入口的步數(BFS;牆擋路)——深度帶的量尺 */
+  private mazeDepths(): Map<string, number> {
+    if (this.mazeDepthMap) return this.mazeDepthMap;
+    const m = new Map<string, number>();
+    const q: [number, number, number][] = [[MAZE.entrance.x, MAZE.entrance.y, 0]];
+    m.set(`${MAZE.entrance.x},${MAZE.entrance.y}`, 0);
+    while (q.length) {
+      const [x, y, d] = q.shift()!;
+      for (const [ddx, ddy] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ] as const) {
+        const nx = x + ddx;
+        const ny = y + ddy;
+        if (nx < MAZE.x1 || nx > MAZE.x2 || ny < MAZE.y1 || ny > MAZE.y2) continue;
+        const k = `${nx},${ny}`;
+        if (m.has(k)) continue;
+        const t = this.grid[ny]?.[nx];
+        if (!t || BLOCKED.includes(t.type)) continue;
+        m.set(k, d + 1);
+        q.push([nx, ny, d + 1]);
+      }
+    }
+    this.mazeDepthMap = m;
+    return m;
+  }
+
+  /** 這一格落在第幾個深度帶(0~4;未達第一帶 = -1):以 Boss 深度均分五段 */
+  private theftBandAt(x: number, y: number): number {
+    const m = this.mazeDepths();
+    const d = m.get(`${x},${y}`);
+    if (d === undefined) return -1;
+    const bossD = m.get(`${MAZE.boss.x},${MAZE.boss.y}`) ?? 30;
+    const fr = [0.15, 0.35, 0.5, 0.7, 0.85];
+    let band = -1;
+    for (let i = 0; i < fr.length; i++) {
+      if (d >= Math.round(bossD * fr[i])) band = i;
+    }
+    return band;
+  }
+
+  private theftBandsDone(): number[] {
+    try {
+      const o = JSON.parse(localStorage.getItem("maze-theft") ?? "null") as { serial: number; bands: number[] } | null;
+      if (o && o.serial === expeditionSerial()) return o.bands;
+    } catch {
+      /* 壞資料重來 */
+    }
+    return [];
+  }
+
+  private markTheftBand(b: number) {
+    const bands = this.theftBandsDone();
+    bands.push(b);
+    localStorage.setItem("maze-theft", JSON.stringify({ serial: expeditionSerial(), bands }));
   }
 
   /**
@@ -606,7 +730,52 @@ export class ExploreEngine {
     this.reveal(nx, ny);
     this.stepCount++;
 
-    if (target.type === "depot") {
+    // ---- 東南迷宮:首入敘事、五盜伏擊、贓物架(勝利前限定)----
+    if (this.mapId === "A" && !clearedLandmarks().includes("scavenger") && isMazeInterior(nx, ny)) {
+      if (localStorage.getItem("maze-entered") !== String(expeditionSerial())) {
+        localStorage.setItem("maze-entered", String(expeditionSerial()));
+        this.cb.onLog("牆縫窄得只容一人側身。裡面的黑暗有一種被整理過的味道——每樣東西,都有它被擺放的位置。");
+      }
+      const bandMax = this.theftBandAt(nx, ny);
+      if (bandMax >= 0) {
+        const done = this.theftBandsDone();
+        for (let b = 0; b <= bandMax; b++) {
+          if (!done.includes(b)) {
+            this.markTheftBand(b);
+            localStorage.setItem("pending-event-boss", "tentacle");
+            this.saveState();
+            this.cb.onEncounter();
+            return;
+          }
+        }
+      }
+      if (nx === MAZE.stash.x && ny === MAZE.stash.y && localStorage.getItem("maze-stash-seen") !== String(expeditionSerial())) {
+        localStorage.setItem("maze-stash-seen", String(expeditionSerial()));
+        const stolen = JSON.parse(localStorage.getItem("maze-stolen") ?? "[]") as unknown[];
+        if (stolen.length > 0) this.cb.onLog("牆縫深處整整齊齊擺著你的東西——像展示,又像誘餌。");
+      }
+    }
+
+    if (target.type === "chest") {
+      // 迷宮寶箱(名刀鬼雪):打贏守著它的東西才開得了;一次性
+      if (!clearedLandmarks().includes("scavenger")) {
+        this.cb.onLog("上鎖的箱子——撬不開。守著它的東西還在。");
+      } else if (localStorage.getItem("oniyuki-claimed")) {
+        this.cb.onLog("箱子已經空了。");
+      } else if (this.carried) {
+        if (packUsed(this.carried) + 2 > (this.carried.packCap ?? 20)) {
+          this.cb.onLog("背包塞不下這柄刀——騰出空間再來。");
+        } else {
+          localStorage.setItem("oniyuki-claimed", "1");
+          this.carried.weapons["oniyuki"] = (this.carried.weapons["oniyuki"] ?? 0) + 1;
+          this.carried.durability["oniyuki"] = this.carried.durability["oniyuki"] ?? 60; // 與 WEAPONS 定義同步
+          saveCarried(this.carried);
+          this.markGained({ oniyuki: 1 });
+          this.cb.onLog("箱底躺著一柄刀。刀身白得像初雪,握柄纏著褪色的藍繩——碰到的瞬間,指尖凍得一麻。");
+          this.cb.onLog("獲得了【名刀——鬼雪】。");
+        }
+      }
+    } else if (target.type === "depot") {
       // 邊境據點:第一次踏上時的一段敘事(每張相鄰地圖一次)
       const border = borderDepotFor(this.mapId);
       if (border && border.x === nx && border.y === ny && !localStorage.getItem(`border-depot-seen:${this.mapId}`)) {
@@ -624,7 +793,10 @@ export class ExploreEngine {
         this.saveState();
         return;
       }
-      const rolled = this.rollPickupGains(target.type);
+      const rolled =
+        this.mapId === "A" && MAZE.rations.some((rt) => rt.x === nx && rt.y === ny)
+          ? { ration: 2 }
+          : this.rollPickupGains(target.type);
       target.type = "plain";
       if (typeof rolled === "string") {
         this.cb.onLog(rolled); // 敘事碎片,或沒背囊
@@ -1145,6 +1317,8 @@ export class ExploreEngine {
     this.water = this.checkpoint.water;
 
     clearCarried();
+    localStorage.removeItem("maze-stolen");
+    localStorage.removeItem("maze-stolen-kinds");
     this.saveState();
     this.cb.onDeath();
   }

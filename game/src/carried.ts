@@ -24,6 +24,8 @@ export interface Carried {
   durability: Record<string, number>;
   /** 精工品數量(是 weapons 的子集):耐久上限 +25%,永遠優先當「使用中那把」 */
   fineWeapons?: Record<string, number>;
+  /** 損毀的特殊武器(如鬼雪):不占攻擊列,回村後鐵匠鋪用異晶修復 */
+  broken?: Record<string, number>;
   rations: number;
   /** 出發時帶的乾糧量,補給點回填的上限 */
   maxRations: number;
@@ -85,7 +87,12 @@ export function packUsed(carried: Carried): number {
   used += (carried.oil ?? 0) * OIL_SLOTS;
   for (const [id, n] of Object.entries(carried.loot ?? {})) {
     if (id === "arrow" || id === "ration" || id === "bullet" || id === "rail") continue; // 已併入各自的格
-    used += n;
+    used += id === "bigshard" ? n * 5 : n; // 大異晶:拳頭大,一顆占 5 格
+  }
+  // 損毀武器照樣占格(壞了也得揹)
+  for (const [id, n] of Object.entries(carried.broken ?? {})) {
+    const def = WEAPONS.find((w) => w.id === id);
+    used += (def?.packSize ?? 2) * n;
   }
   return used;
 }
@@ -204,6 +211,10 @@ export function returnCarriedToVillage() {
   for (const [id, n] of Object.entries(leftover.fineWeapons ?? {})) {
     if (n > 0) village.fineWeapons[id] = (village.fineWeapons[id] ?? 0) + n;
   }
+  village.brokenWeapons ??= {};
+  for (const [id, n] of Object.entries(leftover.broken ?? {})) {
+    if (n > 0) village.brokenWeapons[id] = (village.brokenWeapons[id] ?? 0) + n;
+  }
   village.resources ??= {};
   village.resources.ration = (village.resources.ration ?? 0) + leftover.rations;
   village.resources.jerky = (village.resources.jerky ?? 0) + (leftover.jerky ?? 0);
@@ -216,6 +227,11 @@ export function returnCarriedToVillage() {
   village.resources.elixir = (village.resources.elixir ?? 0) + (leftover.elixirs ?? 0);
   village.resources.salt = (village.resources.salt ?? 0) + (leftover.salts ?? 0);
   for (const [id, n] of Object.entries(leftover.loot ?? {})) {
+    if (id === "bigshard") {
+      // 大異晶帶回村自動拆解:一顆 = 50 異晶
+      village.resources.shard = (village.resources.shard ?? 0) + 50 * (n as number);
+      continue;
+    }
     village.resources[id] = (village.resources[id] ?? 0) + n;
   }
   // 帶回武器的剩餘耐久跟著回村(不會免費回滿——要修得靠工匠鋪/鐵匠鋪)

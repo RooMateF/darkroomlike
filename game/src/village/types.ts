@@ -22,7 +22,8 @@ export type ResourceId =
   | "scroll"
   | "shard"
   | "oil"
-  | "elixir";
+  | "elixir"
+  | "bigshard";
 
 export const RESOURCE_LABEL: Record<ResourceId, string> = {
   wood: "木材",
@@ -54,6 +55,8 @@ export const RESOURCE_LABEL: Record<ResourceId, string> = {
   oil: "燈油",
   // 交易所換來的舊時代藥劑:戰鬥中飲用,大量回復並解除所有異常——來歷不明,效果驚人
   elixir: "舊時代藥劑",
+  // 拳頭大的完整異晶(拾荒的長手的收藏核心):占 5 格,帶回村自動拆解成 50 顆異晶
+  bigshard: "大異晶",
 };
 
 export interface JobDef {

@@ -12,6 +12,8 @@ export interface SubAction {
   damage: number;
   /** 回復量(道具類:繃帶/乾糧) */
   heal?: number;
+  /** 名刀鬼雪:命中疊加敵方凍結值(Boss 抗性減半) */
+  freeze?: number;
 }
 
 export type CategoryId = "melee" | "ranged" | "magic" | "item";
@@ -38,4 +40,6 @@ export interface EnemyMove {
   confusion?: number;
   /** 蓄力描寫:敵人開始準備這一招時的一句敘述(「牠抬起了手」)——招式不取名,用動作預告 */
   tell?: string;
+  /** 迷宮觸手:命中偷走一件裝備(偷竊本體由戰鬥頁執行,每場只偷一次) */
+  steal?: boolean;
 }

@@ -67,12 +67,15 @@ class CategoryTracker {
 class EnemyTracker {
   elapsed = 0;
   currentMove: EnemyMove;
+  /** 連招腳本(數數的東西):依序循環出招,取代隨機抽 */
+  private patternIdx = 0;
 
   constructor(
     private readonly moves: EnemyMove[],
     private readonly speedMultiplier: () => number,
+    private readonly pattern?: string[],
   ) {
-    this.currentMove = pickRandom(moves);
+    this.currentMove = this.pattern?.length ? (moves.find((m) => m.id === this.pattern![0]) ?? pickRandom(moves)) : pickRandom(moves);
   }
 
   get actualCost(): number {
@@ -90,7 +93,12 @@ class EnemyTracker {
   /** 出招完畢後重新選招並歸零,見 § 2.9:跑條速度依當前準備中的招式而變動 */
   rollNextMove() {
     this.elapsed = 0;
-    this.currentMove = pickRandom(this.moves);
+    if (this.pattern?.length) {
+      this.patternIdx = (this.patternIdx + 1) % this.pattern.length;
+      this.currentMove = this.moves.find((m) => m.id === this.pattern![this.patternIdx]) ?? pickRandom(this.moves);
+    } else {
+      this.currentMove = pickRandom(this.moves);
+    }
   }
 }
 
@@ -108,6 +116,8 @@ export interface EngineCallbacks {
   onConfusedAct?: () => boolean;
   /** 格擋接下一擊(perfect=完全格擋):UI 扣盾耐久用(完全格擋免費) */
   onBlocked?: (perfect: boolean) => void;
+  /** 偷竊招命中(完全格擋擋得下):由 UI 執行偷竊與記帳(每場限一次的守門也在 UI) */
+  onSteal?: () => void;
 }
 
 /**
@@ -139,6 +149,16 @@ export class CombatEngine {
   controlImmuneLeft = 0;
   /** 危機意識(改造藥劑):開戰後第一次充能全體 ×2,放出任一行動即恢復正常 */
   firstStrikeBoost = false;
+  /** 敵方凍結值(名刀鬼雪):滿 100 → 敵下一招 CD ×2 + 我方下一擊 ×1.5,歸零重疊 */
+  enemyFreeze = 0;
+  /** 寒滯中:敵方當前準備的這一招充能減半(=CD ×2),出招後解除 */
+  enemyChilled = false;
+  /** 我方下一擊傷害 ×1.5(凍結觸發的獎勵) */
+  playerEmpowerNext = false;
+  /** 敵方狂暴倍率(拾荒的長手 50% 後 CD ×0.75 → 充能 ×1.333) */
+  enemyHasteMult = 1;
+  /** 這個敵人對凍結有抗性(Boss:每擊疊加減半) */
+  private freezeResist = false;
   /** 裝備中的盾(格擋參數;null=沒帶盾,不能格擋) */
   shield: { label: string; reduce: number; cd: number } | null = null;
   /** 格擋窗口剩餘秒數(0.5s;前 0.1s 完全格擋) */
@@ -163,10 +183,11 @@ export class CombatEngine {
     categories: CategoryDef[],
     enemyMoves: EnemyMove[],
     private readonly cb: EngineCallbacks,
-    opts?: { enemyHp?: number; enemyLabel?: string },
+    opts?: { enemyHp?: number; enemyLabel?: string; freezeResist?: boolean; pattern?: string[] },
   ) {
     this.playerCategories = categories.map((c) => new CategoryTracker(c, () => this.playerSpeed * (this.slowLeft > 0 ? 0.5 : 1) * (this.firstStrikeBoost ? 2 : 1)));
-    this.enemy = new EnemyTracker(enemyMoves, () => 1);
+    this.enemy = new EnemyTracker(enemyMoves, () => (this.enemyChilled ? 0.5 : 1) * this.enemyHasteMult, opts?.pattern);
+    this.freezeResist = opts?.freezeResist ?? false;
     if (opts?.enemyHp) {
       this.enemyHp = opts.enemyHp;
       this.enemyMaxHp = opts.enemyHp;
@@ -335,6 +356,7 @@ export class CombatEngine {
         }
       }
       if (blocked !== "perfect") this.applyConfusion(move);
+      if (blocked !== "perfect" && move.steal) this.cb.onSteal?.(); // 完全格擋能擋下偷竊
       this.cb.onHpChange();
     } else {
       // 零傷害的行為(如發狂者的「顫抖」、哼歌者的「哼唱」):空轉或純異常疊加
@@ -342,6 +364,7 @@ export class CombatEngine {
       this.applyConfusion(move);
     }
     this.enemy.rollNextMove();
+    this.enemyChilled = false; // 寒滯只吃一招
     // 大招才有蓄力描寫:「牠抬起了手」比招式名更能讓玩家學會判讀
     if (this.enemy.currentMove.tell) this.cb.onTell?.(this.enemy.currentMove.tell);
   }
@@ -368,9 +391,23 @@ export class CombatEngine {
     const tracker = cat.trackers.find((t) => t.subAction.id === subActionId);
     if (!tracker || !tracker.ready) return false;
 
-    const dmg = tracker.subAction.damage;
+    let dmg = tracker.subAction.damage;
+    if (dmg > 0 && this.playerEmpowerNext) {
+      dmg = Math.round(dmg * 1.5); // 凍結獎勵:下一擊 ×1.5
+      this.playerEmpowerNext = false;
+    }
     const heal = tracker.subAction.heal ?? 0;
     if (dmg > 0) this.enemyHp = Math.max(0, this.enemyHp - dmg);
+    // 名刀鬼雪:命中疊加凍結值(Boss 抗性減半);滿 100 → 寒滯+強化下一擊,歸零重疊
+    if (dmg > 0 && tracker.subAction.freeze && this.enemyHp > 0) {
+      this.enemyFreeze += this.freezeResist ? Math.round(tracker.subAction.freeze / 2) : tracker.subAction.freeze;
+      if (this.enemyFreeze >= 100) {
+        this.enemyFreeze = 0;
+        this.enemyChilled = true;
+        this.playerEmpowerNext = true;
+        this.cb.onLog({ id: this.logId++, actor: "你", target: "霜順著傷口炸開——牠的動作凍住了半拍", symbol: "*", damage: 0 });
+      }
+    }
     if (heal > 0) this.playerHp = Math.min(this.playerMaxHp, this.playerHp + heal);
     this.cb.onLog({
       id: this.logId++,

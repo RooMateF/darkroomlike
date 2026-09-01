@@ -17,6 +17,10 @@ export interface EnemyDef {
    * 人類敵人(迷途者/掠奪者/老兵)沒有。無法自行加工,是日後交易所的兌換材料。
    */
   shardChance?: number;
+  /** 凍結抗性(Boss):鬼雪的凍結值每擊疊加減半 */
+  freezeResist?: boolean;
+  /** 連招腳本(數數的東西):依 move id 順序循環出招,取代隨機抽 */
+  pattern?: string[];
 }
 
 export const ENEMIES: EnemyDef[] = [
@@ -77,6 +81,21 @@ export const ENEMIES: EnemyDef[] = [
 // 哼歌的東西:混亂機制的教學者——哼唱不傷血但疊混亂,滿了行動被奪走;
 // 醒神鹽是解法(解混亂+免疫窗口),沒鹽就得搶節奏速戰
 export const EVENT_BOSSES: Record<string, EnemyDef> = {
+  // 迷宮的偷竊戰(2026-09 用戶定案):血量偏低,但第一招「捲奪」0.3s 出手——
+  // 沒有危機意識(首擊×2)基本必被偷;完美格擋(0.1s)也擋得下。每場只偷一件(戰鬥頁守門)
+  tentacle: {
+    id: "maze-tentacle",
+    label: "蒼白的觸手",
+    intro: "牆縫裡垂下一條蒼白的觸手,指尖在空中輕輕比劃,像在挑選。",
+    hp: 12,
+    moves: [
+      { id: "snatch", label: "捲奪", baseCost: 0.3, symbol: "~»", damage: 1, steal: true },
+      { id: "lash", label: "抽打", baseCost: 1.2, symbol: "»", damage: 4 },
+    ],
+    // 第一招必為捲奪(0.3s):沒有危機意識搶不到 0.3s 前的暫停窗;之後捲奪只是快戳(每場限偷一件)
+    pattern: ["snatch", "lash"],
+    loot: {},
+  },
   siren: {
     id: "siren",
     label: "哼歌的東西",
@@ -89,6 +108,7 @@ export const EVENT_BOSSES: Record<string, EnemyDef> = {
     ],
     loot: { hide: 3, shard: 2 },
     shardChance: 1,
+    freezeResist: true,
   },
 };
 
@@ -154,6 +174,7 @@ export const LV3_BOSS: EnemyDef = {
     { id: "slam", label: "重擊", baseCost: 2.2, symbol: "»»»»»", damage: 16, tell: "牠的輪廓在黑暗裡拔高,雙臂舉過了頭頂。" },
   ],
   loot: { hide: 4, meat: 4, shard: 3 },
+  freezeResist: true,
 };
 
 /**
@@ -162,6 +183,36 @@ export const LV3_BOSS: EnemyDef = {
  * 用「慢條=痛」的節奏(design-notes.md § 2.9)給玩家判讀空間。
  */
 export const GUARDIANS: Record<string, EnemyDef> = {
+  // 北圍場:數數的東西(2026-09 核可)——節奏教學型,連招腳本固定:
+  // 輕拍/屈指×3 交錯,第七拍「清算」重擊;數牠的手指,搶在第三根前格擋或補滿
+  counter: {
+    id: "counter-guardian",
+    label: "數數的東西",
+    intro: "圍牆裡側坐著一個灰色的輪廓,背對著你。牠的手指動個不停——一根、兩根、三根。你進來的那一刻,牠停了。",
+    hp: 70,
+    moves: [
+      { id: "tap", label: "輕拍", baseCost: 0.9, symbol: "»", damage: 2 },
+      { id: "count", label: "屈指", baseCost: 1.5, symbol: "…", damage: 0, tell: "牠又屈起一根指頭。" },
+      { id: "reckoning", label: "清算", baseCost: 2.2, symbol: "»»»»»", damage: 16, control: { kind: "stun", duration: 1.0 }, tell: "牠攤開手掌——三根手指,一起收了回去。" },
+    ],
+    pattern: ["tap", "count", "tap", "count", "tap", "count", "reckoning"],
+    loot: {},
+    freezeResist: true,
+  },
+  // 東南迷宮:拾荒的長手(2026-09 定案)——迷宮五盜的收贓者;
+  // 血量門檻歸還贓物(95/85/75/65%各一件,50%全回+狂暴 CD×0.75),守門在戰鬥頁
+  scavenger: {
+    id: "scavenger-guardian",
+    label: "拾荒的長手",
+    intro: "牆縫裡塞滿了東西:水袋、鞋、認不得用途的工具,分門別類,擺得整整齊齊。牆的深處,一條過長的手臂緩緩收了回去。",
+    hp: 90,
+    moves: [
+      { id: "grab", label: "抓奪", baseCost: 1.0, symbol: "~»", damage: 5 },
+      { id: "swing", label: "掄臂", baseCost: 2.4, symbol: "»»»»»", damage: 14, tell: "那條過長的手臂高高掄了起來,影子罩住了你。" },
+    ],
+    loot: {},
+    freezeResist: true,
+  },
   mine: {
     id: "mine-guardian",
     label: "盤據礦坑的巨獸",
@@ -172,6 +223,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
       { id: "crush", label: "重壓", baseCost: 2.4, symbol: "»»»»»»", damage: 15, tell: "巨獸壓低了身子,肩胛高高聳起——鼻息忽然停了。" },
     ],
     loot: { hide: 6, meat: 6, shard: 4 },
+    freezeResist: true,
   },
   observatory: {
     id: "observatory-guardian",
@@ -184,6 +236,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
       { id: "shriek", label: "撲抓", baseCost: 1.7, symbol: "»»»»", damage: 11, tell: "他的十指扣成爪狀,慢慢舉了起來。" },
     ],
     loot: { bandage: 2, ration: 2, shard: 3 },
+    freezeResist: true,
   },
   shrine: {
     id: "shrine-guardian",
@@ -195,6 +248,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
       { id: "pincer", label: "鉗擊", baseCost: 1.7, symbol: "»»»»", damage: 12, tell: "細足全部停住了。甲殼下的巨鉗張到了最開。" },
     ],
     loot: { meat: 5, hide: 3, shard: 3 },
+    freezeResist: true,
   },
   // 北嶺煤礦坑(Lv4):鐵階裝備的攻堅目標——毒塵+崩落暈眩是特色威脅。
   // 蒙地卡羅(現實補給:繃2/藥1/肉16/鹽3,滿血進場):勝率 60%(單場 100 秒);
@@ -211,6 +265,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
       { id: "collapse", label: "崩落", baseCost: 2.6, symbol: "»»»»»»", damage: 22, control: { kind: "stun", duration: 1.2 }, tell: "牠高高抬起了雙螯——坑道頂上簌簌落下灰來。" },
     ],
     loot: { coal: 8, stone: 6, shard: 6 },
+    freezeResist: true,
   },
   // Lv5:本章的極限。2026-08 控制型設計:數值堆滿也打不過,要靠「針對性準備」——
   // 醒神鹽擋鐘鳴/低語、藥劑清撕裂的流血、繃帶硬撐血線。
@@ -229,11 +284,20 @@ export const GUARDIANS: Record<string, EnemyDef> = {
       { id: "toll", label: "鐘鳴", baseCost: 3.0, symbol: "»»»»»»»", damage: 27, control: { kind: "stun", duration: 1.5 }, tell: "它緩緩抬起了手,指向頭頂的鐘。空氣忽地緊繃。" },
     ],
     loot: { shard: 8 },
+    freezeResist: true,
   },
 };
 
 /** 地標解放後的一次性報酬(戰鬥頁勝利時發放) */
 export const LANDMARK_REWARDS: Record<string, { loot?: Record<string, number>; weapon?: string; message: string }> = {
+  counter: {
+    loot: { shard: 4, iron: 6 },
+    message: "灰色的輪廓癱了下去,手指終於停了。牠懷裡抱著一卷寫滿符號的皮紙——像是某種配方。帶回去吧,總有看得懂的一天。",
+  },
+  scavenger: {
+    loot: { bigshard: 1 },
+    message: "長手癱軟下去的瞬間,整座迷宮輕輕震了一下——牆縫裡的黑暗散了,通道亮了起來。牠身後,一只上鎖的箱子露了出來。",
+  },
   mine: {
     loot: { iron: 10, stone: 8 },
     message: "礦坑解放了。坑道深處的鐵礦脈在火光下泛著光——村裡的人手可以來這裡工作了。",

@@ -336,7 +336,7 @@ export const EVENTS: VillageEvent[] = [
         label: "全力救治(消耗大量存糧)",
         effect: {},
         effectPct: { meat: 0.3, grain: 0.3, jerky: 0.2 },
-        resultText: "所有人都保住了性命——但傷患要吃要補,存糧下去了一大截。",
+        resultText: "所有人都保住了性命——但消耗了大量的存糧。",
         passiveLoss: true,
       },
       {

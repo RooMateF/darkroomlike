@@ -110,6 +110,11 @@ app.innerHTML = `
           <span class="row-controls"><span class="bar" id="enemy-bar"><span class="filled" id="enemy-bar-filled"></span><span id="enemy-bar-empty"></span></span></span>
           <span class="row-info">敵方動作</span>
         </div>
+        <div class="row-grid" id="enemy-freeze-row" style="display:none">
+          <span class="row-name">凍結</span>
+          <span class="row-controls"><span class="bar"><span class="filled" id="enemy-freeze-filled"></span><span id="enemy-freeze-empty"></span></span></span>
+          <span class="row-info" id="enemy-freeze-pct"></span>
+        </div>
       </div>
       <div class="section-title">戰鬥紀錄</div>
       <div class="log-panel scrollable combat-log" id="log"></div>
@@ -165,6 +170,10 @@ const enemyLabelEl = document.querySelector<HTMLElement>("#enemy-label")!;
 const enemyBarLabelEl = document.querySelector<HTMLElement>("#enemy-bar-label")!;
 const enemyBarFilled = document.querySelector<HTMLElement>("#enemy-bar-filled")!;
 const enemyBarEmpty = document.querySelector<HTMLElement>("#enemy-bar-empty")!;
+const enemyFreezeRow = document.querySelector<HTMLElement>("#enemy-freeze-row")!;
+const enemyFreezeFilled = document.querySelector<HTMLElement>("#enemy-freeze-filled")!;
+const enemyFreezeEmpty = document.querySelector<HTMLElement>("#enemy-freeze-empty")!;
+const enemyFreezePct = document.querySelector<HTMLElement>("#enemy-freeze-pct")!;
 const statusEffectsEl = document.querySelector<HTMLElement>("#status-effects")!;
 const statusPanelEl = document.querySelector<HTMLElement>("#status-panel")!;
 enemyLabelEl.textContent = enemyDef.label;
@@ -212,7 +221,17 @@ function afterUse(subActionId: string) {
     if (weapon.ammo === "arrow") carried.arrows = Math.max(0, carried.arrows - per);
     if (weapon.ammo === "bullet") carried.bullets = Math.max(0, (carried.bullets ?? 0) - per);
     carried.durability[subActionId] = (carried.durability[subActionId] ?? carriedMaxDurability(carried, subActionId)) - 1;
-    if (carried.durability[subActionId] <= 0) {
+    if (carried.durability[subActionId] <= 0 && weapon.unbreakable) {
+      // 特殊武器(鬼雪):不會消失——變成(損毀)留在背包,鐵匠鋪用異晶修復
+      carried.weapons[subActionId] = Math.max(0, (carried.weapons[subActionId] ?? 0) - 1);
+      if (carried.weapons[subActionId] <= 0) {
+        delete carried.weapons[subActionId];
+        delete carried.durability[subActionId];
+      }
+      carried.broken = carried.broken ?? {};
+      carried.broken[subActionId] = (carried.broken[subActionId] ?? 0) + 1;
+      appendSystemLog(`${weapon.label}的刀刃崩出裂紋,寒氣散了。(損毀——鐵匠鋪可用異晶修復)`);
+    } else if (carried.durability[subActionId] <= 0) {
       // 壞的是「使用中那把」:精工優先上手,所以有精工存量時壞掉的就是精工
       if ((carried.fineWeapons?.[subActionId] ?? 0) > 0) {
         carried.fineWeapons![subActionId]--;
@@ -454,6 +473,7 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
   onLog: appendLog,
   onTell: appendSystemLog,
   onBlocked: (perfect) => onShieldBlocked(perfect),
+  onSteal: () => performSteal(),
   // 混亂發作:隨機執行一個「就緒且可用」的行動(行動條沒滿就等滿的那一刻,引擎每幀重試)
   onConfusedAct: () => {
     const candidates: { cat: CategoryId; id: string }[] = [];
@@ -479,6 +499,7 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
     retreatBtn.classList.toggle("ready", paused);
   },
   onHpChange: () => {
+    scavengerCheck();
     // 瀕死警告:低於三成血時給一次感官描寫(不重複刷)
     if (engine.playerHp > 0 && engine.playerHp <= engine.playerMaxHp * 0.3 && !lowHpWarned) {
       lowHpWarned = true;
@@ -531,6 +552,9 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
             }
           } else if (dungeon.landmarkId) {
             markLandmarkCleared(dungeon.landmarkId);
+            // 數數的東西:配方是重要物品(永久持有,不占空間、不因死亡遺失)——
+            // 醫院(第二章:教團人員事件)解鎖後才能製作
+            if (dungeon.landmarkId === "counter") localStorage.setItem("recipe-counting-strike", "1");
             const reward = LANDMARK_REWARDS[dungeon.landmarkId];
             if (reward) {
               message = reward.message;
@@ -568,7 +592,7 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
       }
     }
   },
-}, { enemyHp: enemyDef.hp, enemyLabel: enemyDef.label });
+}, { enemyHp: enemyDef.hp, enemyLabel: enemyDef.label, freezeResist: enemyDef.freezeResist, pattern: enemyDef.pattern });
 
 // HP 跨戰鬥持續:從行囊接續上一場打完的血量(回村整備才會回滿);上限含皮甲加成
 engine.playerMaxHp = playerMaxHp();
@@ -594,6 +618,140 @@ if (new URLSearchParams(window.location.search).has("dev")) {
     engine,
     step: (dt: number) => (engine as unknown as { step: (dt: number) => void }).step(dt),
   };
+}
+
+// ---- 迷宮五盜與拾荒的長手(§2026-09 用戶定案)----
+
+/** 這一場已經偷過(觸手每場只偷一件) */
+let stoleThisFight = false;
+
+/** 觸手偷竊:優先序 武器→鹽→藥劑→肉乾→繃帶;同種東西一次遠征只偷一次;連耐久/精工一起記走 */
+function performSteal() {
+  if (stoleThisFight || !carried) return;
+  let kinds: string[] = [];
+  try {
+    kinds = JSON.parse(localStorage.getItem("maze-stolen-kinds") ?? "[]") as string[];
+  } catch {
+    kinds = [];
+  }
+  let stolen: { kind: string; id?: string; durability?: number; fine?: boolean; count?: number }[] = [];
+  try {
+    stolen = JSON.parse(localStorage.getItem("maze-stolen") ?? "[]");
+  } catch {
+    stolen = [];
+  }
+
+  let record: { kind: string; id?: string; durability?: number; fine?: boolean } | null = null;
+  if (!kinds.includes("weapon")) {
+    // 偷「使用中」的最好武器(WEAPONS 排序位階;盾也算裝備):連當前耐久與精工身分一起搬走
+    for (let i = WEAPONS.length - 1; i >= 0; i--) {
+      const w = WEAPONS[i];
+      if ((carried.weapons[w.id] ?? 0) <= 0) continue;
+      const fine = (carried.fineWeapons?.[w.id] ?? 0) > 0;
+      const dur = carried.durability[w.id] ?? carriedMaxDurability(carried, w.id);
+      record = { kind: "weapon", id: w.id, durability: dur, fine };
+      carried.weapons[w.id] = (carried.weapons[w.id] ?? 0) - 1;
+      if (fine) {
+        carried.fineWeapons![w.id]--;
+        if (carried.fineWeapons![w.id] <= 0) delete carried.fineWeapons![w.id];
+      }
+      if (carried.weapons[w.id] <= 0) {
+        delete carried.weapons[w.id];
+        delete carried.durability[w.id];
+      } else {
+        delete carried.durability[w.id]; // 備用頂上(全新)
+      }
+      appendSystemLog(`一條過長的手臂從黑暗裡閃出——等你回過神,${w.label}已經不在手上了。`);
+      break;
+    }
+  }
+  if (!record) {
+    const bag = carried as unknown as Record<string, number | undefined>;
+    const supplyOrder: { kind: string; key: string; label: string }[] = [
+      { kind: "salt", key: "salts", label: "醒神鹽" },
+      { kind: "elixir", key: "elixirs", label: "舊時代藥劑" },
+      { kind: "jerky", key: "jerky", label: "肉乾" },
+      { kind: "bandage", key: "bandages", label: "繃帶" },
+    ];
+    for (const so of supplyOrder) {
+      if (kinds.includes(so.kind)) continue;
+      if ((bag[so.key] ?? 0) <= 0) continue;
+      bag[so.key] = (bag[so.key] ?? 0) - 1;
+      record = { kind: so.kind };
+      appendSystemLog(`一條過長的手臂從黑暗裡閃出——等你回過神,腰間的${so.label}已經輕了。`);
+      break;
+    }
+  }
+  if (!record) return; // 沒東西可偷:純粹的抽打
+
+  stoleThisFight = true;
+  kinds.push(record.kind);
+  stolen.push(record);
+  localStorage.setItem("maze-stolen-kinds", JSON.stringify(kinds));
+  localStorage.setItem("maze-stolen", JSON.stringify(stolen));
+  saveCarried(carried);
+}
+
+/** Boss 血量門檻歸還贓物:95/85/75/65% 各還一件,50% 全還+狂暴(CD ×0.75) */
+let scavengerReturned = 0;
+let scavengerEnraged = false;
+
+function returnStolenOne(): boolean {
+  if (!carried) return false;
+  let stolen: { kind: string; id?: string; durability?: number; fine?: boolean }[] = [];
+  try {
+    stolen = JSON.parse(localStorage.getItem("maze-stolen") ?? "[]");
+  } catch {
+    return false;
+  }
+  const item = stolen.shift();
+  if (!item) return false;
+  localStorage.setItem("maze-stolen", JSON.stringify(stolen));
+  if (item.kind === "weapon" && item.id) {
+    carried.weapons[item.id] = (carried.weapons[item.id] ?? 0) + 1;
+    if (item.fine) {
+      carried.fineWeapons ??= {};
+      carried.fineWeapons[item.id] = (carried.fineWeapons[item.id] ?? 0) + 1;
+    }
+    if (carried.durability[item.id] === undefined && item.durability !== undefined) {
+      carried.durability[item.id] = item.durability; // 耐久不重置:被偷時是多少,回來就是多少
+    }
+    const def = WEAPONS.find((w) => w.id === item.id);
+    appendSystemLog(`一樣東西從牠的收藏裡震落——${def?.label ?? item.id}回到了你手上。`);
+  } else {
+    const bag = carried as unknown as Record<string, number | undefined>;
+    const keyMap: Record<string, [string, string]> = {
+      salt: ["salts", "醒神鹽"],
+      elixir: ["elixirs", "舊時代藥劑"],
+      jerky: ["jerky", "肉乾"],
+      bandage: ["bandages", "繃帶"],
+    };
+    const [key, label] = keyMap[item.kind] ?? ["bandages", item.kind];
+    bag[key] = (bag[key] ?? 0) + 1;
+    appendSystemLog(`一樣東西從牠的收藏裡震落——${label}回到了你手上。`);
+  }
+  saveCarried(carried);
+  return true;
+}
+
+function scavengerCheck() {
+  if (enemyDef.id !== "scavenger-guardian" || engine.enemyHp <= 0) return;
+  const frac = engine.enemyHp / engine.enemyMaxHp;
+  const thresholds = [0.95, 0.85, 0.75, 0.65];
+  while (scavengerReturned < thresholds.length && frac <= thresholds[scavengerReturned]) {
+    if (!returnStolenOne()) break;
+    scavengerReturned++;
+  }
+  if (frac <= 0.5) {
+    let any = false;
+    while (returnStolenOne()) any = true;
+    if (any) appendSystemLog("牠痛得縮起來,懷裡護著的收藏嘩啦散了一地——你的東西,回來了。");
+    if (!scavengerEnraged) {
+      scavengerEnraged = true;
+      engine.enemyHasteMult = 1 / 0.75;
+      appendSystemLog("失去收藏的長手抽搐著暴起,動作快得不像剛才的牠。");
+    }
+  }
 }
 
 /** 掉落面板開著:主戰鬥快捷鍵(1~9/空白/R/0)全部讓路給面板自己的按鍵 */
@@ -836,6 +994,7 @@ function render() {
     const dot = po.level + bl.level;
     if (dot > 0) rows.push(`<div class="status-line">持續傷害 每 2 秒 -${dot}</div>`);
     if (engine.firstStrikeBoost) spRow("危機意識", 1, "首擊 ×2");
+    if (engine.playerEmpowerNext) spRow("凍結反擊", 1, "下一擊 ×1.5");
     if (engine.confusionPending) spRow("混亂(發作)", 1, "!!");
     else if (engine.confusionGauge > 0) spRow("混亂", engine.confusionGauge / 100, `${Math.round(engine.confusionGauge)}/100`);
     if (engine.stunLeft > 0) spRow("暈眩", engine.stunTotal > 0 ? engine.stunLeft / engine.stunTotal : 1, `${engine.stunLeft.toFixed(1)}s`);
@@ -869,6 +1028,17 @@ function render() {
     blockRowEls.bar.classList.toggle("ready", engine.blockWindowLeft > 0 || blockReady);
     blockRowEls.useLink.disabled = !blockReady;
     blockRowEls.useLink.classList.toggle("ready", blockReady);
+  }
+
+  // 敵方凍結(名刀鬼雪):有疊加才顯示;寒滯中整條亮起
+  if (engine.enemyFreeze > 0 || engine.enemyChilled) {
+    enemyFreezeRow.style.display = "";
+    const fFill = engine.enemyChilled ? BAR_WIDTH : Math.round((engine.enemyFreeze / 100) * BAR_WIDTH);
+    enemyFreezeFilled.textContent = "█".repeat(fFill);
+    enemyFreezeEmpty.textContent = "░".repeat(BAR_WIDTH - fFill);
+    enemyFreezePct.textContent = engine.enemyChilled ? "寒滯!" : `${Math.round(engine.enemyFreeze)}/100`;
+  } else {
+    enemyFreezeRow.style.display = "none";
   }
 
   // 敵方跑條(§2.9):速度本身就是威脅預告——招式越重跑條越慢,玩家看節奏自行判讀

@@ -131,6 +131,10 @@ export interface WeaponDef {
   damage: number;
   /** 盾牌限定:格擋參數(reduce=半格擋減傷比例、cd=冷卻秒數) */
   block?: { reduce: number; cd: number };
+  /** 名刀特效:命中疊加敵方凍結值 */
+  freeze?: number;
+  /** 特殊武器不會消失:耐久歸零變成(損毀)留在背包,鐵匠鋪用異晶修復 */
+  unbreakable?: boolean;
   /** 攻擊符號(design-notes.md § 2.7 log 動畫) */
   symbol: string;
   /** 耐久度:每次使用 -1,歸零損壞;帶備用武器出門就有意義了 */
@@ -176,6 +180,9 @@ export const WEAPONS: WeaponDef[] = [
   { id: "wood-shield", label: "木盾", cost: { wood: 50, hide: 5 }, category: "shield", baseCost: 0, damage: 0, symbol: "[]", durability: 20, packSize: 3, block: { reduce: 0.5, cd: 5 } },
   { id: "iron-shield", label: "鐵盾", cost: { ingot: 10, wood: 10 }, category: "shield", baseCost: 0, damage: 0, symbol: "[]", durability: 35, packSize: 3, block: { reduce: 0.65, cd: 4 } },
   { id: "steel-shield", label: "鋼盾", cost: { steel: 12, leather: 5 }, category: "shield", baseCost: 0, damage: 0, symbol: "[]", durability: 50, packSize: 3, block: { reduce: 0.8, cd: 3.5 } },
+  // 名刀——鬼雪(迷宮寶箱,2026-09 用戶定案):快劍手感,命中疊敵方凍結值 20(Boss 抗性減半);
+  // 不會損壞消失——耐久歸零變(損毀)留在背包,鐵匠鋪花異晶 30 修復(cost 即修復費)
+  { id: "oniyuki", label: "鬼雪", cost: { shard: 30 }, category: "melee", baseCost: 0.9, damage: 9, symbol: ">*", durability: 60, packSize: 2, lootOnly: true, freeze: 20, unbreakable: true },
 ];
 
 // ---- 消耗品打造(整備出門用) ----

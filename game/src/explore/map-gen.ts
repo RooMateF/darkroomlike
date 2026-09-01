@@ -249,6 +249,8 @@ export function generateMap(mapId: MapId = "A"): Tile[][] {
     const y = Math.floor(rng() * MAP_HEIGHT);
     const dist = Math.hypot(x - cx, y - cy);
     if (dist < 5) continue;
+    if (x >= MAZE.x1 && x <= MAZE.x2 && y >= MAZE.y1 && y <= MAZE.y2) continue; // 迷宮裡不生據點
+    if (x >= POCKET_N.x1 && x <= POCKET_N.x2 && y >= POCKET_N.y1 && y <= POCKET_N.y2) continue;
     const acceptChance = dist < 18 ? 0.9 : Math.max(0.05, 0.6 - (dist / maxDist) * 0.6);
     if (rng() > acceptChance) continue;
     const tile = grid[y][x];
@@ -289,8 +291,7 @@ export function generateMap(mapId: MapId = "A"): Tile[][] {
   // 高牆圍場 ×2(2026-09):難抵達的封閉點——之後把小 Boss 巢安進去(內容另定)
   {
     const pockets: [number, number, number, number, number, number][] = [
-      [66, 42, 73, 47, 66, 44], // 東南:西側單口
-      [26, 3, 33, 8, 29, 8], // 北緣:南側單口
+      [26, 3, 33, 8, 29, 8], // 北緣:南側單口(數數的東西的家)
     ];
     for (const [x1, y1, x2, y2, gx, gy] of pockets) {
       for (let y = y1; y <= y2; y++) {
@@ -301,6 +302,22 @@ export function generateMap(mapId: MapId = "A"): Tile[][] {
           grid[y][x] = { type: isPerimeter && !(x === gx && y === gy) ? "wall" : "plain", revealed: false };
         }
       }
+    }
+  }
+
+  // 東南迷宮雕刻:照手工版面鋪牆與走廊(地標/探勘點/據點/出口格不覆蓋)
+  for (let r = 0; r < MAZE_ROWS.length; r++) {
+    for (let c = 0; c < MAZE_ROWS[r].length; c++) {
+      const x = MAZE.x1 + c;
+      const y = MAZE.y1 + r;
+      const t = grid[y]?.[x];
+      if (!t) continue;
+      if (t.type === "landmark" || t.type === "site" || t.type === "depot" || t.type === "exit") continue;
+      const ch = MAZE_ROWS[r][c];
+      grid[y][x] = {
+        type: ch === "#" ? "wall" : ch === "C" ? "chest" : ch === "r" ? "resource" : "plain",
+        revealed: false,
+      };
     }
   }
 
@@ -378,6 +395,43 @@ function finishNeighborMap(grid: Tile[][], mapId: MapId): Tile[][] {
 
   return grid;
 }
+
+// ---- 東南迷宮(拾荒的長手,2026-09 用戶定案)----
+// 手工版面:# 牆、. 走廊、r 乾糧、T 贓物架、B Boss(地標格,由 sites 放置)、C 寶箱;
+// 西側單一入口。視野規則(半徑1/不透牆/外面看不進來)在探索引擎
+export const MAZE = {
+  x1: 61,
+  y1: 38,
+  x2: 76,
+  y2: 49,
+  entrance: { x: 61, y: 43 },
+  boss: { x: 73, y: 47 },
+  stash: { x: 72, y: 47 },
+  chest: { x: 74, y: 47 },
+  rations: [
+    { x: 62, y: 47 },
+    { x: 68, y: 41 },
+    { x: 70, y: 45 },
+  ],
+};
+
+export const MAZE_ROWS = [
+  "################",
+  "#.....#.......##",
+  "#.###.#.#.######",
+  "#...#.#r#.....##",
+  "###.#.###.###.##",
+  "..#.#...#...#.##",
+  "#.#.###.#.###.##",
+  "#...#...#r#...##",
+  "#####.#####.#.##",
+  "#r.........TBC##",
+  "################",
+  "################",
+];
+
+/** 北圍場(數數的東西的家):種子撒點的排除區 */
+export const POCKET_N = { x1: 26, y1: 3, x2: 33, y2: 8 };
 
 /** 邊境據點座標(入口內側三格):相鄰地圖限定;引擎載入舊存檔時也用它補打 */
 export function borderDepotFor(mapId: MapId): { x: number; y: number } | null {
