@@ -197,13 +197,10 @@ function runOnce(cfg: SimConfig): { win: boolean; t: number; hpLeft: number; bos
 
 const N = 400;
 const configs: SimConfig[] = [
-  { name: "550 近戰+盾 σ0.08(C已實裝)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true },
-  { name: "550 近戰+盾+匕首 σ0.08", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true, dagger: true },
-  { name: "550 近戰+盾+匕首 神σ0.04", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.04, crisis: true, greatsword: true, dagger: true },
+  { name: "550 近戰+盾+匕首 σ0.08(消退+新大劍)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true, dagger: true },
   { name: "550 近戰+盾+匕首 手殘σ0.15", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.15, crisis: true, greatsword: true, dagger: true },
-  { name: "550 近戰+匕首+槍30彈(富人混裝)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true, dagger: true, guns: { revolver: true, shotgun: true, auto: true }, bullets: 30 },
-  { name: "煤礦坑 近戰+匕首(外溢檢查)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true, dagger: true, boss: "coalmine" },
 ];
+
 
 
 

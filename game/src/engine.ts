@@ -427,6 +427,16 @@ export class CombatEngine {
       if (this.slowLeft > 0) this.slowLeft = Math.max(0, this.slowLeft - dt);
       if (this.controlImmuneLeft > 0) this.controlImmuneLeft = Math.max(0, this.controlImmuneLeft - dt);
       if (this.reloadLock > 0) this.reloadLock = Math.max(0, this.reloadLock - dt);
+      // 計量自然消退(2026-09 用戶定案):敵我雙方所有累積條每秒 -1——
+      // 疊加要跟時間賽跑;等級一旦升上去就不退,退的是還沒滿的計量
+      this.playerStatus.poison.gauge = Math.max(0, this.playerStatus.poison.gauge - dt);
+      this.playerStatus.bleed.gauge = Math.max(0, this.playerStatus.bleed.gauge - dt);
+      if (!this.confusionPending) this.confusionGauge = Math.max(0, this.confusionGauge - dt);
+      for (const u of this.units) {
+        if (u.hp <= 0) continue;
+        u.freeze = Math.max(0, u.freeze - dt);
+        if (u.staggerLeft <= 0) u.staggerGauge = Math.max(0, u.staggerGauge - dt);
+      }
       // 暈眩/換彈中:你的行動條全部凍結,敵方照常進逼
       if (this.stunLeft <= 0 && this.reloadLock <= 0) {
         for (const cat of this.playerCategories) cat.tick(dt);

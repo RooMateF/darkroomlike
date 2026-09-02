@@ -189,7 +189,7 @@ export const WEAPONS: WeaponDef[] = [
   { id: "steel-sword", label: "鋼劍", cost: { steel: 12, wood: 20 }, category: "melee", baseCost: 1.0, damage: 13, symbol: ">>", durability: 70, packSize: 3 },
   { id: "steel-spear", label: "鋼槍", cost: { steel: 14, wood: 30 }, category: "melee", baseCost: 1.2, damage: 17, symbol: ">>>", durability: 80, packSize: 4 },
   // 重擊線頂點:兩秒一記的斷崖重斬,踉蹌疊得最快
-  { id: "steel-greatsword", label: "鋼大劍", cost: { steel: 18, wood: 30 }, category: "melee", baseCost: 2.0, damage: 22, symbol: ">>>>>", durability: 75, packSize: 5, stagger: 40 },
+  { id: "steel-greatsword", label: "鋼大劍", cost: { steel: 18, wood: 30 }, category: "melee", baseCost: 1.7, damage: 23, symbol: ">>>>>", durability: 75, packSize: 5, stagger: 50 },
   // 槍械:鋼階限定。左輪輕快(1 發/擊)、散彈沉重(2 發/擊,單發傷害一致 → 彈數決定傷害)
   { id: "revolver", label: "左輪手槍", cost: { steel: 10, wood: 10 }, category: "ranged", baseCost: 0.2, damage: 8, symbol: "→!", durability: 50, ammo: "bullet", ammoPerUse: 1, packSize: 2, magazine: 6, reload: 1.0, noWear: true },
   // 散彈槍(2026-09 改版):5 顆彈丸(各 6 傷)各自砸向隨機活敵——群戰神器;單體=全部糊臉 30/擊
@@ -203,9 +203,9 @@ export const WEAPONS: WeaponDef[] = [
   { id: "wood-shield", label: "木盾", cost: { wood: 50, hide: 5 }, category: "shield", baseCost: 0, damage: 0, symbol: "[]", durability: 20, packSize: 3, block: { reduce: 0.5, cd: 5 } },
   { id: "iron-shield", label: "鐵盾", cost: { ingot: 10, wood: 10 }, category: "shield", baseCost: 0, damage: 0, symbol: "[]", durability: 35, packSize: 3, block: { reduce: 0.65, cd: 4 } },
   { id: "steel-shield", label: "鋼盾", cost: { steel: 12, leather: 5 }, category: "shield", baseCost: 0, damage: 0, symbol: "[]", durability: 50, packSize: 3, block: { reduce: 0.8, cd: 3.5 } },
-  // 名刀——鬼雪(迷宮寶箱,2026-09 用戶定案):快劍手感,命中疊敵方凍結值 20(Boss 抗性減半);
+  // 名刀——鬼雪(迷宮寶箱,2026-09 用戶定案):快劍手感,命中疊敵方凍結值 24(Boss 抗性減半;計量每秒消退 1——實戰 2 秒節奏下與舊版 +20 無消退的凍結週期相同);
   // 不會損壞消失——耐久歸零變(損毀)留在背包,鐵匠鋪花異晶 30 修復(cost 即修復費)
-  { id: "oniyuki", label: "鬼雪", cost: { shard: 30 }, category: "melee", baseCost: 0.9, damage: 9, symbol: ">*", durability: 60, packSize: 2, lootOnly: true, freeze: 20, unbreakable: true },
+  { id: "oniyuki", label: "鬼雪", cost: { shard: 30 }, category: "melee", baseCost: 0.9, damage: 9, symbol: ">*", durability: 60, packSize: 2, lootOnly: true, freeze: 24, unbreakable: true },
 ];
 
 // ---- 消耗品打造(整備出門用) ----
