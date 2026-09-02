@@ -651,10 +651,12 @@ export class CombatEngine {
       let total = 0;
       const hitUnits = new Set<EnemyUnit>();
       const downed: EnemyUnit[] = [];
+      // 各發傷害可遞減(6/5/5);凍結獎勵等倍率照比例帶進每一發
+      const burstScale = tracker.subAction.damage > 0 ? dmg / tracker.subAction.damage : 1;
       for (let i = 0; i < tracker.subAction.burst; i++) {
         const u2 = this.targetUnit;
         if (!u2 || u2.hp <= 0) break;
-        let d = dmg;
+        let d = Math.round((tracker.subAction.burstDamages?.[i] ?? tracker.subAction.damage) * burstScale);
         if (u2.staggerLeft > 0) d = Math.round(d * 1.25);
         u2.hp = Math.max(0, u2.hp - d);
         this.cb.onUnitHit?.(u2, d);

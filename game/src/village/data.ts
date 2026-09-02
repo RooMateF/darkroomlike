@@ -142,6 +142,8 @@ export interface WeaponDef {
   parry?: number;
   /** 連發:每擊對單體連打 N 發(damage=單發傷害) */
   burst?: number;
+  /** 連發各發傷害(後座力遞減);缺項用 damage 補 */
+  burstDamages?: number[];
   /** 盾牌限定:格擋參數(reduce=半格擋減傷比例、cd=冷卻秒數) */
   block?: { reduce: number; cd: number };
   /** 名刀特效:命中疊加敵方凍結值 */
@@ -195,7 +197,7 @@ export const WEAPONS: WeaponDef[] = [
   // 散彈槍(2026-09 改版):5 顆彈丸(各 6 傷)各自砸向隨機活敵——群戰神器;單體=全部糊臉 30/擊
   { id: "shotgun", label: "散彈槍", cost: { steel: 14, wood: 20 }, category: "ranged", baseCost: 1.2, damage: 6, symbol: "→!!", durability: 45, ammo: "bullet", ammoPerUse: 5, packSize: 3, magazine: 10, reload: 1.5, noWear: true, pellets: 5 },
   // 舊時代自動步槍(2026-09 核可;lootOnly——未來城市地圖的戰利品):彈雨,用彈藥經濟拴著
-  { id: "auto-rifle", label: "舊時代自動步槍", cost: { steel: 30 }, category: "ranged", baseCost: 0.55, damage: 6, symbol: "→!!!", durability: 60, ammo: "bullet", ammoPerUse: 3, packSize: 4, magazine: 30, reload: 2.0, noWear: true, lootOnly: true, burst: 3 },
+  { id: "auto-rifle", label: "舊時代自動步槍", cost: { steel: 30 }, category: "ranged", baseCost: 0.55, damage: 6, symbol: "→!!!", durability: 60, ammo: "bullet", ammoPerUse: 3, packSize: 4, magazine: 30, reload: 2.0, noWear: true, lootOnly: true, burst: 3, burstDamages: [6, 5, 5] },
   // 靜默教堂(Lv5)的戰利品:輕得不可思議(呼應敘事)。lootOnly:cost 只作修理費基準
   { id: "alloy-blade", label: "異質短刃", cost: { steel: 12, leather: 20, scroll: 1 }, category: "melee", baseCost: 0.5, damage: 7, symbol: ">>|", durability: 80, packSize: 2, lootOnly: true },
   // ---- 盾牌(格擋鏈,2026-09 用戶定案):啟動 0.5s 防禦窗,前 0.1s 完全格擋(整擊無效);

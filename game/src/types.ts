@@ -26,6 +26,8 @@ export interface SubAction {
   aoe?: boolean;
   /** 連發(自動步槍):每擊對「目前目標」連打 N 發,damage=單發傷害;目標倒了剩餘子彈掃向下一隻 */
   burst?: number;
+  /** 連發各發傷害(2026-09:自動步槍 6/5/5——後座力遞減);缺項用 damage 補 */
+  burstDamages?: number[];
   /** 換彈充能秒數(搭配 magazine) */
   reloadCost?: number;
   /** 道具類:強力道具用完後,下一輪道具回轉拖長為這個秒數(預設 1s;2026-09 用戶定案) */
