@@ -141,6 +141,13 @@ function startVillage() {
             <button class="btn" data-sandbox="spawnpack">孳生體群</button>
             <button class="btn" data-sandbox="chain">遺跡連鎖戰</button>
           </div>
+          <div class="section-title" style="margin-top:14px;">紅月試煉(真實存檔)</div>
+          <div class="hint-line">用真實裝備體驗完整循環:按三次→出門看她的提醒與 ☾→打連鎖戰;放著不管按到第五次=災厄之夜。</div>
+          <div style="display:flex; flex-wrap:wrap; gap:6px;">
+            <button class="btn" id="redmoon-fire-btn">觸發一次紅月事件</button>
+            <button class="btn" id="redmoon-status-btn">查看目前次數</button>
+            <button class="btn" id="redmoon-reset-btn">循環歸零</button>
+          </div>
         </div>
       </div>
     </div>
@@ -237,6 +244,18 @@ function startVillage() {
     return data;
   }
 
+  document.querySelector<HTMLButtonElement>("#redmoon-fire-btn")!.addEventListener("click", () => {
+    engine.devFireEventById("red-moon");
+  });
+  document.querySelector<HTMLButtonElement>("#redmoon-status-btn")!.addEventListener("click", () => {
+    const n = localStorage.getItem("redmoon-count") ?? "0";
+    engine.devLog?.(`(紅月目前 ${n}/3;滿 3 出窪地,第 5 次災厄)`);
+  });
+  document.querySelector<HTMLButtonElement>("#redmoon-reset-btn")!.addEventListener("click", () => {
+    localStorage.setItem("redmoon-count", "0");
+    localStorage.removeItem("redmoon-reminded");
+    engine.devLog?.("(紅月循環已歸零;窪地會在下次進入地圖時撤掉)");
+  });
   document.querySelectorAll<HTMLButtonElement>("#sandbox-btns button").forEach((b) => {
     b.addEventListener("click", () => {
       window.location.href = `index.html?sandbox=${b.dataset.sandbox}`;

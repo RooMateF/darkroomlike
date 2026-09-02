@@ -1,5 +1,5 @@
 import { BUILDINGS, CONSUMABLES, HUT_CAP_BONUS, JOBS, TRADES, UPGRADES, WEAPONS, repairCost, isIronTierWeapon , PERK_SLOTS , fineMaxDurability} from "./data";
-import { EVENTS, FOLLOWUP_POOLS, type VillageEvent } from "./events-data";
+import { EVENTS, FOLLOWUP_POOLS, type VillageEvent, type PassiveEvent } from "./events-data";
 import { clearedSiteCount } from "../explore/sites";
 import { RESOURCE_LABEL, type ResourceId } from "./types";
 
@@ -785,30 +785,48 @@ export class VillageEngine {
     }
     this.lastEventTick = this.tickCount;
     if (event.kind === "passive") {
-      const summary = this.applyEventEffect(event.effect, event.populationDelta, event.effectPct);
-      this.cb.onLog(summary ? `${event.text}(${summary})` : event.text);
-      // 紅月計數(2026-09 核可):滿三次,下一次遠征近村刷出紅月窪地(☾);
-      // 窪地放著不管、又過兩次紅月(第 5 次)=災厄之夜——人口最多折損上限的一半
-      if (event.id === "red-moon") {
-        const n = Number(localStorage.getItem("redmoon-count") ?? "0") + 1;
-        localStorage.setItem("redmoon-count", String(n));
-        if (n >= 5) {
-          const loss = Math.max(1, Math.floor(this.populationCap * (0.3 + Math.random() * 0.2)));
-          const before = this.population;
-          this.population = Math.max(0, this.population - loss);
-          this.clampAssignments();
-          const summary = this.applyEventEffect({}, undefined, { grain: 0.25, ration: 0.25, meat: 0.25 });
-          localStorage.setItem("redmoon-count", "0"); // 災厄過後循環重來(窪地由探索頁撤掉)
-          this.cb.onLog(
-            `入夜後,窪地的方向傳來低沉的、像大地翻身一樣的聲音。那東西進村了。棚屋像紙一樣被撕開,哭喊聲持續了整夜——天亮清點,村子失去了 ${before - this.population} 個人。` +
-              (summary ? `(${summary})` : ""),
-          );
-          this.saveState();
-        }
-      }
+      this.firePassiveEvent(event);
     } else {
       this.pendingEvent = event; // 選擇型事件:暫停在這裡等玩家回應,不自動套用效果
     }
+  }
+
+  /** 套用一則被動事件(隨機池與 DEV 指定觸發共用):含紅月計數與災厄 */
+  private firePassiveEvent(event: PassiveEvent) {
+    const summary = this.applyEventEffect(event.effect, event.populationDelta, event.effectPct);
+    this.cb.onLog(summary ? `${event.text}(${summary})` : event.text);
+    // 紅月計數(2026-09 核可):滿三次,下一次遠征近村刷出紅月窪地(☾);
+    // 窪地放著不管、又過兩次紅月(第 5 次)=災厄之夜——人口最多折損上限的一半
+    if (event.id === "red-moon") {
+      const n = Number(localStorage.getItem("redmoon-count") ?? "0") + 1;
+      localStorage.setItem("redmoon-count", String(n));
+      if (n >= 5) {
+        const loss = Math.max(1, Math.floor(this.populationCap * (0.3 + Math.random() * 0.2)));
+        const before = this.population;
+        this.population = Math.max(0, this.population - loss);
+        this.clampAssignments();
+        const lossSummary = this.applyEventEffect({}, undefined, { grain: 0.25, ration: 0.25, meat: 0.25 });
+        localStorage.setItem("redmoon-count", "0"); // 災厄過後循環重來(窪地由探索頁撤掉)
+        this.cb.onLog(
+          `入夜後,窪地的方向傳來低沉的、像大地翻身一樣的聲音。那東西進村了。棚屋像紙一樣被撕開,哭喊聲持續了整夜——天亮清點,村子失去了 ${before - this.population} 個人。` +
+            (lossSummary ? `(${lossSummary})` : ""),
+        );
+        this.saveState();
+      }
+    }
+  }
+
+  /** DEV 測試:往村莊紀錄寫一行(系統分頁的測試按鈕用) */
+  devLog(text: string) {
+    this.cb.onLog(text);
+  }
+
+  /** DEV 測試:指定觸發一則被動事件(照正常路徑走,紅月計數/災厄照算) */
+  devFireEventById(id: string): boolean {
+    const event = EVENTS.find((e) => e.id === id);
+    if (!event || event.kind !== "passive") return false;
+    this.firePassiveEvent(event);
+    return true;
   }
 
   /** 人口減少後的自動裁員:超編的部分依工作清單由上到下扣(先伐木、再採石、依序往下) */
