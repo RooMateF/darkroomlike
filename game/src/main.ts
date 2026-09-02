@@ -24,11 +24,33 @@ import type { CategoryId } from "./types";
 const SANDBOX = new URLSearchParams(window.location.search).get("sandbox");
 if (SANDBOX) (globalThis as unknown as { __sandboxNoSave?: boolean }).__sandboxNoSave = true;
 
+const SANDBOX_DEFAULT_WEAPONS: Record<string, number> = { "steel-spear": 1, "steel-sword": 1, "steel-greatsword": 1, oniyuki: 1, "steel-shield": 1, revolver: 1, shotgun: 1, "auto-rifle": 1 };
+
+/** 模擬戰武器配置(裝備調整面板改這份;sandbox 專用鍵,不是遊戲存檔) */
+function sandboxLoadout(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem("sandbox-loadout");
+    if (raw) return JSON.parse(raw) as Record<string, number>;
+  } catch {
+    /* 壞資料用預設 */
+  }
+  return { ...SANDBOX_DEFAULT_WEAPONS };
+}
+
 function sandboxCarried() {
+  const picked = sandboxLoadout();
+  const weapons: Record<string, number> = {};
+  const durability: Record<string, number> = {};
+  for (const w of WEAPONS) {
+    if ((picked[w.id] ?? 0) > 0) {
+      weapons[w.id] = picked[w.id];
+      durability[w.id] = w.durability;
+    }
+  }
   return {
-    weapons: { "steel-spear": 1, "steel-sword": 1, "steel-greatsword": 1, oniyuki: 1, "steel-shield": 1, revolver: 1, shotgun: 1, "auto-rifle": 1 },
+    weapons,
     fineWeapons: {},
-    durability: { "steel-spear": 80, "steel-sword": 70, "steel-greatsword": 75, oniyuki: 60, "steel-shield": 50, revolver: 50, shotgun: 45, "auto-rifle": 60 },
+    durability,
     bullets: 150,
     bandages: 8,
     elixirs: 3,
@@ -939,6 +961,71 @@ if (SANDBOX) {
   });
   bar.appendChild(leave);
   document.querySelector(".combat-controls")!.after(bar);
+
+  // 裝備調整面板(2026-09 用戶要求):全武器加入/移除+修復;加卸重開套用、修復即時
+  const gearPanel = document.createElement("details");
+  gearPanel.className = "combat-controls";
+  gearPanel.style.display = "block";
+  const sum = document.createElement("summary");
+  sum.textContent = "裝備調整(加/卸需重開這場;修復立即生效)";
+  sum.style.cursor = "pointer";
+  gearPanel.appendChild(sum);
+  const gearGrid = document.createElement("div");
+  gearGrid.style.cssText = "display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;";
+  const loadout = sandboxLoadout();
+  const saveLoadout = () => localStorage.setItem("sandbox-loadout", JSON.stringify(loadout));
+  const gearBtns: [string, HTMLButtonElement][] = [];
+  const refreshGearBtns = () => {
+    for (const [id, b] of gearBtns) {
+      const on = (loadout[id] ?? 0) > 0;
+      b.classList.toggle("ready", on);
+      const def = WEAPONS.find((w) => w.id === id)!;
+      b.textContent = `${def.label}${on ? " ✓" : ""}`;
+    }
+  };
+  for (const w of WEAPONS) {
+    const b = document.createElement("button");
+    b.className = "btn-tiny";
+    b.addEventListener("click", () => {
+      loadout[w.id] = (loadout[w.id] ?? 0) > 0 ? 0 : 1;
+      saveLoadout();
+      refreshGearBtns();
+    });
+    gearGrid.appendChild(b);
+    gearBtns.push([w.id, b]);
+  }
+  gearPanel.appendChild(gearGrid);
+  const gearOps = document.createElement("div");
+  gearOps.style.cssText = "display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;";
+  const mkOp = (label: string, fn: () => void) => {
+    const b = document.createElement("button");
+    b.className = "btn";
+    b.textContent = label;
+    b.addEventListener("click", fn);
+    gearOps.appendChild(b);
+  };
+  mkOp("全部加入", () => {
+    for (const w of WEAPONS) loadout[w.id] = 1;
+    saveLoadout();
+    refreshGearBtns();
+  });
+  mkOp("全部移除", () => {
+    for (const w of WEAPONS) loadout[w.id] = 0;
+    saveLoadout();
+    refreshGearBtns();
+  });
+  mkOp("修復所有武器", () => {
+    if (!carried) return;
+    for (const id of Object.keys(carried.weapons)) {
+      carried.durability[id] = carriedMaxDurability(carried, id);
+    }
+    carried.broken = {};
+    appendSystemLog("〔模擬戰〕所有武器修復完畢——耐久回滿。");
+  });
+  mkOp("套用並重開這場", () => window.location.reload());
+  gearPanel.appendChild(gearOps);
+  refreshGearBtns();
+  bar.after(gearPanel);
 }
 // 這一波其餘敵人同時上場(組隊/孳生窩展開)
 for (const d of initialWave.slice(1)) {
