@@ -140,10 +140,12 @@ export class EnemyUnit {
   chilled = false;
   /** 狂暴倍率(拾荒的長手 50% 後 CD ×0.75 → 充能 ×1.333) */
   hasteMult = 1;
+  /** 鬼雪打斷(教堂蛻變 B):下一次凍結值疊滿時,這隻當前蓄力直接歸零(一場一次) */
+  freezeInterruptArmed = false;
   readonly freezeResist: boolean;
 
   constructor(
-    public readonly moves: EnemyMove[],
+    public moves: EnemyMove[],
     opts: EnemyUnitOpts,
   ) {
     this.hp = opts.hp;
@@ -194,6 +196,10 @@ export class CombatEngine {
     bleed: { gauge: 0, level: 0 },
   };
   private dotTimer = 0;
+  /** 環境流血(教堂血雨 C):每 2 秒額外扣的血——場地效果,不吃異常清除 */
+  stormBleed = 0;
+  /** 血雨領域(教堂 C):道具轉盤整體拖慢到這個秒數(null=正常) */
+  itemFieldSeconds: number | null = null;
   /** 暈眩剩餘秒數:你的所有行動條凍結(敵方照常行動——被壓制的恐懼感) */
   stunLeft = 0;
   /** 遲緩剩餘秒數:行動條充能減半 */
@@ -265,6 +271,26 @@ export class CombatEngine {
     if (this.units[0].tracker.currentMove.tell) this.cb.onTell?.(this.units[0].tracker.currentMove.tell);
   }
 
+  /** Boss 蛻變(教堂半血,2026-09 核可 A):整套招式表換新,可帶加速與連招腳本 */
+  transformUnit(unit: EnemyUnit, moves: EnemyMove[], opts?: { hasteMult?: number; pattern?: string[] }) {
+    unit.moves = moves;
+    if (opts?.hasteMult) unit.hasteMult = opts.hasteMult;
+    unit.tracker = new EnemyTracker(moves, () => (unit.chilled ? 0.5 : 1) * unit.hasteMult, opts?.pattern);
+    this.cb.onUnitsChanged?.();
+    if (unit.tracker.currentMove.tell) this.cb.onTell?.(unit.tracker.currentMove.tell);
+  }
+
+  /** 開啟血雨領域(教堂 C):道具轉盤立即拖慢到 seconds */
+  setItemField(seconds: number) {
+    this.itemFieldSeconds = seconds;
+    for (const cat of this.playerCategories) this.applyItemField(cat);
+  }
+
+  private applyItemField(cat: CategoryTracker) {
+    if (cat.def.id !== "item" || !this.itemFieldSeconds) return;
+    for (const t of cat.trackers) t.costMult = this.itemFieldSeconds / (t.subAction.baseCost || 1);
+  }
+
   /** 切換攻擊目標(點敵欄或 Tab):只有活著的能選 */
   setTarget(idx: number) {
     if (this.units[idx] && this.units[idx].hp > 0) {
@@ -317,6 +343,7 @@ export class CombatEngine {
     // 反向不成立:出招不重置盾的冷卻(盾 CD 是裝備計時,不是充能條,否則盾永遠舉不起來)
     for (const c of this.playerCategories) {
       c.resetAll();
+      this.applyItemField(c);
       for (const t of c.trackers) this.acknowledged.delete(this.key(c.def.id, t.subAction.id));
     }
     this.cb.onLog({ id: this.logId++, actor: "你", target: "舉起了盾", symbol: "[]", damage: 0 });
@@ -391,7 +418,7 @@ export class CombatEngine {
       this.dotTimer += dt;
       if (this.dotTimer >= 2) {
         this.dotTimer -= 2;
-        const dot = this.playerStatus.poison.level + this.playerStatus.bleed.level;
+        const dot = this.playerStatus.poison.level + this.playerStatus.bleed.level + this.stormBleed;
         if (dot > 0 && this.playerHp > 0) {
           this.playerHp = Math.max(0, this.playerHp - dot);
           this.cb.onLog({ id: this.logId++, actor: "傷勢與毒素", target: "你", symbol: "~", damage: dot });
@@ -423,7 +450,9 @@ export class CombatEngine {
       let dmg = move.damage;
       if (this.blockWindowLeft > 0 && this.shield) {
         blocked = this.blockWindowLeft >= BLOCK_WINDOW - BLOCK_PERFECT ? "perfect" : "partial";
-        dmg = blocked === "perfect" ? 0 : Math.max(0, Math.ceil(dmg * (1 - this.shield.reduce)));
+        // 穿盾招(百手壓下):普通格擋的減傷上限只有一半,想無傷只能抓 0.1s 的完全格擋
+        const reduce = move.pierceBlock ? Math.min(this.shield.reduce, 0.5) : this.shield.reduce;
+        dmg = blocked === "perfect" ? 0 : Math.max(0, Math.ceil(dmg * (1 - reduce)));
         this.blockWindowLeft = 0;
         this.cb.onBlocked?.(blocked === "perfect");
       }
@@ -523,6 +552,12 @@ export class CombatEngine {
           target.freeze = 0;
           target.chilled = true;
           this.playerEmpowerNext = true;
+          if (target.freezeInterruptArmed) {
+            // 教堂蛻變 B:鬼雪凍滿可以打斷牠一次——當前蓄力直接歸零
+            target.freezeInterruptArmed = false;
+            target.tracker.elapsed = 0;
+            this.cb.onLog({ id: this.logId++, actor: "你", target: "寒氣炸進肢林深處——牠僵在半空,蓄力被打斷了", symbol: "*", damage: 0 });
+          }
           this.cb.onLog({ id: this.logId++, actor: "你", target: "霜順著傷口炸開——牠的動作凍住了半拍", symbol: "*", damage: 0 });
         }
       }
@@ -552,7 +587,7 @@ export class CombatEngine {
     //   強力道具(slowReuse,如繃帶)讓下一輪回轉拖長為該秒數
     tracker.elapsed = 0;
     if (cat.def.id === "item") {
-      const nextSeconds = tracker.subAction.slowReuse ?? 1; // 下一輪回轉的絕對秒數
+      const nextSeconds = Math.max(tracker.subAction.slowReuse ?? 1, this.itemFieldSeconds ?? 0); // 下一輪回轉秒數(血雨領域可拖慢)
       for (const t of cat.trackers) {
         t.elapsed = 0;
         t.costMult = nextSeconds / (t.subAction.baseCost || 1);
@@ -567,6 +602,7 @@ export class CombatEngine {
     for (const other of this.playerCategories) {
       if (other === cat) continue;
       other.resetAll();
+      this.applyItemField(other);
       for (const t of other.trackers) this.acknowledged.delete(this.key(other.def.id, t.subAction.id));
     }
 

@@ -1,6 +1,6 @@
 // 對應 design-notes.md § 3.2 的符號說明
 
-export type TileType = "plain" | "brush" | "rubble" | "wall" | "water" | "depot" | "resource" | "event" | "site" | "exit" | "landmark" | "chest" | "slopeL" | "slopeV" | "slopeR";
+export type TileType = "plain" | "brush" | "rubble" | "wall" | "water" | "depot" | "resource" | "event" | "site" | "exit" | "landmark" | "chest" | "slopeL" | "slopeV" | "slopeR" | "redmoon";
 
 export const TILE_SYMBOL: Record<TileType, string> = {
   plain: ".",
@@ -19,6 +19,7 @@ export const TILE_SYMBOL: Record<TileType, string> = {
   slopeL: "/", // 從左邊(西側)才踏得上去
   slopeV: "|", // 直上直下(南北向)才走得過
   slopeR: "\\", // 從右邊(東側)才踏得上去
+  redmoon: "☾", // 紅月窪地(紅月事件×3 後近村出現):踩上=固定三場連鎖戰,打贏即消失
 };
 
 /** 有名字的特別地點(骨架層手工放置,固定座標);Lv4 中盤級,Lv5 幾乎無法戰勝(design-notes.md § 3.10.1) */

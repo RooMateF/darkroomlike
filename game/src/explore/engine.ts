@@ -399,6 +399,9 @@ export class ExploreEngine {
       this.reveal(start.x, start.y);
     }
 
+    // 紅月窪地(2026-09 核可):紅月事件滿三次 → 近村刷 ☾;打贏後撤掉
+    this.syncRedmoonSite();
+
     // 跨圖落點(一次性):從出口走過來,落在這張地圖的入口
     try {
       const entryRaw = localStorage.getItem(MAP_ENTRY_KEY);
@@ -729,6 +732,49 @@ export class ExploreEngine {
     localStorage.setItem("maze-theft", JSON.stringify({ serial: expeditionSerial(), bands }));
   }
 
+  /** 紅月窪地的刷出與撤除:依 redmoon-count 決定;座標固定存 redmoon-site */
+  private syncRedmoonSite() {
+    if (this.mapId !== "A") return;
+    const armed = Number(localStorage.getItem("redmoon-count") ?? "0") >= 3;
+    const stored = localStorage.getItem("redmoon-site");
+    if (!armed) {
+      if (stored) {
+        const [sx, sy] = stored.split(",").map(Number);
+        const t = this.grid[sy]?.[sx];
+        if (t && t.type === "redmoon") this.grid[sy][sx] = { type: "plain", revealed: t.revealed };
+        localStorage.removeItem("redmoon-site");
+        localStorage.removeItem("redmoon-reminded");
+        localStorage.removeItem("redmoon-site-logged");
+        this.saveState();
+      }
+      return;
+    }
+    let x: number;
+    let y: number;
+    if (stored) {
+      [x, y] = stored.split(",").map(Number);
+    } else {
+      // 近村 8~12 格的固定候選,挑第一個踩得上去的普通地面
+      const candidates: [number, number][] = [[52, 33], [36, 20], [50, 20], [38, 34], [34, 30]];
+      const pick = candidates.find(([cx, cy]) => {
+        const t = this.grid[cy]?.[cx];
+        return !!t && (t.type === "plain" || t.type === "brush" || t.type === "rubble" || t.type === "resource" || t.type === "event");
+      });
+      if (!pick) return;
+      [x, y] = pick;
+      localStorage.setItem("redmoon-site", `${x},${y}`);
+    }
+    const t = this.grid[y]?.[x];
+    if (t && t.type !== "redmoon") {
+      this.grid[y][x] = { type: "redmoon", revealed: t.revealed };
+      this.saveState();
+    }
+    if (!localStorage.getItem("redmoon-site-logged")) {
+      localStorage.setItem("redmoon-site-logged", "1");
+      this.cb.onLog("遠處的野地裡,有一塊窪地在白天也泛著淡淡的紫紅色。");
+    }
+  }
+
   /**
    * 滑鼠點擊用:不用點準相鄰格,點在玩家哪一側就往哪個方向走一步。
    * 例如點在 @ 右邊(不管遠近)就往右走一格,取水平/垂直落差較大的那一軸為移動方向。
@@ -775,6 +821,15 @@ export class ExploreEngine {
     this.playerY = ny;
     this.reveal(nx, ny);
     this.stepCount++;
+
+    // 紅月窪地:踩上 ☾ → 固定三場連鎖戰(畸體→畸體→變異野獸)
+    if (target.type === "redmoon") {
+      this.cb.onLog("窪地裡的草全倒向中央,像被什麼巨大的重量壓過。空氣裡有一股鐵鏽味。");
+      localStorage.setItem("pending-redmoon", "1");
+      this.saveState();
+      this.cb.onEncounter();
+      return;
+    }
 
     // ---- 東南迷宮:首入敘事、五盜伏擊、贓物架(勝利前限定)----
     if (this.mapId === "A" && !clearedLandmarks().includes("scavenger") && isMazeInterior(nx, ny)) {

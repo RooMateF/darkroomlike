@@ -905,6 +905,7 @@ function startVillage() {
   // ---- 她的指路(引導事件):連續 7 趟空手而歸後,回村由她點方向 ----
   // 第一次指最近的資源區塊,之後指最近的未打通探勘點;文本經用戶核可(2026-09)
   let guidanceText: string | null = null;
+  let redmoonReminder: string | null = null;
 
   function dirName(dx: number, dy: number): string {
     // y 向下:東=0°、南=90°;八方位
@@ -963,9 +964,20 @@ function startVillage() {
         : `「還是一無所獲的話……」她猶豫了一下,還是開了口。「獵人們提過,${dirB}那頭有處看起來不太尋常的地方。可能有危險,但……也可能有我們需要的東西。如果要去的話記得裝備要準備萬全。」`;
   }
 
+  function maybeArmRedmoon() {
+    // 紅月提醒(2026-09 核可):紅月事件滿三次,出門前她提醒一次
+    if (redmoonReminder || guidanceText || engine.pendingEvent) return;
+    if (loadCarried() !== null) return;
+    if (Number(localStorage.getItem("redmoon-count") ?? "0") < 3) return;
+    if (localStorage.getItem("redmoon-reminded")) return;
+    redmoonReminder =
+      "「連著幾個晚上……月亮的顏色都不對。」她望著天邊,眉頭皺得很深。「獵人說,村外有一塊窪地的草全倒向了中央——像有什麼東西在那裡聚集。如果你要去看的話,千萬要小心。而且我有不好的預感——那東西要是一直放著不管,總有一天會輪到村子。」";
+  }
+
   function render() {
     // 事件用全螢幕遮罩呈現(時間本來就暫停了,讓玩家專心做決定)
     maybeArmGuidance();
+    maybeArmRedmoon();
     const ev = engine.pendingEvent;
     if (ev && ev.kind === "choice") {
       // 只在事件換人時重建選項,避免每次 render 都重繪按鈕導致點擊失效
@@ -986,6 +998,22 @@ function startVillage() {
           });
           overlayOptionsEl.appendChild(btn);
         });
+      }
+      overlayEl.style.display = "flex";
+    } else if (redmoonReminder) {
+      if (shownEventId !== "redmoon") {
+        shownEventId = "redmoon";
+        overlayTextEl.textContent = redmoonReminder;
+        overlayOptionsEl.innerHTML = "";
+        const btn = document.createElement("button");
+        btn.className = "btn ready";
+        btn.textContent = "知道了";
+        btn.addEventListener("click", () => {
+          localStorage.setItem("redmoon-reminded", "1");
+          redmoonReminder = null;
+          render();
+        });
+        overlayOptionsEl.appendChild(btn);
       }
       overlayEl.style.display = "flex";
     } else if (guidanceText) {

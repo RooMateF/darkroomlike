@@ -4,7 +4,7 @@ import { buildPlayerCategories } from "./demo-data";
 import { WEAPONS, fineMaxDurability } from "./village/data";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
 import { loadCarried, saveCarried, clearCarried, addLoot, playerMaxHp, carriedMaxDurability, packUsed } from "./carried";
-import { pickRandomEnemy, pickMidEnemy, pickEnemyGroup, GUARDIANS, LANDMARK_REWARDS, LV3_BOSS, EVENT_BOSSES, TENTACLE_GUARD, SPAWN_UNIT, type EnemyDef } from "./enemies";
+import { pickRandomEnemy, pickMidEnemy, pickEnemyGroup, GUARDIANS, LANDMARK_REWARDS, LV3_BOSS, EVENT_BOSSES, TENTACLE_GUARD, SPAWN_UNIT, MOON_MUTANT, REDMOON_BOSS, CHURCH_PHASE2_MOVES, CHURCH_PHASE2_PATTERN, type EnemyDef } from "./enemies";
 import { markLandmarkCleared, currentMapId, isAutoPickup } from "./explore/engine";
 
 // 蓋「這趟有收穫」章(空手計數的歸零依據;引導事件用)
@@ -58,6 +58,10 @@ const isGroupFight = !eventBossId && !dungeon && localStorage.getItem("pending-g
 if (localStorage.getItem("pending-group")) localStorage.removeItem("pending-group");
 const groupQueue: EnemyDef[] = isGroupFight ? pickEnemyGroup() : [];
 
+// 紅月窪地(2026-09 核可):踩上 ☾ 觸發——固定三場連鎖(畸體×2 → 畸體×1~2 → 變異野獸)
+const isRedmoonFight = !eventBossId && !dungeon && localStorage.getItem("pending-redmoon") === "1";
+if (localStorage.getItem("pending-redmoon")) localStorage.removeItem("pending-redmoon");
+
 // 相鄰地圖(中央地圖以外)的野外更兇:一半機率抽中期梯隊
 const pickedDef = eventBossId
   ? (EVENT_BOSSES[eventBossId] ?? pickRandomEnemy())
@@ -82,6 +86,10 @@ function expandPack(defs: EnemyDef[]): EnemyDef[] {
 // 這一波的實際陣容(展開後);後面的波次見 chainWaves
 const initialWave = expandPack([pickedDef, ...groupQueue]);
 groupQueue.length = 0;
+if (isRedmoonFight) {
+  initialWave.length = 0;
+  initialWave.push(MOON_MUTANT, MOON_MUTANT);
+}
 const enemyDef = initialWave[0];
 
 // 高階遺跡連鎖戰(2026-09 用戶定案):Lv3+ 層間戰有一半機率連 2~3 場——
@@ -90,6 +98,10 @@ const chainWaves: EnemyDef[][] = [];
 if (dungeon && dungeon.level >= 3 && dungeon.stage < dungeon.stages && Math.random() < 0.5) {
   const extra = 1 + (Math.random() < 0.4 ? 1 : 0);
   for (let i = 0; i < extra; i++) chainWaves.push(expandPack([pickMidEnemy()]));
+}
+if (isRedmoonFight) {
+  chainWaves.push(Math.random() < 0.5 ? [MOON_MUTANT] : [MOON_MUTANT, MOON_MUTANT]);
+  chainWaves.push([REDMOON_BOSS]);
 }
 /** 這一戰的完整陣容(含連鎖各波;勝利時戰利品合計、異晶逐隻擲骰) */
 const unitDefs: EnemyDef[] = [...initialWave];
@@ -607,6 +619,7 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
   },
   onHpChange: () => {
     scavengerCheck();
+    churchCheck();
     // 瀕死警告:低於三成血時給一次感官描寫(不重複刷)
     if (engine.playerHp > 0 && engine.playerHp <= engine.playerMaxHp * 0.3 && !lowHpWarned) {
       lowHpWarned = true;
@@ -637,6 +650,12 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
         return;
       }
 
+      if (isRedmoonFight) {
+        // 紅月循環收束:計數歸零(窪地由探索頁撤掉);之後再滿三次會再來
+        localStorage.setItem("redmoon-count", "0");
+        appendSystemLog("那東西倒下時,窪地裡的紫紅色像退潮一樣散了。今晚的月亮,應該會是正常的顏色。");
+      }
+
       // 勝利(多目標:全滅):戰利品全隊合計;剩餘 HP 記回行囊——活著帶回村才真的入庫
       const gains: Record<string, number> = {};
       for (const d of unitDefs) {
@@ -658,6 +677,9 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
         } else {
           saveSiteProgress(dungeon.key, { stage: dungeon.stage, cleared: true });
           delay = 3000;
+          if (dungeon.landmarkId === "church") {
+            appendSystemLog("『原來.....這數百年的時光為的就是這一刻嗎，主啊，謝謝您......』");
+          }
           if (dungeon.level === 1) {
             gains.ration = (gains.ration ?? 0) + 2;
             message = "這裡清理乾淨了。屋棚還算牢固,適合當作外出時的落腳點";
@@ -888,6 +910,23 @@ function scavengerCheck() {
     boss.hasteMult = 1 / 0.75;
     appendSystemLog("失去收藏的長手抽搐著暴起,他的真身顯露出來，頭顱連著脖子接在牆壁上，無數隻手從牆壁縫裡伸出。他的眼睛發紅，或許在眼前與迷宮融為一體的怪物曾經是個人類......");
   }
+}
+
+// 不再祈禱的東西・半血蛻變(2026-09 核可 A+B+C):
+// A 換招式表+CD×0.85;B 每第三招百手壓下(穿盾,鬼雪凍滿可打斷一次);C 血雨(每2秒-2)+道具轉盤拖慢到1.5s
+let churchTransformed = false;
+function churchCheck() {
+  if (churchTransformed || !dungeon || dungeon.landmarkId !== "church") return;
+  const u = engine.units[0];
+  if (!u || u.hp <= 0 || u.hp > u.maxHp / 2) return;
+  churchTransformed = true;
+  appendSystemLog("他腫脹的後背被撐開來，血肉與鮮血化作暴雨灑滿了教堂，從後背伸出來的，是數不清可能有數十隻如同蜈蚣般的手。");
+  appendSystemLog("『啊......我們的主在數百年前早就拋棄了我們，任由這顆星球被外來的力量不斷侵蝕。整個這片大陸早已被深淵的力量佔據，事到如今你們又能做到些什麼！』");
+  engine.transformUnit(u, CHURCH_PHASE2_MOVES, { hasteMult: 1 / 0.85, pattern: CHURCH_PHASE2_PATTERN });
+  u.freezeInterruptArmed = true;
+  engine.stormBleed = 2;
+  engine.setItemField(1.5);
+  appendSystemLog("血雨沒有停。落在身上的每一滴都燙得像火,傷口不肯闔上。(持續流血;道具使用變慢)");
 }
 
 /** 掉落面板開著:主戰鬥快捷鍵(1~9/空白/R/0)全部讓路給面板自己的按鍵 */

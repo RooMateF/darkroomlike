@@ -44,4 +44,6 @@ export interface EnemyMove {
   tell?: string;
   /** 迷宮觸手:命中偷走一件裝備(偷竊本體由戰鬥頁執行,每場只偷一次) */
   steal?: boolean;
+  /** 穿盾(教堂百手壓下):普通格擋的減傷上限壓到 50%,只有完全格擋能無傷 */
+  pierceBlock?: boolean;
 }

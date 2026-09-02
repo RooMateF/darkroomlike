@@ -161,6 +161,41 @@ export function pickMidEnemy(): EnemyDef {
   return MID_ENEMIES[Math.floor(Math.random() * MID_ENEMIES.length)];
 }
 
+/** 紅月窪地(2026-09 核可):固定三場連鎖——畸體×2 → 畸體×1~2 → 變異野獸 */
+export const MOON_MUTANT: EnemyDef = {
+  id: "moon-mutant",
+  label: "月照的畸體",
+  intro: "草堆裡站起幾具不成形的東西——像人,又不再是人。皮膚底下有東西在蠕動。",
+  hp: 26,
+  moves: [
+    { id: "bite", label: "咬撕", baseCost: 1.0, symbol: "»»", damage: 5 },
+    { id: "spasm", label: "痙攣衝撞", baseCost: 1.9, symbol: "»»»»", damage: 9, tell: "牠的身體開始不自然地痙攣——" },
+  ],
+  loot: { meat: 2 },
+  shardChance: 0.6,
+};
+
+export const REDMOON_BOSS: EnemyDef = {
+  id: "redmoon-boss",
+  label: "窪地中央的變異野獸",
+  intro: "窪地中央的隆起緩緩展開。鑽出了一隻四肢著地，看不出是什麼物種的生物。你看不出牠的正面在哪裡——但你知道,牠正在看你。",
+  hp: 150,
+  moves: [
+    { id: "sweep", label: "橫掃", baseCost: 1.2, symbol: "»»»", damage: 7 },
+    { id: "gaze", label: "紫紅的凝視", baseCost: 2.2, symbol: "◉◉", damage: 14, confusion: 30, tell: "牠停了下來——紫紅色的光從牠的體表滲了出來。" },
+  ],
+  loot: { meat: 4, shard: 6 },
+  freezeResist: true,
+};
+
+/** 不再祈禱的東西・半血蛻變(2026-09 核可 A+B+C):蜈蚣手連招,每第三招百手壓下(穿盾) */
+export const CHURCH_PHASE2_MOVES: EnemyMove[] = [
+  { id: "stab", label: "百手穿刺", baseCost: 0.75, symbol: "»»", damage: 5 },
+  { id: "limb-sweep", label: "肢林橫掃", baseCost: 1.6, symbol: "»»»»", damage: 14, status: { kind: "bleed", amount: 40 }, tell: "蜈蚣般的手臂貼著地面壓了過來。" },
+  { id: "hundred-slam", label: "百手壓下", baseCost: 2.6, symbol: "»»»»»»", damage: 26, control: { kind: "stun", duration: 1.2 }, pierceBlock: true, tell: "數不清的手同時高高舉起——影子把整座祭壇罩住了。" },
+];
+export const CHURCH_PHASE2_PATTERN = ["stab", "limb-sweep", "hundred-slam"];
+
 /** 孳生體(單隻):成群的孳生體在戰場上展開成 3 隻這個(2026-09 多目標系統) */
 export const SPAWN_UNIT: EnemyDef = {
   id: "spawn-one",
