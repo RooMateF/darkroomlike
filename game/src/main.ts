@@ -193,7 +193,7 @@ app.innerHTML = `
     <div class="combat-main" id="combat-main">
       <div class="section">
         <div class="section-title">你</div>
-        <div class="row-grid">
+        <div class="row-grid" id="player-hp-row" style="position:relative;">
           <span class="row-name">HP <b id="player-hp-text"></b><span id="status-effects"></span></span>
           <span class="row-controls"><span class="bar hp-bar"><span class="filled" id="player-hp-filled"></span><span id="player-hp-empty"></span></span></span>
           <span class="row-info"></span>
@@ -280,6 +280,25 @@ interface UnitEls {
   frPct: HTMLElement;
 }
 let unitEls: UnitEls[] = [];
+
+/** 傷害跳字(2026-09 用戶要求):在被打的那一塊上冒出 -N,飄起淡出;槍械逐彈跳 */
+function spawnDamagePop(host: HTMLElement, text: string, topPx?: number) {
+  const el = document.createElement("span");
+  el.className = "dmg-pop";
+  el.textContent = text;
+  el.style.left = `${45 + Math.random() * 35}%`;
+  if (topPx !== undefined) el.style.top = `${topPx}px`;
+  host.appendChild(el);
+  window.setTimeout(() => el.remove(), 900);
+}
+
+// 敵方跳字覆蓋層:掛在敵欄外,擊殺重建敵欄也不會把跳到一半的字洗掉
+const enemiesHostEl = document.querySelector<HTMLDivElement>("#enemies")!;
+enemiesHostEl.style.position = "relative";
+const dmgPopLayer = document.createElement("div");
+dmgPopLayer.id = "dmg-pop-layer";
+enemiesHostEl.parentElement!.style.position = "relative";
+enemiesHostEl.parentElement!.appendChild(dmgPopLayer);
 
 function buildEnemyPanel() {
   const host = document.querySelector<HTMLDivElement>("#enemies")!;
@@ -691,6 +710,15 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
   onBlocked: (perfect) => onShieldBlocked(perfect),
   onSteal: () => performSteal(),
   onUnitsChanged: () => buildEnemyPanel(),
+  onUnitHit: (unit, dmg) => {
+    const i = engine.units.indexOf(unit);
+    const el = unitEls[i];
+    if (el) spawnDamagePop(dmgPopLayer, `-${dmg}`, enemiesHostEl.offsetTop + el.root.offsetTop + 6);
+  },
+  onPlayerHit: (dmg) => {
+    const host = document.querySelector<HTMLElement>("#player-hp-row");
+    if (host) spawnDamagePop(host, `-${dmg}`);
+  },
   onEnemyDown: (unit) => {
     // 護贓的觸手倒下:牠纏著的那件贓物直接回到你手上(2026-09 用戶定案)
     if (unit.tag?.startsWith("stolen:")) {

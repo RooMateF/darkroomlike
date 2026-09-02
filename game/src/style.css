@@ -815,6 +815,40 @@ hr {
 }
 
 /* 主角(@):終端游標式反白方塊——整張地圖唯一的填色格,一眼就能鎖定自己 */
+.enemy-block {
+  position: relative;
+}
+
+#dmg-pop-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* 傷害跳字:冒出 -N,飄起淡出 */
+.dmg-pop {
+  position: absolute;
+  top: 0;
+  color: var(--fg-bright);
+  font-weight: bold;
+  pointer-events: none;
+  z-index: 5;
+  animation: dmg-pop 0.8s ease-out forwards;
+}
+
+@keyframes dmg-pop {
+  from {
+    opacity: 1;
+    transform: translateY(2px);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+}
+
 .map-cell.rail {
   color: var(--fg-bright);
 }

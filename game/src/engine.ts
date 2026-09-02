@@ -181,6 +181,10 @@ export interface EngineCallbacks {
   onEnemyDown?: (unit: EnemyUnit) => void;
   /** 敵人陣容/目標變動(加入新敵、切換目標):UI 重建敵欄 */
   onUnitsChanged?: () => void;
+  /** 某隻敵人吃到一下傷害(跳字動畫用;彈丸逐顆回報) */
+  onUnitHit?: (unit: EnemyUnit, dmg: number) => void;
+  /** 玩家吃到一下傷害(跳字動畫用;含持續傷害) */
+  onPlayerHit?: (dmg: number) => void;
 }
 
 /**
@@ -440,6 +444,7 @@ export class CombatEngine {
         const dot = this.playerStatus.poison.level + this.playerStatus.bleed.level + this.stormBleed;
         if (dot > 0 && this.playerHp > 0) {
           this.playerHp = Math.max(0, this.playerHp - dot);
+          this.cb.onPlayerHit?.(dot);
           this.cb.onLog({ id: this.logId++, actor: "傷勢與毒素", target: "你", symbol: "~", damage: dot });
           this.cb.onHpChange();
           if (this.playerHp <= 0) return;
@@ -479,6 +484,7 @@ export class CombatEngine {
         this.cb.onLog({ id: this.logId++, actor: "你", target: `完全格擋!盾面把${unit.label}的攻勢整個彈開`, symbol: "◎", damage: 0 });
       } else {
         this.playerHp = Math.max(0, this.playerHp - dmg);
+        if (dmg > 0) this.cb.onPlayerHit?.(dmg);
         this.cb.onLog({
           id: this.logId++,
           actor: unit.label,
@@ -594,6 +600,7 @@ export class CombatEngine {
         let d = dmg;
         if (u2.staggerLeft > 0) d = Math.round(d * 1.25);
         u2.hp = Math.max(0, u2.hp - d);
+        this.cb.onUnitHit?.(u2, d);
         total += d;
         hitUnits.add(u2);
         if (u2.hp <= 0 && !downed.includes(u2)) downed.push(u2);
@@ -613,6 +620,7 @@ export class CombatEngine {
     if (!pelletsDone && dmg > 0 && target) {
       if (target.staggerLeft > 0) dmg = Math.round(dmg * 1.25); // 踉蹌中受創加成
       target.hp = Math.max(0, target.hp - dmg);
+      this.cb.onUnitHit?.(target, dmg);
       // 名刀鬼雪:命中疊加凍結值(Boss 抗性減半);滿 100 → 寒滯+強化下一擊,歸零重疊
       // 踉蹌值(2026-09 實裝):重武器命中疊加;巨體(同凍結抗性)減半;
       // 疊滿 100 → 踉蹌 STAGGER_DURATION 秒(行動條凍結+受創 ×1.25),期間不再疊加
