@@ -784,7 +784,7 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
     }
     if (candidates.length === 0) return false;
     const pick = candidates[Math.floor(Math.random() * candidates.length)];
-    appendSystemLog("你的手自己動了。");
+    appendSystemLog("你的身體完全不受控制，自己做出了行動");
     if (engine.useSubAction(pick.cat, pick.id)) {
       afterUse(pick.id);
       return true;
