@@ -502,8 +502,8 @@ export class CombatEngine {
       }
       if (blocked === "perfect") {
         this.cb.onLog({ id: this.logId++, actor: "你", target: `完全格擋!那一擊落在盾面正中,力道順著弧面滑開了`, symbol: "◎", damage: 0 });
-        // 2026-09 定案(方案C):完美格擋「有前搖的大招」→ 對方被反彈的力道掀得踉蹌 3 秒(輸出窗)
-        if (move.tell) {
+        // 2026-09 定案(方案C):完美格擋「大招」(heavy)→ 對方被反彈的力道掀得踉蹌 3 秒(輸出窗)
+        if (move.heavy) {
           unit.staggerGauge = 0;
           unit.staggerLeft = Math.max(unit.staggerLeft, PERFECT_PARRY_STAGGER);
           this.cb.onLog({ id: this.logId++, actor: "你", target: `力道原路彈了回去。${unit.label}晃了兩步,一時間動彈不得`, symbol: "!!", damage: 0 });

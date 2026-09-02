@@ -182,7 +182,7 @@ export const MOON_MUTANT: EnemyDef = {
   hp: 26,
   moves: [
     { id: "bite", label: "咬撕", baseCost: 1.0, symbol: "»»", damage: 5 },
-    { id: "spasm", label: "痙攣衝撞", baseCost: 1.9, symbol: "»»»»", damage: 9, tell: "牠的身體開始不自然地痙攣——" },
+    { id: "spasm", label: "痙攣衝撞", baseCost: 1.9, symbol: "»»»»", damage: 9, tell: "牠的肌肉抖了幾下。" },
   ],
   loot: { meat: 2 },
   shardChance: 0.6,
@@ -195,7 +195,7 @@ export const REDMOON_BOSS: EnemyDef = {
   hp: 150,
   moves: [
     { id: "sweep", label: "橫掃", baseCost: 1.2, symbol: "»»»", damage: 7 },
-    { id: "gaze", label: "紫紅的凝視", baseCost: 2.2, symbol: "◉◉", damage: 14, confusion: 30, tell: "牠停了下來——紫紅色的光從牠的體表滲了出來。" },
+    { id: "gaze", label: "紫紅的凝視", baseCost: 2.2, symbol: "◉◉", damage: 14, heavy: true, confusion: 30, tell: "牠停了下來——紫紅色的光從牠的體表滲了出來。" },
   ],
   loot: { meat: 4, shard: 6 },
   freezeResist: true,
@@ -205,8 +205,8 @@ export const REDMOON_BOSS: EnemyDef = {
 /** 不再祈禱的東西・半血蛻變(2026-09 核可 A+B+C):蜈蚣手連招,每第三招百手壓下(穿盾) */
 export const CHURCH_PHASE2_MOVES: EnemyMove[] = [
   { id: "stab", label: "百手穿刺", baseCost: 1.05, symbol: "»»", damage: 4 },
-  { id: "limb-sweep", label: "肢林橫掃", baseCost: 1.9, symbol: "»»»»", damage: 12, status: { kind: "bleed", amount: 40 }, tell: "蜈蚣般的手臂貼著地面壓了過來。" },
-  { id: "hundred-slam", label: "百手壓下", baseCost: 2.9, symbol: "»»»»»»", damage: 23, control: { kind: "stun", duration: 1.2 }, pierceBlock: true, tell: "數不清的手同時高高舉起——影子把整座祭壇罩住了。" },
+  { id: "limb-sweep", label: "肢林橫掃", baseCost: 1.9, symbol: "»»»»", damage: 12, status: { kind: "bleed", amount: 40 }, tell: "幾條手臂貼著地面滑了過來。" },
+  { id: "hundred-slam", label: "百手壓下", baseCost: 2.9, symbol: "»»»»»»", damage: 23, heavy: true, control: { kind: "stun", duration: 1.2 }, pierceBlock: true, tell: "數不清的手同時高高舉起——影子把整座祭壇罩住了。" },
   // 孕育(2026-09 用戶定案):每第五次行動必定釋放——零傷害,是留給玩家的空窗;結算時鑽出兩隻孳生失敗體(野外同款)
   { id: "priest-spawn", label: "孕育", baseCost: 2.0, symbol: "◎◎", damage: 0, tell: "神父的軀體開始蠕動鼓脹——有什麼正要鑽出來。" },
 ];
@@ -269,7 +269,7 @@ export const LV3_BOSS: EnemyDef = {
   hp: 80,
   moves: [
     { id: "sweep", label: "橫掃", baseCost: 1.1, symbol: "»»»", damage: 6 },
-    { id: "slam", label: "重擊", baseCost: 2.2, symbol: "»»»»»", damage: 16, tell: "牠的輪廓在黑暗裡拔高,雙臂舉過了頭頂。" },
+    { id: "slam", label: "重擊", baseCost: 2.2, symbol: "»»»»»", damage: 16, heavy: true, tell: "牠的輪廓在黑暗裡拔高,雙臂舉過了頭頂。" },
   ],
   loot: { hide: 4, meat: 4, shard: 3 },
   freezeResist: true,
@@ -292,7 +292,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     moves: [
       { id: "tap", label: "輕拍", baseCost: 0.9, symbol: "»", damage: 2 },
       { id: "count", label: "屈指", baseCost: 1.5, symbol: "…", damage: 0, tell: "牠又屈起一根指頭。" },
-      { id: "reckoning", label: "清算", baseCost: 2.2, symbol: "»»»»»", damage: 16, control: { kind: "stun", duration: 1.0 }, tell: "牠攤開手掌——三根手指,一起收了回去。" },
+      { id: "reckoning", label: "清算", baseCost: 2.2, symbol: "»»»»»", damage: 16, heavy: true, control: { kind: "stun", duration: 1.0 }, tell: "牠攤開手掌——三根手指,一起收了回去。" },
     ],
     pattern: ["tap", "count", "tap", "count", "tap", "count", "reckoning"],
     loot: {},
@@ -308,7 +308,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     hp: 90,
     moves: [
       { id: "grab", label: "抓奪", baseCost: 1.0, symbol: "~»", damage: 5 },
-      { id: "swing", label: "掄臂", baseCost: 2.4, symbol: "»»»»»", damage: 14, tell: "那條過長的手臂高高掄了起來,影子罩住了你。" },
+      { id: "swing", label: "掄臂", baseCost: 2.4, symbol: "»»»»»", damage: 14, heavy: true, tell: "那條過長的手臂高高掄了起來,影子罩住了你。" },
     ],
     loot: {},
     freezeResist: true,
@@ -321,7 +321,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     hp: 110,
     moves: [
       { id: "swipe", label: "拍擊", baseCost: 1.1, symbol: "»»»", damage: 5 },
-      { id: "crush", label: "重壓", baseCost: 2.4, symbol: "»»»»»»", damage: 15, tell: "巨獸壓低了身子,肩胛高高聳起——鼻息忽然停了。" },
+      { id: "crush", label: "重壓", baseCost: 2.4, symbol: "»»»»»»", damage: 15, heavy: true, tell: "巨獸壓低了身子,肩胛高高聳起——鼻息忽然停了。" },
     ],
     loot: { hide: 6, meat: 6, shard: 4 },
     freezeResist: true,
@@ -336,7 +336,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     moves: [
       { id: "stare", label: "凝視", baseCost: 0.7, symbol: "…", damage: 0 },
       { id: "swing", label: "揮舞", baseCost: 1.0, symbol: "»»", damage: 5 },
-      { id: "shriek", label: "撲抓", baseCost: 1.7, symbol: "»»»»", damage: 11, tell: "他的十指扣成爪狀,慢慢舉了起來。" },
+      { id: "shriek", label: "撲抓", baseCost: 1.7, symbol: "»»»»", damage: 11, tell: "他的手指慢慢扣成爪狀。" },
     ],
     loot: { bandage: 2, ration: 2, shard: 3 },
     freezeResist: true,
@@ -349,7 +349,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     hp: 100,
     moves: [
       { id: "skitter", label: "亂刺", baseCost: 0.6, symbol: "·»", damage: 4, status: { kind: "poison", amount: 30 } },
-      { id: "pincer", label: "鉗擊", baseCost: 1.7, symbol: "»»»»", damage: 12, tell: "細足全部停住了。甲殼下的巨鉗張到了最開。" },
+      { id: "pincer", label: "鉗擊", baseCost: 1.7, symbol: "»»»»", damage: 12, tell: "細足停了半拍,鉗子微微張開。" },
     ],
     loot: { meat: 5, hide: 3, shard: 3 },
     freezeResist: true,
@@ -365,9 +365,9 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     hp: 220,
     moves: [
       { id: "dig", label: "鑿擊", baseCost: 0.8, symbol: "»»", damage: 8 },
-      { id: "dust", label: "揚塵", baseCost: 1.4, symbol: "…", damage: 4, status: { kind: "poison", amount: 55 }, tell: "牠的環節一節節收緊,甲縫裡滲出灰黑色的粉末。" },
+      { id: "dust", label: "揚塵", baseCost: 1.4, symbol: "…", damage: 4, status: { kind: "poison", amount: 55 }, tell: "甲縫裡漏出一點灰黑色的粉末。" },
       // 崩落:高傷+暈眩——被震住的那一秒多,補血條也是凍結的;醒神鹽是針對性的解法
-      { id: "collapse", label: "崩落", baseCost: 2.6, symbol: "»»»»»»", damage: 22, control: { kind: "stun", duration: 1.2 }, tell: "牠高高抬起了雙螯——坑道頂上簌簌落下灰來。" },
+      { id: "collapse", label: "崩落", baseCost: 2.6, symbol: "»»»»»»", damage: 22, heavy: true, control: { kind: "stun", duration: 1.2 }, tell: "牠高高抬起了雙螯——坑道頂上簌簌落下灰來。" },
     ],
     loot: { coal: 8, stone: 6, shard: 6 },
     freezeResist: true,
@@ -385,10 +385,10 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     hp: 550, // 2026-09 上修:槍械時代的體格
     moves: [
       // 低語:鑽進骨頭裡的聲音讓手腳發沉(遲緩)——充能減半,補血與輸出一起變慢
-      { id: "whisper", label: "低語", baseCost: 1.9, symbol: "…", damage: 5, control: { kind: "slow", duration: 2.5 }, tell: "那個高大的輪廓朝你微微傾了過來。" },
+      { id: "whisper", label: "低語", baseCost: 1.9, symbol: "…", damage: 5, control: { kind: "slow", duration: 2.5 }, tell: "神父朝你微微傾了過來,像要說什麼。" },
       { id: "rend", label: "撕裂", baseCost: 1.5, symbol: "»»»»", damage: 11, status: { kind: "bleed", amount: 55 } },
       // 鐘鳴:整座教堂共振的一擊——高傷+暈眩;不帶醒神鹽硬扛,補血節奏會被打碎
-      { id: "toll", label: "鐘鳴", baseCost: 3.3, symbol: "»»»»»»»", damage: 24, control: { kind: "stun", duration: 1.5 }, tell: "它緩緩抬起了手,指向頭頂的鐘。空氣忽地緊繃。" },
+      { id: "toll", label: "鐘鳴", baseCost: 3.3, symbol: "»»»»»»»", damage: 24, heavy: true, control: { kind: "stun", duration: 1.5 }, tell: "它緩緩抬起了手,指向頭頂的鐘。空氣忽地緊繃。" },
     ],
     loot: { shard: 8 },
     freezeResist: true,
