@@ -18,6 +18,9 @@ interface SimConfig {
   crisis: boolean;
   noPhase2?: boolean;
   tuned?: boolean;
+  greatsword?: boolean;
+  perfectStagger?: boolean; // 完美格擋大招 → Boss 硬直 3s
+  blockKeepsBars?: boolean; // 規則C:舉盾不歸零其他行動條 // 原型:鋼大劍 2.0s/22 疊踉蹌 40(Boss 減半),滿 100 → 踉蹌 3s+受傷×1.25
 }
 
 function runOnce(cfg: SimConfig): { win: boolean; t: number; hpLeft: number; bossHp: number; phase2: boolean } {
@@ -32,6 +35,9 @@ function runOnce(cfg: SimConfig): { win: boolean; t: number; hpLeft: number; bos
     loot: {},
   } as unknown as Carried;
   const categories = buildPlayerCategories(carried);
+  if (cfg.greatsword) {
+    categories.find((c) => c.id === "melee")!.subActions.push({ id: "proto-gs", label: "鋼大劍", baseCost: 2.0, symbol: ">>", damage: 22 });
+  }
 
   const church = GUARDIANS.church;
   // 下修候選(提案用):一階段 hp360、低語slow1.8、撕裂11、鐘鳴24+暈1.2;二階段 4/11(血30)/22(暈1.0)、血雨1、道具1.3s、CD×0.9
@@ -55,6 +61,7 @@ function runOnce(cfg: SimConfig): { win: boolean; t: number; hpLeft: number; bos
     onPauseChange: () => {},
     onHpChange: () => {},
     onTell: () => { tellSeen = true; },
+    onBlocked: (perfect) => { if (perfect && cfg.perfectStagger) pendingStagger = 3; },
   }, { enemyHp: cfg.tuned ? 360 : church.hp, enemyLabel: church.label, freezeResist: true });
 
   engine.playerMaxHp = 90; // 鋼甲
@@ -65,6 +72,9 @@ function runOnce(cfg: SimConfig): { win: boolean; t: number; hpLeft: number; bos
   const eng = engine as unknown as { step: (dt: number) => void };
   let transformed = false;
   let t = 0;
+  let staggerGauge = 0;
+  let staggerLeft = 0;
+  let pendingStagger = 0;
   const DT = 0.02;
   // 這一次格擋的預按提前量(反應誤差):目標是在落點前 0.05s 按下(完全格擋窗 0.1s)
   let nextPressLead = 0.05 + (Math.random() * 2 - 1) * cfg.blockJitter;
@@ -91,6 +101,11 @@ function runOnce(cfg: SimConfig): { win: boolean; t: number; hpLeft: number; bos
   while (t < 420) {
     eng.step(DT);
     t += DT;
+    if (pendingStagger > 0) { staggerLeft = Math.max(staggerLeft, pendingStagger); pendingStagger = 0; }
+    if (staggerLeft > 0) {
+      staggerLeft -= DT;
+      engine.units[0].tracker.elapsed = 0; // 踉蹌:行動條凍住
+    }
     if (engine.playerHp <= 0) return { win: false, t, hpLeft: 0, bossHp: engine.enemyHp, phase2: transformed };
     if (engine.enemyHp <= 0) return { win: true, t, hpLeft: engine.playerHp, bossHp: 0, phase2: transformed };
 
@@ -101,7 +116,7 @@ function runOnce(cfg: SimConfig): { win: boolean; t: number; hpLeft: number; bos
       transformed = true;
       engine.transformUnit(u, p2Moves, { hasteMult: cfg.tuned ? 1 / 0.9 : 1 / 0.85, pattern: CHURCH_PHASE2_PATTERN });
       u.freezeInterruptArmed = true;
-      engine.stormBleed = cfg.tuned ? 1 : 2;
+      engine.stormBleed = 1; // 2026-09 下修
       engine.setItemField(cfg.tuned ? 1.3 : 1.5);
     }
 
@@ -120,9 +135,15 @@ function runOnce(cfg: SimConfig): { win: boolean; t: number; hpLeft: number; bos
     // 格擋:只接重擊(≥13);抓落點前 0.05s(誤差 cfg.blockJitter)
     if (
       cfg.useShield && engine.blockCooldownLeft <= 0 && engine.blockWindowLeft <= 0 &&
-      move.damage >= 26 && timeToLand <= Math.max(0.01, nextPressLead) && engine.stunLeft <= 0
+      move.damage >= 20 && timeToLand <= Math.max(0.01, nextPressLead) && engine.stunLeft <= 0
     ) {
-      engine.useBlock();
+      if (cfg.blockKeepsBars) {
+        const snap = engine.playerCategories.map((c) => c.trackers.map((tr) => ({ tr, e: tr.elapsed, m: tr.costMult })));
+        engine.useBlock();
+        for (const cat of snap) for (const x of cat) { x.tr.elapsed = x.e; x.tr.costMult = x.m; }
+      } else {
+        engine.useBlock();
+      }
       nextPressLead = 0.05 + (Math.random() * 2 - 1) * cfg.blockJitter;
       continue;
     }
@@ -137,7 +158,24 @@ function runOnce(cfg: SimConfig): { win: boolean; t: number; hpLeft: number; bos
 
     // 輸出:鋼槍優先,鬼雪墊(疊凍結);格擋窗開著就別出手(出招不清窗,但省判斷)
     if (engine.stunLeft <= 0) {
-      if (weaponReady("steel-spear")) { engine.useSubAction("melee", "steel-spear"); continue; }
+      if (cfg.greatsword && weaponReady("proto-gs")) {
+        if (engine.useSubAction("melee", "proto-gs")) {
+          const u2 = engine.units[0];
+          if (staggerLeft > 0) u2.hp = Math.max(0, u2.hp - Math.round(22 * 0.25)); // 踉蹌中受傷 ×1.25
+          staggerGauge += 20; // 40 的 Boss 減半
+          if (staggerGauge >= 100 && staggerLeft <= 0) {
+            staggerGauge = 0;
+            staggerLeft = 3;
+          }
+          continue;
+        }
+      }
+      if (weaponReady("steel-spear")) {
+        if (engine.useSubAction("melee", "steel-spear")) {
+          if (staggerLeft > 0) { const u2 = engine.units[0]; u2.hp = Math.max(0, u2.hp - Math.round(17 * 0.25)); }
+          continue;
+        }
+      }
       if (weaponReady("steel-sword")) { engine.useSubAction("melee", "steel-sword"); continue; }
       if (weaponReady("oniyuki")) { engine.useSubAction("melee", "oniyuki"); continue; }
     }
@@ -148,20 +186,18 @@ function runOnce(cfg: SimConfig): { win: boolean; t: number; hpLeft: number; bos
 
 const N = 400;
 const configs: SimConfig[] = [
-  { name: "下修案:頂配σ0.08", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, tuned: true },
-  { name: "下修案:神格擋σ0.04", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.04, crisis: true, tuned: true },
-  { name: "下修案:手殘σ0.15", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.15, crisis: true, tuned: true },
-  { name: "下修案:無鹽", salts: 0, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, tuned: true },
-  { name: "下修案:無盾", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: false, blockJitter: 0.08, crisis: true, tuned: true },
-  { name: "對照:只有一階段(無蛻變)σ0.08", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, noPhase2: true },
-  { name: "對照:只有一階段(無蛻變)無盾", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: false, blockJitter: 0.08, crisis: true, noPhase2: true },
-  { name: "頂配(繃8藥3鹽5+鋼盾,格擋熟練σ0.08)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true },
-  { name: "頂配+神格擋(σ0.04)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.04, crisis: true },
-  { name: "頂配+手殘格擋(σ0.15)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.15, crisis: true },
-  { name: "無鹽(繃8藥3+鋼盾σ0.08)", salts: 0, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true },
-  { name: "無盾(繃8藥3鹽5)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: false, blockJitter: 0.08, crisis: true },
-  { name: "無盾無鹽(舊頂配)", salts: 0, bandages: 8, elixirs: 3, jerky: 4, useShield: false, blockJitter: 0.08, crisis: true },
+  // 鐵路直達前提:小貨車 100 格,武器盾 12 格,其餘全補給(現行規則,血雨-1)
+  { name: "鐵路滿載 繃40藥12鹽8肉20 σ0.08", salts: 8, bandages: 40, elixirs: 12, jerky: 20, useShield: true, blockJitter: 0.08, crisis: true },
+  { name: "鐵路滿載 神格擋σ0.04", salts: 8, bandages: 40, elixirs: 12, jerky: 20, useShield: true, blockJitter: 0.04, crisis: true },
+  { name: "鐵路滿載 手殘σ0.15", salts: 8, bandages: 40, elixirs: 12, jerky: 20, useShield: true, blockJitter: 0.15, crisis: true },
+  { name: "鐵路務實 繃20藥6鹽6肉10 σ0.08", salts: 6, bandages: 20, elixirs: 6, jerky: 10, useShield: true, blockJitter: 0.08, crisis: true },
+  { name: "鐵路滿載 無盾", salts: 8, bandages: 40, elixirs: 12, jerky: 20, useShield: false, blockJitter: 0.08, crisis: true },
+  { name: "鐵路滿載 無鹽", salts: 0, bandages: 44, elixirs: 12, jerky: 20, useShield: true, blockJitter: 0.08, crisis: true },
+  { name: "對照:舊背囊 繃8藥3鹽5(血雨-1)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true },
+  { name: "鐵路滿載+①完美格擋硬直+②格擋不歸零", salts: 8, bandages: 40, elixirs: 12, jerky: 20, useShield: true, blockJitter: 0.08, crisis: true, perfectStagger: true, blockKeepsBars: true },
 ];
+
+
 
 for (const cfg of configs) {
   let wins = 0;

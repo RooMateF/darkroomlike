@@ -924,7 +924,7 @@ function churchCheck() {
   appendSystemLog("『啊......我們的主在數百年前早就拋棄了我們，任由這顆星球被外來的力量不斷侵蝕。整個這片大陸早已被深淵的力量佔據，事到如今你們又能做到些什麼！』");
   engine.transformUnit(u, CHURCH_PHASE2_MOVES, { hasteMult: 1 / 0.85, pattern: CHURCH_PHASE2_PATTERN });
   u.freezeInterruptArmed = true;
-  engine.stormBleed = 2;
+  engine.stormBleed = 1; // 2026-09 用戶下修:血雨每 2 秒 −1
   engine.setItemField(1.5);
   appendSystemLog("血雨沒有停。落在身上的每一滴都燙得像火,傷口不肯闔上。(持續流血;道具使用變慢)");
 }
