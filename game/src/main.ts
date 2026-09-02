@@ -1,7 +1,7 @@
 import "./style.css";
 import { CombatEngine, type LogEntry } from "./engine";
 import { buildPlayerCategories } from "./demo-data";
-import { WEAPONS, fineMaxDurability } from "./village/data";
+import { WEAPONS, fineMaxDurability, WEAPON_CARRY_LIMITS } from "./village/data";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
 import { loadCarried, saveCarried, clearCarried, addLoot, playerMaxHp, carriedMaxDurability, packUsed } from "./carried";
 import { pickRandomEnemy, pickMidEnemy, pickEnemyGroup, GUARDIANS, LANDMARK_REWARDS, LV3_BOSS, EVENT_BOSSES, TENTACLE_GUARD, SPAWN_UNIT, MOON_MUTANT, REDMOON_BOSS, CHURCH_PHASE2_MOVES, CHURCH_PHASE2_PATTERN, WILD_SPAWN, type EnemyDef } from "./enemies";
@@ -24,7 +24,8 @@ import type { CategoryId } from "./types";
 const SANDBOX = new URLSearchParams(window.location.search).get("sandbox");
 if (SANDBOX) (globalThis as unknown as { __sandboxNoSave?: boolean }).__sandboxNoSave = true;
 
-const SANDBOX_DEFAULT_WEAPONS: Record<string, number> = { "steel-spear": 1, "steel-sword": 1, "steel-greatsword": 1, oniyuki: 1, "steel-shield": 1, dagger: 1, revolver: 1, shotgun: 1, "auto-rifle": 1 };
+// 預設配置遵守攜帶上限(近戰3/槍械2/盾1):大劍+鬼雪+匕首、左輪+自動步槍、鋼盾
+const SANDBOX_DEFAULT_WEAPONS: Record<string, number> = { "steel-greatsword": 1, oniyuki: 1, dagger: 1, "steel-shield": 1, revolver: 1, "auto-rifle": 1 };
 
 /** 模擬戰武器配置(裝備調整面板改這份;sandbox 專用鍵,不是遊戲存檔) */
 function sandboxLoadout(): Record<string, number> {
@@ -982,7 +983,14 @@ if (SANDBOX) {
   };
   for (const w of WEAPONS) {
     const gb = addBtn(w.label, () => {
-      loadout[w.id] = (loadout[w.id] ?? 0) > 0 ? 0 : 1;
+      if ((loadout[w.id] ?? 0) > 0) {
+        loadout[w.id] = 0;
+      } else {
+        // 攜帶上限(2026-09):近戰3/槍械2/盾1——滿了要先卸一把
+        const inCat = WEAPONS.filter((x) => x.category === w.category).reduce((n, x) => n + (loadout[x.id] ?? 0), 0);
+        if (inCat >= WEAPON_CARRY_LIMITS[w.category]) return;
+        loadout[w.id] = 1;
+      }
       saveLoadout();
       refreshGearBtns();
     });

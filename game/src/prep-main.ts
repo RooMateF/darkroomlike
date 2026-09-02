@@ -1,5 +1,5 @@
 import "./style.css";
-import { WEAPONS, carryCapacity, ARROWS_PER_SLOT, RATIONS_PER_SLOT, BULLETS_PER_SLOT, RAILS_PER_SLOT, OIL_SLOTS, fineMaxDurability } from "./village/data";
+import { WEAPONS, carryCapacity, ARROWS_PER_SLOT, RATIONS_PER_SLOT, BULLETS_PER_SLOT, RAILS_PER_SLOT, OIL_SLOTS, fineMaxDurability, WEAPON_CARRY_LIMITS } from "./village/data";
 import { RESOURCE_LABEL } from "./village/types";
 import { saveCarried, returnCarriedToVillage, playerMaxHp, type Carried } from "./carried";
 import { markFreshExpedition } from "./explore/engine";
@@ -80,6 +80,7 @@ app.innerHTML = `
 
   <div class="section">
     <div class="section-title">武器</div>
+    <div class="hint-line">攜帶上限:近戰 3 把(含重複)・槍械 2 把・盾 1 面</div>
     <div id="weapon-list"></div>
   </div>
 
@@ -224,6 +225,17 @@ function makePickRow(
   return { line, count, minus, plus, getStock, getPicked, canAdd };
 }
 
+/** 這一類武器目前挑了幾把(普通+精工合計;上限含重複攜帶) */
+function pickedInCategory(cat: "melee" | "ranged" | "shield"): number {
+  let n = 0;
+  for (const w of WEAPONS) {
+    if (w.category !== cat) continue;
+    n += (pick.weapons[w.id] ?? 0) + (pick.fineW[w.id] ?? 0);
+  }
+  return n;
+}
+const categoryRoom = (cat: "melee" | "ranged" | "shield") => pickedInCategory(cat) < WEAPON_CARRY_LIMITS[cat];
+
 type PickRow = ReturnType<typeof makePickRow>;
 const rows: PickRow[] = [];
 
@@ -246,6 +258,7 @@ for (const w of WEAPONS) {
       () => pick.weapons[w.id] ?? 0,
       (n) => (pick.weapons[w.id] = n),
       () =>
+        categoryRoom(w.category) &&
         fitsAfterAdd(
           () => (pick.weapons[w.id] = (pick.weapons[w.id] ?? 0) + 1),
           () => (pick.weapons[w.id] = (pick.weapons[w.id] ?? 1) - 1),
@@ -271,6 +284,7 @@ for (const w of WEAPONS) {
       () => pick.fineW[w.id] ?? 0,
       (n) => (pick.fineW[w.id] = n),
       () =>
+        categoryRoom(w.category) &&
         fitsAfterAdd(
           () => (pick.fineW[w.id] = (pick.fineW[w.id] ?? 0) + 1),
           () => (pick.fineW[w.id] = (pick.fineW[w.id] ?? 1) - 1),
@@ -341,6 +355,16 @@ try {
     }
     for (const [id, n] of Object.entries((last.fineW ?? {}) as Record<string, number>)) {
       pick.fineW[id] = Math.min(village.fineWeapons?.[id] ?? 0, n);
+    }
+    // 攜帶上限夾緊(2026-09):舊配置超編的部分自動剔除
+    for (const cat of ["melee", "ranged", "shield"] as const) {
+      for (const w of WEAPONS) {
+        if (w.category !== cat) continue;
+        while (pickedInCategory(cat) > WEAPON_CARRY_LIMITS[cat] && ((pick.weapons[w.id] ?? 0) > 0 || (pick.fineW[w.id] ?? 0) > 0)) {
+          if ((pick.fineW[w.id] ?? 0) > 0) pick.fineW[w.id]!--;
+          else pick.weapons[w.id]!--;
+        }
+      }
     }
     pick.rations = Math.min(Math.floor(village.resources.ration ?? 0), last.rations ?? 0);
     pick.jerky = Math.min(Math.floor(village.resources.jerky ?? 0), last.jerky ?? 0);
