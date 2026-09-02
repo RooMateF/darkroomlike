@@ -37,7 +37,7 @@ export const MAP_DEFS: Record<MapId, MapDef> = {
     id: "E",
     label: "東郊廢墟",
     seed: MAP_SEED + 202,
-    arrivalText: "斷牆越來越密,街道的輪廓從荒草底下浮出來——這裡曾經是一座城的邊緣。",
+    arrivalText: "斷牆越來越密,街道的輪廓從荒草底下浮出來——這裡曾經是一座城市的邊緣。",
     depotCount: 9,
   },
   S: {

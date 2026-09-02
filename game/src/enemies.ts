@@ -8,6 +8,8 @@ export interface EnemyDef {
   label: string;
   /** 遭遇時的一句側寫(£log 顯示) */
   intro: string;
+  /** 開場第二句(接在 intro 後面自成一行;教堂 Boss 的宣戰用) */
+  intro2?: string;
   hp: number;
   moves: EnemyMove[];
   /** 擊倒後的掉落(固定量,先求簡單) */
@@ -210,7 +212,7 @@ export function pickEnemyGroup(): EnemyDef[] {
 export const LV3_BOSS: EnemyDef = {
   id: "ruin-warden",
   label: "遺跡的看守",
-  intro: "最深處的黑暗裡,一個高大的輪廓緩緩起身。牠在這裡守著什麼,守了很久很久。",
+  intro: "最深處的黑暗裡,一個高大的輪廓緩緩起身。那個存在的眼睛看向了你！",
   hp: 80,
   moves: [
     { id: "sweep", label: "橫掃", baseCost: 1.1, symbol: "»»»", damage: 6 },
@@ -317,7 +319,8 @@ export const GUARDIANS: Record<string, EnemyDef> = {
   church: {
     id: "church-guardian",
     label: "不再祈禱的東西",
-    intro: "祭壇前跪著一個背影,維持著祈禱的姿勢——但那個輪廓不屬於任何還能被稱為人的東西。它緩緩站了起來。站得太高了。",
+    intro: "祭壇前跪著一個背影,維持著祈禱的姿勢——但那個輪廓不屬於任何還能被稱為人的東西。『喔，是你，拋棄了我們的舊神的使徒』",
+    intro2: "『正好省去了我前往你的村莊的麻煩，就在這裡讓我為舊日的一切復仇吧。』它緩緩站了起來，後背已經腫脹的幾乎失去人形。",
     hp: 440,
     moves: [
       // 低語:鑽進骨頭裡的聲音讓手腳發沉(遲緩)——充能減半,補血與輸出一起變慢
@@ -355,7 +358,7 @@ export const LANDMARK_REWARDS: Record<string, { loot?: Record<string, number>; w
   },
   coalmine: {
     loot: { coal: 15, stone: 10 },
-    message: "煤礦解放了。黑亮的煤層一路延伸進山腹深處——爐火燒得更旺的日子,要開始了。",
+    message: "煤礦解放了。黑亮的煤層一路延伸進山腹深處——爐火燃燒的日子,要開始了。",
   },
   church: {
     weapon: "alloy-blade",

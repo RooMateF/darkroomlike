@@ -252,7 +252,7 @@ export const EVENTS: VillageEvent[] = [
   { kind: "passive", id: "rat-plague", text: "老鼠啃食了存糧。", effect: { grain: -2, ration: -1 }, minTick: 8, condition: (ctx) => (ctx.resources.grain ?? 0) + (ctx.resources.ration ?? 0) >= 3 },
   { kind: "passive", id: "hide-rot", text: "一批生皮存放不當,發臭報廢了。", effect: { hide: -3 }, minTick: 8, condition: (ctx) => (ctx.resources.hide ?? 0) >= 3 },
   { kind: "passive", id: "arrow-damp", text: "弓矢受潮,部分不堪使用。", effect: { arrow: -2 }, minTick: 12, condition: (ctx) => (ctx.resources.arrow ?? 0) >= 2 },
-  { kind: "passive", id: "granary-bug", text: "穀倉出現蟲害,損失不小。", effect: {}, effectPct: { grain: 0.25 }, minTick: 20, condition: (ctx) => ctx.hasBuilding("farm") && (ctx.resources.grain ?? 0) >= 8 },
+  { kind: "passive", id: "granary-bug", text: "穀倉出現蟲害,造成了不小的損失。", effect: {}, effectPct: { grain: 0.25 }, minTick: 20, condition: (ctx) => ctx.hasBuilding("farm") && (ctx.resources.grain ?? 0) >= 8 },
 
   // ---- village-events.md C. 天氣/氛圍(無數值或輕微,調劑節奏) ----
   { kind: "passive", id: "clear-night", text: "難得的晴朗夜空。村裡的人們圍著火堆坐了很久。", effect: {} },
@@ -260,7 +260,7 @@ export const EVENTS: VillageEvent[] = [
   {
     kind: "passive",
     id: "red-moon",
-    text: "今晚的月亮泛著詭異的紫紅色。村民議論紛紛,沒有人說得出原因。",
+    text: "今晚的月亮泛著詭異的紫紅色。村民議論紛紛,沒有人知道原因。",
     effect: {},
     minTick: 30, // 呼應 worldbuilding.md § 3,前期偶爾閃現的異常訊號(認知揭露弧線的第一滴水)
   },

@@ -748,6 +748,7 @@ try {
   /* 沒存檔就算了 */
 }
 appendSystemLog(enemyDef.intro);
+if (enemyDef.intro2) appendSystemLog(enemyDef.intro2);
 if (dungeon?.landmarkId === "scavenger" && stolenSnapshot.length > 0) {
   appendSystemLog("幾條蒼白的觸手從牆縫裡垂下,各自纏著你被搶走的東西。");
 } else if (unitDefs.length > 1) {
@@ -810,7 +811,7 @@ function performSteal() {
       } else if (!stealFine || normalN <= 0) {
         delete carried.durability[w.id]; // 使用中那把被偷走:備用頂上(全新)
       }
-      appendSystemLog(`一條過長的手臂從黑暗裡閃出——等你回過神,${w.label}已經不在手上了。`);
+      appendSystemLog(`一條過長的手臂從黑暗裡閃出——等你回過神,${w.label}已經不在手上了！`);
       break;
     }
   }
@@ -827,7 +828,7 @@ function performSteal() {
       if ((bag[so.key] ?? 0) <= 0) continue;
       bag[so.key] = (bag[so.key] ?? 0) - 1;
       record = { kind: so.kind };
-      appendSystemLog(`一條過長的手臂從黑暗裡閃出——等你回過神,腰間的${so.label}已經輕了。`);
+      appendSystemLog(`一條過長的手臂從黑暗裡閃出——等你回過神,腰間的${so.label}已經不見了！`);
       break;
     }
   }
@@ -885,7 +886,7 @@ function scavengerCheck() {
   if (boss.hp / boss.maxHp <= 0.5) {
     scavengerEnraged = true;
     boss.hasteMult = 1 / 0.75;
-    appendSystemLog("失去收藏的長手抽搐著暴起,動作快得不像剛才的牠。");
+    appendSystemLog("失去收藏的長手抽搐著暴起,他的真身顯露出來，頭顱連著脖子接在牆壁上，無數隻手從牆壁縫裡伸出。他的眼睛發紅，或許在眼前與迷宮融為一體的怪物曾經是個人類......");
   }
 }
 

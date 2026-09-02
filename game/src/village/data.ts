@@ -76,7 +76,7 @@ export interface TradeDef {
 }
 
 export const TRADES: TradeDef[] = [
-  { id: "trade-bandage", get: "bandage", qty: 1, shards: 3, flavor: "織得極密的繃帶,這個時代沒有這種織法。", requiresResourceSeen: "bandage" },
+  { id: "trade-bandage", get: "bandage", qty: 1, shards: 3, flavor: "織得極密的繃帶,這個時代製造不出這種材料。", requiresResourceSeen: "bandage" },
   { id: "trade-scroll", get: "scroll", qty: 1, shards: 6, flavor: "封印著未知力量的卷軸,將其打開會對前面的目標引發燃燒的現象。", requiresResourceSeen: "scroll" },
   // 交易所獨賣品:攤子上一開始看不到——交易熟了,買家才從行囊深處拿出來
   { id: "trade-salt", get: "salt", qty: 1, shards: 6, flavor: "一小瓶嗆得人流淚的結晶鹽——聞一口,骨頭裡的寒意都會被逼出去。", minTrades: 2 },

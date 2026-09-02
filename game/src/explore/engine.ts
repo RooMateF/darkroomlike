@@ -208,7 +208,7 @@ const OBSERVATORY_LORE: string[] = [
   "「第 12 夜。倍率還是不夠我看得清楚,得再換一組鏡片才行。它表面的紋路,和去年畫下來的不一樣了。」",
   "「第 31 夜。今晚很清楚。那東西肯定不是什麼隕石坑。隕石坑可不會動!」",
   "「第 47 夜。我把畫拿給鎮上的人看,他們笑我。但沒有關係,我知道的,祂一直在看著我,我是祂在這片土地上的代行者,哈哈哈...」",
-  "紀錄到這裡就斷了。最後一頁只有一幅用力過猛的炭筆畫:一輪滿月,月面上纏繞著許多細長的、像根一樣的東西。",
+  "紀錄到這裡就斷了。最後一頁只有一幅用力過猛的炭筆畫:一輪滿月,月面上纏繞著許多細長的、像樹根一樣的東西。",
 ];
 const OBSERVATORY_LORE_KEY = "observatory-lore-index";
 
@@ -251,7 +251,7 @@ const NARRATIVE_FINDS: string[] = [
   "草叢裡有一小片又硬又輕的碎片,不是木頭也不是石頭。摸起來冰涼光滑,你說不出它是什麼。",
   "一截埋在土裡的細長金屬,筆直得不可思議——沒有任何鍛造的鎚痕。",
   "碎石堆下壓著一張脆化的紙片,上面印著整齊得詭異的小字。大部分已經模糊,只認得出一個詞:「……疏散……」",
-  "半埋的木盒裡有一本泡爛的小冊子,字跡雋秀:「……他最近總是盯著院子裡那棵樹看,一句話也不說……」後面的頁面黏死了。",
+  "半埋的木盒裡有一本泡爛的小冊子",
   "一塊斷裂的平滑石板,表面刻著筆直的溝槽,溝槽裡殘留著暗色的、像是金屬的東西。",
   "你在樹幹上發現幾道抓痕。太高了——不管是什麼留下的,牠站起來比你高得多。",
   "風裡短暫飄來一段像是歌聲的聲音,又立刻消失了。方向不明。",
@@ -468,7 +468,7 @@ export class ExploreEngine {
         ) {
           localStorage.setItem("waterskin-farewell-shown", "1");
           this.cb.onLog("她幫你把新水袋的繩結繫緊並掛到了你的肩上,手卻停留在那繩結上遲遲不肯放開。");
-          this.cb.onLog("『走遠一點也沒關係了。……但要記得回來。』");
+          this.cb.onLog("『雖然走遠一點也沒關係……但要記得回來。』");
         }
       } catch {
         /* 壞資料忽略 */
@@ -919,7 +919,7 @@ export class ExploreEngine {
         this.carried.jerky = (this.carried.jerky ?? 0) - 1;
         ateThisStep = true;
         this.carried.hp = Math.min(playerMaxHp(), (this.carried.hp ?? playerMaxHp()) + 10);
-        this.cb.onLog("你咬了口肉乾——鹹得發苦,但力氣實實在在地回來了。");
+        this.cb.onLog("你咬了口肉乾——鹹得發苦,但力氣也隨之回來了。");
       }
       saveCarried(this.carried);
     }
@@ -1124,7 +1124,7 @@ export class ExploreEngine {
     this.carried.oil = (this.carried.oil ?? 0) - LAMP_OIL_COST;
     saveCarried(this.carried);
     this.saveState();
-    this.cb.onLog("燈油淌進油槽,火苗竄上燈芯。溫暖的光漫開,把黑暗連同藏在其中的東西一併推遠。火光烘在臉上——這一小圈地方,重新屬於人了。");
+    this.cb.onLog("燈油淌進油槽,火苗竄上燈芯。溫暖的光漫開,把黑暗連同藏在其中的東西一併推遠。火光烘在臉上——這一小圈地方重新屬於人類了。");
     return true;
   }
 
