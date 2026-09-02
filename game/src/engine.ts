@@ -634,9 +634,9 @@ export class CombatEngine {
     // - 道具例外(2026-09 用戶定案):整類是一個轉盤——用任何道具全類重轉(無補償),
     //   強力道具(slowReuse,如繃帶)讓下一輪回轉拖長為該秒數
     tracker.elapsed = 0;
-    // 槍械彈匣(2026-09 改版):打空後這一格的下一個動作變成「換彈」
+    // 槍械彈匣(2026-09 定案:彈匣單位=子彈):每擊扣彈耗,扣光→下一個動作變「換彈」
     if (tracker.subAction.magazine) {
-      tracker.magazineUsed++;
+      tracker.magazineUsed += tracker.subAction.ammoPerUse ?? 1;
       if (tracker.magazineUsed >= tracker.subAction.magazine) tracker.needsReload = true;
     }
     if (cat.def.id === "item") {

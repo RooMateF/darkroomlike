@@ -16,8 +16,10 @@ export interface SubAction {
   freeze?: number;
   /** 重武器(斧/大劍):命中疊加敵方踉蹌值——design-notes §2.11 的「重擊→眩暈」,2026-09 實裝 */
   stagger?: number;
-  /** 槍械彈匣(2026-09):連射這麼多發之後,下一次充能改用 reloadCost(換彈) */
+  /** 槍械彈匣容量(2026-09 定案:單位=子彈):每擊扣 ammoPerUse,扣光→該行動變「換彈」 */
   magazine?: number;
+  /** 每擊消耗彈數(彈匣扣帳用;實際庫存扣帳在戰鬥頁) */
+  ammoPerUse?: number;
   /** 換彈充能秒數(搭配 magazine) */
   reloadCost?: number;
   /** 道具類:強力道具用完後,下一輪道具回轉拖長為這個秒數(預設 1s;2026-09 用戶定案) */

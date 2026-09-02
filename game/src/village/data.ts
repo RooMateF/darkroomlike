@@ -185,7 +185,7 @@ export const WEAPONS: WeaponDef[] = [
   { id: "revolver", label: "左輪手槍", cost: { steel: 10, wood: 10 }, category: "ranged", baseCost: 0.2, damage: 8, symbol: "→!", durability: 50, ammo: "bullet", ammoPerUse: 1, packSize: 2, magazine: 6, reload: 1.0, noWear: true },
   { id: "shotgun", label: "散彈槍", cost: { steel: 14, wood: 20 }, category: "ranged", baseCost: 0.5, damage: 15, symbol: "→!!", durability: 45, ammo: "bullet", ammoPerUse: 2, packSize: 3, magazine: 6, reload: 1.0, noWear: true },
   // 舊時代自動步槍(2026-09 核可;lootOnly——未來城市地圖的戰利品):彈雨,用彈藥經濟拴著
-  { id: "auto-rifle", label: "舊時代自動步槍", cost: { steel: 30 }, category: "ranged", baseCost: 0.5, damage: 22, symbol: "→!!!", durability: 60, ammo: "bullet", ammoPerUse: 3, packSize: 4, magazine: 30, reload: 2.0, noWear: true, lootOnly: true },
+  { id: "auto-rifle", label: "舊時代自動步槍", cost: { steel: 30 }, category: "ranged", baseCost: 0.4, damage: 22, symbol: "→!!!", durability: 60, ammo: "bullet", ammoPerUse: 3, packSize: 4, magazine: 30, reload: 2.0, noWear: true, lootOnly: true },
   // 靜默教堂(Lv5)的戰利品:輕得不可思議(呼應敘事)。lootOnly:cost 只作修理費基準
   { id: "alloy-blade", label: "異質短刃", cost: { steel: 12, leather: 20, scroll: 1 }, category: "melee", baseCost: 0.5, damage: 7, symbol: ">>|", durability: 80, packSize: 2, lootOnly: true },
   // ---- 盾牌(格擋鏈,2026-09 用戶定案):啟動 0.5s 防禦窗,前 0.1s 完全格擋(整擊無效);
