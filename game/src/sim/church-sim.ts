@@ -21,8 +21,8 @@ interface SimConfig {
   noPhase2?: boolean;
   /** 帶鋼大劍(真踉蹌系統) */
   greatsword?: boolean;
-  /** 提案①:完美格擋大招 → Boss 硬直 3s(尚未實裝,模擬層原型) */
-  perfectStagger?: boolean;
+  /** 匕首招架輔助:完美窗 +0.05s */
+  dagger?: boolean;
   /** 提案②:舉盾不歸零其他行動條(尚未實裝,模擬層原型) */
   blockKeepsBars?: boolean;
   /** 槍械配置(2026-09 平衡驗證) */
@@ -62,12 +62,10 @@ function runOnce(cfg: SimConfig): { win: boolean; t: number; hpLeft: number; bos
   for (const [id, d] of saved) (WEAPONS.find((w) => w.id === id)! as { damage: number }).damage = d;
 
   const church = GUARDIANS[cfg.boss ?? "church"];
-  let pendingStagger = 0;
   const engine = new CombatEngine(categories, church.moves, {
     onLog: () => {},
     onPauseChange: () => {},
     onHpChange: () => {},
-    onBlocked: (perfect) => { if (perfect && cfg.perfectStagger) pendingStagger = 3; },
     onEnemyAct: (unit, move) => {
       // 神父孕育:結算時鑽出兩隻孳生失敗體(與 main.ts 同步)
       if (move.id === "priest-spawn" && unit.hp > 0) {
@@ -80,6 +78,7 @@ function runOnce(cfg: SimConfig): { win: boolean; t: number; hpLeft: number; bos
   engine.playerHp = 90;
   if (cfg.useShield) engine.shield = { label: "鋼盾", reduce: 0.8, cd: 3.5 };
   if (cfg.crisis) engine.firstStrikeBoost = true;
+  if (cfg.dagger) engine.perfectWindowBonus = 0.05;
 
   const eng = engine as unknown as { step: (dt: number) => void };
   let transformed = false;
@@ -113,8 +112,6 @@ function runOnce(cfg: SimConfig): { win: boolean; t: number; hpLeft: number; bos
     if (engine.enemyHp <= 0) return { win: true, t, hpLeft: engine.playerHp, bossHp: 0, phase2: transformed };
 
     const u = engine.units[0];
-    // 提案①原型:完美格擋 → 硬直(借用引擎的踉蹌欄位)
-    if (pendingStagger > 0) { u.staggerLeft = Math.max(u.staggerLeft, pendingStagger); pendingStagger = 0; }
 
     if ((cfg.boss ?? "church") === "church" && !cfg.noPhase2 && !transformed && u.hp <= u.maxHp / 2) {
       transformed = true;
@@ -200,12 +197,14 @@ function runOnce(cfg: SimConfig): { win: boolean; t: number; hpLeft: number; bos
 
 const N = 400;
 const configs: SimConfig[] = [
-  { name: "教堂550 近戰基準(無槍)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true },
-  { name: "教堂550 全槍械(150彈,模擬戰式)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true, guns: { revolver: true, shotgun: true, auto: true }, bullets: 150 },
-  { name: "教堂550 全槍械(30彈=900鋼的家底)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true, guns: { revolver: true, shotgun: true, auto: true }, bullets: 30 },
-  { name: "教堂550 全槍械(12彈=務實)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true, guns: { revolver: true, shotgun: true, auto: true }, bullets: 12 },
-  { name: "教堂550 +散彈只帶10彈(清孳生用)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true, guns: { shotgun: true }, bullets: 10 },
+  { name: "550 近戰+盾 σ0.08(C已實裝)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true },
+  { name: "550 近戰+盾+匕首 σ0.08", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true, dagger: true },
+  { name: "550 近戰+盾+匕首 神σ0.04", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.04, crisis: true, greatsword: true, dagger: true },
+  { name: "550 近戰+盾+匕首 手殘σ0.15", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.15, crisis: true, greatsword: true, dagger: true },
+  { name: "550 近戰+匕首+槍30彈(富人混裝)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true, dagger: true, guns: { revolver: true, shotgun: true, auto: true }, bullets: 30 },
+  { name: "煤礦坑 近戰+匕首(外溢檢查)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true, dagger: true, boss: "coalmine" },
 ];
+
 
 
 

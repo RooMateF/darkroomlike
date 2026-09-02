@@ -24,7 +24,7 @@ import type { CategoryId } from "./types";
 const SANDBOX = new URLSearchParams(window.location.search).get("sandbox");
 if (SANDBOX) (globalThis as unknown as { __sandboxNoSave?: boolean }).__sandboxNoSave = true;
 
-const SANDBOX_DEFAULT_WEAPONS: Record<string, number> = { "steel-spear": 1, "steel-sword": 1, "steel-greatsword": 1, oniyuki: 1, "steel-shield": 1, revolver: 1, shotgun: 1, "auto-rifle": 1 };
+const SANDBOX_DEFAULT_WEAPONS: Record<string, number> = { "steel-spear": 1, "steel-sword": 1, "steel-greatsword": 1, oniyuki: 1, "steel-shield": 1, dagger: 1, revolver: 1, shotgun: 1, "auto-rifle": 1 };
 
 /** 模擬戰武器配置(裝備調整面板改這份;sandbox 專用鍵,不是遊戲存檔) */
 function sandboxLoadout(): Record<string, number> {
@@ -1028,6 +1028,8 @@ if (dungeon?.landmarkId === "scavenger") {
 buildEnemyPanel();
 
 syncShieldToEngine();
+// 招架輔助(匕首):帶在身上就把完美格擋窗延長(取攜帶武器裡最大的 parry 值)
+engine.perfectWindowBonus = WEAPONS.reduce((m, w) => ((carried?.weapons[w.id] ?? 0) > 0 ? Math.max(m, w.parry ?? 0) : m), 0);
 // 危機意識(改造藥劑):開戰首擊前全體充能 ×2
 try {
   const v = JSON.parse(localStorage.getItem("village-state") ?? "{}");

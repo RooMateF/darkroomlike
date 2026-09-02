@@ -232,6 +232,8 @@ export class CombatEngine {
   shield: { label: string; reduce: number; cd: number } | null = null;
   /** 格擋窗口剩餘秒數(0.5s;前 0.1s 完全格擋) */
   blockWindowLeft = 0;
+  /** 完美格擋窗延長秒數(匕首招架輔助:0.1s → 0.1+bonus) */
+  perfectWindowBonus = 0;
   /** 格擋冷卻剩餘秒數 */
   blockCooldownLeft = 0;
   /** 混亂條(§用戶規格 2026-09):滿 100 後,下一個充能完成的行動被隨機執行 */
@@ -477,7 +479,7 @@ export class CombatEngine {
       let blocked: "perfect" | "partial" | null = null;
       let dmg = move.damage;
       if (this.blockWindowLeft > 0 && this.shield) {
-        blocked = this.blockWindowLeft >= BLOCK_WINDOW - BLOCK_PERFECT ? "perfect" : "partial";
+        blocked = this.blockWindowLeft >= BLOCK_WINDOW - (BLOCK_PERFECT + this.perfectWindowBonus) ? "perfect" : "partial";
         // 穿盾招(百手壓下):普通格擋的減傷上限只有一半,想無傷只能抓 0.1s 的完全格擋
         const reduce = move.pierceBlock ? Math.min(this.shield.reduce, 0.5) : this.shield.reduce;
         dmg = blocked === "perfect" ? 0 : Math.max(0, Math.ceil(dmg * (1 - reduce)));
@@ -486,6 +488,12 @@ export class CombatEngine {
       }
       if (blocked === "perfect") {
         this.cb.onLog({ id: this.logId++, actor: "你", target: `完全格擋!盾面把${unit.label}的攻勢整個彈開`, symbol: "◎", damage: 0 });
+        // 2026-09 定案(方案C):完美格擋「有前搖的大招」→ 對方被反彈的力道掀得踉蹌 3 秒(輸出窗)
+        if (move.tell) {
+          unit.staggerGauge = 0;
+          unit.staggerLeft = Math.max(unit.staggerLeft, PERFECT_PARRY_STAGGER);
+          this.cb.onLog({ id: this.logId++, actor: "你", target: `${unit.label}被彈開的力道掀得踉蹌——僵在了原地`, symbol: "!!", damage: 0 });
+        }
       } else {
         this.playerHp = Math.max(0, this.playerHp - dmg);
         if (dmg > 0) this.cb.onPlayerHit?.(dmg);
@@ -792,6 +800,8 @@ export class CombatEngine {
 const CARRYOVER_RATIO = 0.5;
 /** 踉蹌持續秒數(重武器疊滿觸發):行動條凍結+受創 ×1.25 */
 const STAGGER_DURATION = 2.5;
+/** 完美格擋大招的硬直秒數(2026-09 方案C):同踉蹌效果 */
+const PERFECT_PARRY_STAGGER = 3.0;
 
 // 格擋窗口(§用戶規格 2026-09):啟動後 0.5 秒內的第一擊被接下;前 0.1 秒是完全格擋
 export const BLOCK_WINDOW = 0.5;

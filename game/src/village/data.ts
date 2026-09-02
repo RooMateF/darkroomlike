@@ -138,6 +138,8 @@ export interface WeaponDef {
   noWear?: boolean;
   /** 霰彈:每擊彈丸數(damage=單顆傷害,各自打隨機活敵) */
   pellets?: number;
+  /** 招架輔助(匕首):帶在身上,完美格擋窗延長這麼多秒(2026-09 用戶定案「微調格擋時間」) */
+  parry?: number;
   /** 連發:每擊對單體連打 N 發(damage=單發傷害) */
   burst?: number;
   /** 盾牌限定:格擋參數(reduce=半格擋減傷比例、cd=冷卻秒數) */
@@ -173,6 +175,8 @@ export const WEAPONS: WeaponDef[] = [
   { id: "hunting-bow", label: "獵弓", cost: { wood: 50, hide: 10 }, category: "ranged", baseCost: 1.0, damage: 4, symbol: "→", durability: 40, ammo: "arrow", ammoPerUse: 1, packSize: 3 },
   // ---- 鐵階(冶煉的鐵) ----
   { id: "iron-knife", label: "鐵刀", cost: { ingot: 6, wood: 10 }, category: "melee", baseCost: 0.4, damage: 3, symbol: ">|", durability: 40, packSize: 2 },
+  // 匕首(2026-09 用戶定案):貼身的招架輔助——帶著它,完美格擋窗 0.1s→0.15s;只占 1 格
+  { id: "dagger", label: "匕首", cost: { ingot: 5, leather: 5 }, category: "melee", baseCost: 0.35, damage: 3, symbol: ">·", durability: 45, packSize: 1, parry: 0.05 },
   { id: "iron-sword", label: "鐵劍", cost: { ingot: 10, wood: 10 }, category: "melee", baseCost: 1.0, damage: 8, symbol: ">>", durability: 55, packSize: 3 },
   { id: "iron-spear", label: "鐵槍", cost: { ingot: 8, wood: 15 }, category: "melee", baseCost: 1.2, damage: 10, symbol: ">>>", durability: 60, packSize: 4 },
   // 重擊線(石斧的後繼):慢而沉,疊踉蹌——控場向的選擇
