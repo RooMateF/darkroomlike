@@ -331,6 +331,12 @@ function buildEnemyPanel() {
     root.className = "enemy-block";
     root.style.cursor = "pointer";
     root.addEventListener("click", () => engine.setTarget(i));
+    // 目標欄(2026-09 用戶要求):敵塊左側一條可點的選擇欄,◉=目前目標、○=可選
+    const gutter = document.createElement("div");
+    gutter.className = "enemy-target-gutter";
+    gutter.title = "設為攻擊目標(也可點整塊或按 Tab 輪切)";
+    const body = document.createElement("div");
+    body.className = "enemy-block-body";
     const title = document.createElement("div");
     title.className = "section-title";
     const mkRow = (label: string, info: string) => {
@@ -360,10 +366,11 @@ function buildEnemyPanel() {
     fr.row.style.display = "none";
     const st = mkRow("踉蹌", "");
     st.row.style.display = "none";
-    root.append(title, hp.row, act.row, fr.row, st.row);
+    body.append(title, hp.row, act.row, fr.row, st.row);
+    root.append(gutter, body);
     host.appendChild(root);
     void u;
-    return { root, title, hpText: hp.name, hpF: hp.f, hpE: hp.e, actF: act.f, actE: act.e, frRow: fr.row, frF: fr.f, frE: fr.e, frPct: fr.infoEl, stRow: st.row, stF: st.f, stE: st.e, stPct: st.infoEl };
+    return { root, gutter, title, hpText: hp.name, hpF: hp.f, hpE: hp.e, actF: act.f, actE: act.e, frRow: fr.row, frF: fr.f, frE: fr.e, frPct: fr.infoEl, stRow: st.row, stF: st.f, stE: st.e, stPct: st.infoEl };
   });
 }
 
@@ -1593,7 +1600,9 @@ function render() {
     }
     el.root.style.display = "";
     const isTarget = engine.targetUnit === u;
-    el.title.textContent = `${isTarget ? "▶ " : "　"}${u.label}${u.hp <= 0 ? "(倒下)" : ""}`;
+    el.gutter.textContent = u.hp <= 0 ? "×" : isTarget ? "◉" : "○";
+    el.gutter.classList.toggle("ready", isTarget && u.hp > 0);
+    el.title.textContent = `${u.label}${u.hp <= 0 ? "(倒下)" : ""}`;
     el.root.style.opacity = u.hp <= 0 ? "0.35" : "1";
     el.hpText.textContent = `HP ${u.hp}/${u.maxHp}`;
     const hFill = u.maxHp > 0 ? Math.round((u.hp / u.maxHp) * BAR_WIDTH) : 0;

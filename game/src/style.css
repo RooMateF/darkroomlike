@@ -840,6 +840,30 @@ hr {
 
 .enemy-block {
   position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+/* 目標欄(2026-09):敵塊左側的選擇欄——◉ 目前目標、○ 可選、× 倒下 */
+.enemy-target-gutter {
+  flex: 0 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-dim);
+  border-right: 1px dotted var(--fg-faint);
+  user-select: none;
+}
+
+.enemy-target-gutter.ready {
+  color: var(--fg-bright);
+  font-weight: bold;
+}
+
+.enemy-block-body {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 #dmg-pop-layer {
