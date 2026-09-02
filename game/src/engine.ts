@@ -41,7 +41,7 @@ class SubActionTracker {
 
   tick(dt: number) {
     if (this.elapsed < this.actualCost) {
-      this.elapsed = Math.min(this.actualCost, this.elapsed + dt);
+      this.elapsed = Math.max(0, Math.min(this.actualCost, this.elapsed + dt));
       // 拖長的那一輪跑滿了:倍率只吃一輪,之後(含被跨類別歸零重跑)回到正常速度
       if (this.costMult !== 1 && this.elapsed >= this.actualCost) {
         this.costMult = 1;
@@ -392,9 +392,12 @@ export class CombatEngine {
   }
 
   start() {
+    cancelAnimationFrame(this.rafHandle); // 可重入:對話框收放連按也不會疊出第二條迴圈
     this.lastT = performance.now();
     const loop = (t: number) => {
-      const dt = Math.min(0.1, (t - this.lastT) / 1000);
+      // rAF 的幀時間戳可能早於 start() 當下的 performance.now()——dt 夾成非負,
+      // 否則行動條會被倒扣成負數、消退式子反向增值(2026-09 Tab 畫面壞掉的病根)
+      const dt = Math.min(0.1, Math.max(0, (t - this.lastT) / 1000));
       this.lastT = t;
       this.step(dt);
       this.rafHandle = requestAnimationFrame(loop);

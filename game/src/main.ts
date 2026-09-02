@@ -1612,7 +1612,7 @@ function render() {
     const aFill = Math.round(aPct * BAR_WIDTH);
     el.actF.textContent = "█".repeat(aFill);
     el.actE.textContent = "░".repeat(BAR_WIDTH - aFill);
-    if (u.hp > 0 && (u.freeze > 0 || u.chilled)) {
+    if (u.hp > 0 && (u.freeze >= 1 || u.chilled)) {
       el.frRow.style.display = "";
       const fFill = u.chilled ? BAR_WIDTH : Math.round((u.freeze / 100) * BAR_WIDTH);
       el.frF.textContent = "█".repeat(fFill);
@@ -1621,7 +1621,7 @@ function render() {
     } else {
       el.frRow.style.display = "none";
     }
-    if (u.hp > 0 && (u.staggerGauge > 0 || u.staggerLeft > 0)) {
+    if (u.hp > 0 && (u.staggerGauge >= 1 || u.staggerLeft > 0)) {
       el.stRow.style.display = "";
       const sFill = u.staggerLeft > 0 ? BAR_WIDTH : Math.round((u.staggerGauge / 100) * BAR_WIDTH);
       el.stF.textContent = "█".repeat(sFill);
