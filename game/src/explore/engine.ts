@@ -1,5 +1,5 @@
 import { BLOCKED, LANDMARKS, TILE_SYMBOL, type Checkpoint, type Tile, type TileType } from "./types";
-import { generateMap, startPosition, exitLinkAt, borderDepotFor, MAP_DEFS, MAP_WIDTH, MAP_HEIGHT, MAZE, type MapId, type ExitLink } from "./map-gen";
+import { generateMap, startPosition, exitLinkAt, borderDepotFor, MAP_DEFS, MAP_WIDTH, MAP_HEIGHT, MAZE, COAL_RIDGE, type MapId, type ExitLink } from "./map-gen";
 import { loadCarried, saveCarried, clearCarried, addLoot, packUsed, playerMaxHp, type Carried } from "../carried";
 import { RESOURCE_LABEL, type ResourceId } from "../village/types";
 import { siteAt, siteProgress, specialSites, hasChurchKey, DUNGEON_KEY, SITE_ARRIVAL_TEXT, type DungeonRun } from "./sites";
@@ -231,6 +231,7 @@ export function markFreshExpedition() {
   localStorage.removeItem("maze-stolen-kinds");
   localStorage.removeItem("maze-theft");
   localStorage.removeItem("maze-entered");
+  localStorage.removeItem("zone-seen"); // 地帶敘事:每趟遠征重新體驗
   localStorage.removeItem("maze-stash-seen");
   localStorage.setItem(FRESH_KEY, "1");
   // 每趟遠征都從村莊(中央地圖)出發;遠征序號 +1,各地圖據此重置據點儲備
@@ -732,6 +733,40 @@ export class ExploreEngine {
     localStorage.setItem("maze-theft", JSON.stringify({ serial: expeditionSerial(), bands }));
   }
 
+  /** 地帶敘事(2026-09 用戶要求):每趟遠征第一次踏進某個地帶,給一段場景描寫。
+   * 地帶:林地(村莊半徑 16,與畫面底紋同步)/開闊地/山脊(山坡格)/煤礦盆地;迷宮有自己的首入敘事 */
+  private narrateZone(x: number, y: number) {
+    if (this.mapId !== "A") return;
+    const t = this.grid[y]?.[x];
+    if (!t) return;
+    let zone: "forest" | "open" | "ridge" | "basin";
+    if (t.type === "slopeL" || t.type === "slopeV" || t.type === "slopeR") zone = "ridge";
+    else if (x > COAL_RIDGE.x1 && x < COAL_RIDGE.x2 && y >= COAL_RIDGE.y1 && y < COAL_RIDGE.y2) zone = "basin";
+    else if (isMazeInterior(x, y)) return;
+    else if (Math.hypot(x - 44, y - 27) < 16) zone = "forest"; // 與 explore-main 的 FOREST_RADIUS 同步
+    else zone = "open";
+
+    let seen: string[] = [];
+    try {
+      seen = JSON.parse(localStorage.getItem("zone-seen") ?? "[]") as string[];
+    } catch {
+      seen = [];
+    }
+    if (seen.includes(zone)) return;
+    // 出生就在林子裡:還沒離開過(沒見過開闊地)之前,林地不觸發——「回到林蔭」要先出去過才成立
+    if (zone === "forest" && !seen.includes("open")) return;
+
+    const TEXTS: Record<typeof zone, string> = {
+      open: "最後一排樹幹落在身後,視野猛地鋪開——齊膝的荒草一路搖到天邊,風沒有了遮攔,直直撞在身上。",
+      forest: "樹影重新合攏過來,腳下的草換成落葉和苔蘚。村莊的方向被枝葉篩成細碎的光點。",
+      ridge: "你踩著山勢往上,碎石在腳邊簌簌滾落。回頭望,走過的野地攤成一張灰綠色的圖。",
+      basin: "山壁在四周圍攏,風聲忽然靜了。盆地底的空氣又涼又悶,煤的氣味隱隱從地底滲上來。",
+    };
+    seen.push(zone);
+    localStorage.setItem("zone-seen", JSON.stringify(seen));
+    this.cb.onLog(TEXTS[zone]);
+  }
+
   /** 紅月窪地的刷出與撤除:依 redmoon-count 決定;座標固定存 redmoon-site */
   private syncRedmoonSite() {
     if (this.mapId !== "A") return;
@@ -821,6 +856,8 @@ export class ExploreEngine {
     this.playerY = ny;
     this.reveal(nx, ny);
     this.stepCount++;
+
+    this.narrateZone(nx, ny);
 
     // 紅月窪地:踩上 ☾ → 固定三場連鎖戰(畸體→畸體→變異野獸)
     if (target.type === "redmoon") {
