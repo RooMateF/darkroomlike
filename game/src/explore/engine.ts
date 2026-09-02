@@ -323,6 +323,9 @@ const FOOD_EVERY_STEPS = 2; // 每走 2 格消耗 1 乾糧(仿 ADR)
 // 點燈後 ×0.5 → 0.1,正好等於舊版的基礎值——燈火從「加分項」升格為「必修基建」:
 // 想安全走廊就得鋪燈,鐵軌管水糧、燈火管遇敵的分工更鮮明
 const ENCOUNTER_CHANCE = 0.2;
+// 特殊地點的落腳步不觸發隨機遭遇(2026-09 用戶定案):據點/探勘點/地標/寶箱/出口
+// 的到場敘事不被戰鬥撞在同一步——想打地標仍要玩家主動選「深入調查」
+const ENCOUNTER_FREE_TILES: TileType[] = ["depot", "site", "landmark", "chest", "exit"];
 const LAMP_OIL_COST = 1; // 點亮一座據點燈柱要一罐燈油(一罐=舊制三份,占 3 格)
 export const LAMP_RADIUS = 8; // 燈火壓遇敵的範圍(曼哈頓距離);UI 用它把光圈畫在地圖上
 const LAMP_SUPPRESS = 0.5; // 照亮區內的遭遇率倍率(0.2 × 0.5 = 舊版基礎值 0.1)
@@ -1056,6 +1059,8 @@ export class ExploreEngine {
     const stealthMult = readPerk("stealth") ? 0.8 : 1;
     if (onRail) {
       // 軌道是人開出來的路:牠們不靠近鐵軌——完全不遇敵(滿狀態抵達 Boss 的戰略通道)
+    } else if (ENCOUNTER_FREE_TILES.includes(target.type)) {
+      // 站上特殊地點的這一步免疫隨機遭遇(喘息步數保留,不在這裡消耗)
     } else if (this.encounterGrace > 0) {
       this.encounterGrace--; // 戰後喘息中,不觸發隨機遭遇
     } else if (!devMode && Math.random() < ENCOUNTER_CHANCE * lampMult * stealthMult * homeMult) {

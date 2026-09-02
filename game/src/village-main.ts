@@ -191,14 +191,34 @@ function startVillage() {
 
   document.querySelector<HTMLButtonElement>("#theme-toggle")!.addEventListener("click", toggleTheme);
 
-  function appendLog(text: string) {
+  // 紀錄落地保存(2026-09 用戶定案):跳頁/重載不再洗掉,滾動保留最近 100 筆
+  const VILLAGE_LOG_KEY = "village-log";
+  function renderLogLine(text: string) {
     const line = document.createElement("div");
     line.className = "log-line";
     line.textContent = text;
     logEl.appendChild(line);
     // 保留最近 100 筆供捲動回顧,新訊息自動捲到底
     while (logEl.childElementCount > 100) logEl.removeChild(logEl.firstChild!);
+  }
+  function appendLog(text: string) {
+    renderLogLine(text);
     logEl.scrollTop = logEl.scrollHeight;
+    try {
+      const arr = JSON.parse(localStorage.getItem(VILLAGE_LOG_KEY) ?? "[]") as string[];
+      arr.push(text);
+      while (arr.length > 100) arr.shift();
+      localStorage.setItem(VILLAGE_LOG_KEY, JSON.stringify(arr));
+    } catch {
+      /* 壞資料不擋遊戲 */
+    }
+  }
+  // 開頁還原歷史紀錄
+  try {
+    for (const t of JSON.parse(localStorage.getItem(VILLAGE_LOG_KEY) ?? "[]") as string[]) renderLogLine(t);
+    logEl.scrollTop = logEl.scrollHeight;
+  } catch {
+    /* 同上 */
   }
 
   // 燈油制度遷移(一次性):舊制 1 份 1 格、每座燈柱 3 份 → 新制 1 罐 3 格、每座 1 罐。
@@ -1404,6 +1424,7 @@ function startVillage() {
     const deathCause = localStorage.getItem("death-cause");
     if (!deathCause) return;
     localStorage.removeItem("death-cause");
+    localStorage.removeItem("explore-log"); // 遠征以倒下告終(含戰鬥頁戰死):清掉這一趟的遠征紀錄
     localStorage.setItem("died-once", "1"); // 她看過你被抬回來的樣子——之後的道別會不一樣
     const tips = REVIVAL_TIPS[deathCause] ?? REVIVAL_TIPS.combat;
     const idxKey = `revival-tip-${deathCause}`;
@@ -1418,6 +1439,7 @@ function startVillage() {
   function handleReturnHome() {
     returnCarriedToVillage();
     engine.reloadState();
+    localStorage.removeItem("explore-log"); // 回村=這趟遠征結束,清掉當次遠征紀錄(村莊紀錄照舊保留)
     processDeathCause();
   }
 

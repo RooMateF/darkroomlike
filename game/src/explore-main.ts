@@ -66,14 +66,35 @@ const siteActionEl = app.querySelector<HTMLElement>("#site-action")!;
 const logEl = app.querySelector<HTMLDivElement>("#explore-log")!;
 statusEl.textContent = "方向鍵 / WASD 移動,或點擊 @ 的某一側往該方向走一步";
 
-function appendLog(text: string) {
+// 遠征紀錄落地保存(2026-09 用戶定案):切分頁/跳戰鬥頁/跨圖都不洗掉,滾動保留 100 筆;
+// 回到村莊(走回村口/倒下)時由村莊殼層清掉這一趟的紀錄
+const EXPLORE_LOG_KEY = "explore-log";
+function renderLogLine(text: string) {
   const line = document.createElement("div");
   line.className = "log-line";
   line.textContent = text;
   logEl.appendChild(line);
   // 保留最近 100 筆供捲動回顧(敘事碎片值得回頭看),新訊息自動捲到底
   while (logEl.childElementCount > 100) logEl.removeChild(logEl.firstChild!);
+}
+function appendLog(text: string) {
+  renderLogLine(text);
   logEl.scrollTop = logEl.scrollHeight;
+  try {
+    const arr = JSON.parse(localStorage.getItem(EXPLORE_LOG_KEY) ?? "[]") as string[];
+    arr.push(text);
+    while (arr.length > 100) arr.shift();
+    localStorage.setItem(EXPLORE_LOG_KEY, JSON.stringify(arr));
+  } catch {
+    /* 壞資料不擋遊戲 */
+  }
+}
+// 掛載時還原這一趟的紀錄
+try {
+  for (const t of JSON.parse(localStorage.getItem(EXPLORE_LOG_KEY) ?? "[]") as string[]) renderLogLine(t);
+  logEl.scrollTop = logEl.scrollHeight;
+} catch {
+  /* 同上 */
 }
 
 const engine = new ExploreEngine({
