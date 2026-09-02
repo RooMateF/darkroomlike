@@ -15,6 +15,8 @@ export interface LogEntry {
 /** 類別內每個子行動各自累積進度,但共用同一次歸零(見 design-notes.md § 2.3.2) */
 class SubActionTracker {
   elapsed = 0;
+  /** 彈匣已射發數(槍械):打滿 magazine → 下一輪充能換用 reloadCost */
+  magazineUsed = 0;
   /** 一次性回轉倍率(道具轉盤:強力道具用完後下一輪 ×1.2),跑滿一輪自動歸 1 */
   costMult = 1;
 
@@ -606,6 +608,15 @@ export class CombatEngine {
     // - 道具例外(2026-09 用戶定案):整類是一個轉盤——用任何道具全類重轉(無補償),
     //   強力道具(slowReuse,如繃帶)讓下一輪回轉拖長為該秒數
     tracker.elapsed = 0;
+    // 槍械彈匣(2026-09 用戶定案):連射打滿,下一次充能是換彈(較長 CD),之後回到射速
+    if (tracker.subAction.magazine) {
+      tracker.magazineUsed++;
+      if (tracker.magazineUsed >= tracker.subAction.magazine) {
+        tracker.magazineUsed = 0;
+        tracker.costMult = (tracker.subAction.reloadCost ?? 1) / (tracker.subAction.baseCost || 1);
+        this.cb.onLog({ id: this.logId++, actor: "你", target: `退出彈殼,壓入新的一輪(${tracker.subAction.label}換彈中)`, symbol: "=", damage: 0 });
+      }
+    }
     if (cat.def.id === "item") {
       const nextSeconds = Math.max(tracker.subAction.slowReuse ?? 1, this.itemFieldSeconds ?? 0); // 下一輪回轉秒數(血雨領域可拖慢)
       for (const t of cat.trackers) {

@@ -26,10 +26,10 @@ if (SANDBOX) (globalThis as unknown as { __sandboxNoSave?: boolean }).__sandboxN
 
 function sandboxCarried() {
   return {
-    weapons: { "steel-spear": 1, "steel-sword": 1, "steel-greatsword": 1, oniyuki: 1, "steel-shield": 1, shotgun: 1 },
+    weapons: { "steel-spear": 1, "steel-sword": 1, "steel-greatsword": 1, oniyuki: 1, "steel-shield": 1, revolver: 1, shotgun: 1 },
     fineWeapons: {},
-    durability: { "steel-spear": 80, "steel-sword": 70, "steel-greatsword": 75, oniyuki: 60, "steel-shield": 50, shotgun: 45 },
-    bullets: 24,
+    durability: { "steel-spear": 80, "steel-sword": 70, "steel-greatsword": 75, oniyuki: 60, "steel-shield": 50, revolver: 50, shotgun: 45 },
+    bullets: 60,
     bandages: 8,
     elixirs: 3,
     salts: 5,
