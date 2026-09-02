@@ -53,7 +53,7 @@ export function buildPlayerCategories(carried: Carried | null): CategoryDef[] {
   }
   if ((carried?.scrolls ?? 0) > 0) {
     // 火焰卷軸:一次性的高傷害——法術系統解鎖前,玩家第一次碰到「不屬於這個時代常識」的力量(強力:拖慢下一輪)
-    items.push({ id: "fire-scroll", label: "火焰卷軸", baseCost: 1.0, symbol: "*~*", damage: 12, slowReuse: 1.2 });
+    items.push({ id: "fire-scroll", label: "火焰卷軸", baseCost: 1.0, symbol: "*~*", damage: 12, slowReuse: 1.2, aoe: true }); // 標準全體:全場每隻 12
   }
   if (items.length > 0) {
     categories.push({ id: "item", label: "道具", subActions: items });

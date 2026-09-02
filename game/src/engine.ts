@@ -616,6 +616,35 @@ export class CombatEngine {
       if (downed.length > 0) this.cb.onUnitsChanged?.();
     }
 
+    // 全體攻擊(2026-09 用戶定案):對所有活敵同等傷害——人越多,總傷害越高(火焰卷軸/未來的全體法術)
+    if (!pelletsDone && tracker.subAction.aoe && dmg > 0) {
+      pelletsDone = true;
+      let total = 0;
+      let hitCount = 0;
+      let soleLabel = "敵人";
+      const downed: EnemyUnit[] = [];
+      for (const u2 of this.units) {
+        if (u2.hp <= 0) continue;
+        let d = dmg;
+        if (u2.staggerLeft > 0) d = Math.round(d * 1.25);
+        u2.hp = Math.max(0, u2.hp - d);
+        this.cb.onUnitHit?.(u2, d);
+        total += d;
+        hitCount++;
+        soleLabel = u2.label;
+        if (u2.hp <= 0) downed.push(u2);
+      }
+      this.cb.onLog({
+        id: this.logId++,
+        actor: "你",
+        target: hitCount > 1 ? `席捲全場,吞沒 ${hitCount} 隻` : soleLabel,
+        symbol: tracker.subAction.symbol,
+        damage: total,
+      });
+      for (const x of downed) this.cb.onEnemyDown?.(x);
+      if (downed.length > 0) this.cb.onUnitsChanged?.();
+    }
+
     const target = this.targetUnit;
     if (!pelletsDone && dmg > 0 && target) {
       if (target.staggerLeft > 0) dmg = Math.round(dmg * 1.25); // 踉蹌中受創加成

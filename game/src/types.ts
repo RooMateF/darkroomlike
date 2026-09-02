@@ -22,6 +22,8 @@ export interface SubAction {
   ammoPerUse?: number;
   /** 霰彈(2026-09 用戶定案):每擊射出這麼多顆彈丸,各自命中隨機一隻活敵——damage 是單顆彈丸傷害 */
   pellets?: number;
+  /** 全體(2026-09 用戶定案):對所有活敵造成同等傷害——法術大多屬此類(火焰卷軸=標準全體) */
+  aoe?: boolean;
   /** 換彈充能秒數(搭配 magazine) */
   reloadCost?: number;
   /** 道具類:強力道具用完後,下一輪道具回轉拖長為這個秒數(預設 1s;2026-09 用戶定案) */
