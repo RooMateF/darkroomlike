@@ -351,6 +351,7 @@ export class CombatEngine {
       for (const t of c.trackers) this.acknowledged.delete(this.key(c.def.id, t.subAction.id));
     }
     this.cb.onLog({ id: this.logId++, actor: "你", target: "舉起了盾", symbol: "[]", damage: 0 });
+    this.resume(); // 舉盾也是一個決定:Wait 暫停直接解除,CD 繼續跑(2026-09 用戶反饋)
     return true;
   }
 
