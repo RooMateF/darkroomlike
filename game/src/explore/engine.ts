@@ -1016,13 +1016,13 @@ export class ExploreEngine {
       saveCarried(this.carried);
     }
     if (this.water === 4) this.cb.onLog("水袋輕得讓人不安。");
-    if (this.water === 0 && !wasDry) this.cb.onLog("水完全喝光了。喉嚨像著了火——得馬上找到補給。");
+    if (this.water === 0 && !wasDry) this.cb.onLog("水袋倒過來也只剩幾滴了。喉嚨開始發乾,你得在這種感覺變嚴重之前找到補給。");
 
     // 耗盡後的寬限:斷水/斷糧後都還能硬撐 2 步(找補給的最後機會),第 3 步倒下
     if (wasDry && this.water <= 0) {
       this.thirstSteps++;
       if (this.thirstSteps > 2) {
-        this.die("你的腳步越來越沉,最後在乾渴中倒下……", "thirst");
+        this.die("你的腳步越來越沉,每一步都要先想一下才踏得出去。最後你在某一步之後,沒有再站起來。", "thirst");
         return;
       }
     } else if (this.water > 0) {
@@ -1031,7 +1031,7 @@ export class ExploreEngine {
     const noFood = !devMode && this.carried && this.carried.rations <= 0 && (this.carried.jerky ?? 0) <= 0;
     if (noFood && !ateThisStep) {
       this.hungerSteps++;
-      if (this.hungerSteps === 1) this.cb.onLog("最後一點吃的也沒了。胃在絞痛——撐不了多久了。");
+      if (this.hungerSteps === 1) this.cb.onLog("最後一點吃的也沒了。胃先是空,然後慢慢變成一種鈍鈍的疼。");
       if (this.hungerSteps > 2) {
         this.die("飢餓抽乾了你最後的力氣……", "hunger");
         return;
