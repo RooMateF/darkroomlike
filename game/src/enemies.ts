@@ -182,7 +182,7 @@ export const MOON_MUTANT: EnemyDef = {
   hp: 26,
   moves: [
     { id: "bite", label: "咬撕", baseCost: 1.0, symbol: "»»", damage: 5 },
-    { id: "spasm", label: "痙攣衝撞", baseCost: 1.9, symbol: "»»»»", damage: 9, tell: "牠的肌肉抖了幾下。" },
+    { id: "spasm", label: "痙攣衝撞", baseCost: 1.9, symbol: "»»»»", damage: 9, tell: "牠的身體開始不自然地痙攣——" },
   ],
   loot: { meat: 2 },
   shardChance: 0.6,
@@ -205,7 +205,7 @@ export const REDMOON_BOSS: EnemyDef = {
 /** 不再祈禱的東西・半血蛻變(2026-09 核可 A+B+C):蜈蚣手連招,每第三招百手壓下(穿盾) */
 export const CHURCH_PHASE2_MOVES: EnemyMove[] = [
   { id: "stab", label: "百手穿刺", baseCost: 1.05, symbol: "»»", damage: 4 },
-  { id: "limb-sweep", label: "肢林橫掃", baseCost: 1.9, symbol: "»»»»", damage: 12, status: { kind: "bleed", amount: 40 }, tell: "幾條手臂貼著地面滑了過來。" },
+  { id: "limb-sweep", label: "肢林橫掃", baseCost: 1.9, symbol: "»»»»", damage: 12, status: { kind: "bleed", amount: 40 }, tell: "蜈蚣般的手臂貼著地面壓了過來。" },
   { id: "hundred-slam", label: "百手壓下", baseCost: 2.9, symbol: "»»»»»»", damage: 23, heavy: true, control: { kind: "stun", duration: 1.2 }, pierceBlock: true, tell: "數不清的手同時高高舉起——影子把整座祭壇罩住了。" },
   // 孕育(2026-09 用戶定案):每第五次行動必定釋放——零傷害,是留給玩家的空窗;結算時鑽出兩隻孳生失敗體(野外同款)
   { id: "priest-spawn", label: "孕育", baseCost: 2.0, symbol: "◎◎", damage: 0, tell: "神父的軀體開始蠕動鼓脹——有什麼正要鑽出來。" },
@@ -365,7 +365,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     hp: 220,
     moves: [
       { id: "dig", label: "鑿擊", baseCost: 0.8, symbol: "»»", damage: 8 },
-      { id: "dust", label: "揚塵", baseCost: 1.4, symbol: "…", damage: 4, status: { kind: "poison", amount: 55 }, tell: "甲縫裡漏出一點灰黑色的粉末。" },
+      { id: "dust", label: "揚塵", baseCost: 1.4, symbol: "…", damage: 4, status: { kind: "poison", amount: 55 }, tell: "牠的環節一節節收緊,甲縫裡滲出灰黑色的粉末。" },
       // 崩落:高傷+暈眩——被震住的那一秒多,補血條也是凍結的;醒神鹽是針對性的解法
       { id: "collapse", label: "崩落", baseCost: 2.6, symbol: "»»»»»»", damage: 22, heavy: true, control: { kind: "stun", duration: 1.2 }, tell: "牠高高抬起了雙螯——坑道頂上簌簌落下灰來。" },
     ],
