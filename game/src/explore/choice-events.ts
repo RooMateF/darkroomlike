@@ -5,14 +5,18 @@
 // ⑥「唱歌的風」帶小 Boss 戰(哼歌的東西:混亂機制;文本 2026-09 核可)。
 // ⑧「埋在土裡的門」是長線伏筆:「帶著能開它的東西回來」——之後章節接回收。
 
+export type ChoiceEventEffect =
+  | { kind: "gain"; gains: Record<string, number>; hp?: number }
+  | { kind: "water"; amount: number }
+  | { kind: "trade"; gains: Record<string, number>; costs: Record<string, number> }
+  | { kind: "boss"; enemyId: string };
+
 export interface ChoiceEventOption {
   label: string;
   result: string;
-  effect?:
-    | { kind: "gain"; gains: Record<string, number> }
-    | { kind: "water"; amount: number }
-    | { kind: "trade"; gains: Record<string, number>; costs: Record<string, number> }
-    | { kind: "boss"; enemyId: string };
+  effect?: ChoiceEventEffect;
+  /** 機率分歧(2026-09):加權抽一個結局,抽中的 result/effect 取代頂層 */
+  outcomes?: { weight: number; result: string; effect?: ChoiceEventEffect }[];
 }
 
 export interface ChoiceEventDef {
@@ -30,6 +34,11 @@ export const CHOICE_EVENTS: ChoiceEventDef[] = [
         label: "砸開它",
         result: "石頭砸下去,盒蓋凹成了怪樣才彈開。裡面是幾卷用油紙包著的乾糧,嘗了一小口,應該是還能吃。盒底刻著一行小字,但你不認得那種字。",
         effect: { kind: "gain", gains: { ration: 3 } },
+      },
+      {
+        label: "硬撬開它",
+        result: "你把匕首插進鎖縫硬撬。鐵皮的斷口從你掌心拖出一道口子,傷口不太深,但卻一直滲血。盒蓋開了——油紙包的乾糧一份沒碎,完完整整。",
+        effect: { kind: "gain", gains: { ration: 4 }, hp: -5 },
       },
       {
         label: "整個帶走",
@@ -54,6 +63,14 @@ export const CHOICE_EVENTS: ChoiceEventDef[] = [
         label: "垂繩子下去撈",
         result: "繩子繃直了一瞬,又鬆了。拉上來時,鉤上掛著一只完好的水袋——皮質袋的款式很舊,卻一點沒壞。",
         effect: { kind: "water", amount: 5 },
+      },
+      {
+        label: "垂繩下去看看",
+        result: "",
+        outcomes: [
+          { weight: 1, result: "你抓著繩子下到井底。淤泥裡半埋著一捆用油布纏好的東西——拆開是幾根還能用的鐵件。爬上來的時候,你盡量不去想剛才回音的事。", effect: { kind: "gain", gains: { iron: 4 } } },
+          { weight: 1, result: "繩子在半途中斷了。你在井底躺了一會兒,先確認每一根骨頭還聽話,才慢慢爬起來。淤泥裡倒是真的半埋著一捆鐵件——算是不幸中的補償。", effect: { kind: "gain", gains: { iron: 4 }, hp: -8 } },
+        ],
       },
       {
         label: "用石頭把井口蓋住",

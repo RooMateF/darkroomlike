@@ -1309,14 +1309,35 @@ export class ExploreEngine {
     const opt = ev.options[optionIndex];
     if (!opt) return;
     this.pendingChoiceEvent = null;
-    this.pendingChoiceResult = opt.result;
-    this.cb.onLog(opt.result);
-    const fx = opt.effect;
+    // 機率分歧(2026-09):加權開獎,抽中的結局取代頂層 result/effect
+    let result = opt.result;
+    let fx = opt.effect;
+    if (opt.outcomes && opt.outcomes.length > 0) {
+      const total = opt.outcomes.reduce((sum, o) => sum + o.weight, 0);
+      let roll = Math.random() * total;
+      let picked = opt.outcomes[opt.outcomes.length - 1];
+      for (const o of opt.outcomes) {
+        roll -= o.weight;
+        if (roll <= 0) {
+          picked = o;
+          break;
+        }
+      }
+      result = picked.result;
+      fx = picked.effect;
+    }
+    this.pendingChoiceResult = result;
+    this.cb.onLog(result);
     if (fx && this.carried) {
       if (fx.kind === "gain") {
         const { added, overflow } = addLoot(this.carried, fx.gains);
         this.markGained(added);
         if (overflow) this.cb.onLog("(背包塞不下,一部分留在了原地)");
+        if (fx.hp) {
+          // 事件的傷害不打死人:最低留 1(倒在事件裡太冤)
+          this.carried.hp = Math.max(1, Math.min(playerMaxHp(), (this.carried.hp ?? playerMaxHp()) + fx.hp));
+          this.cb.onLog(fx.hp < 0 ? `(HP ${fx.hp})` : `(HP +${fx.hp})`);
+        }
       } else if (fx.kind === "water") {
         this.water = Math.min(this.maxWater, this.water + fx.amount);
       } else if (fx.kind === "boss") {
