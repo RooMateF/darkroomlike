@@ -2,7 +2,8 @@
 // 用真引擎(CombatEngine,含踉蹌系統)驅動,只在外層模擬玩家策略與消耗品記帳。
 // 跑法:npx esbuild --bundle --platform=node → node(不進遊戲 bundle)
 import { CombatEngine } from "../engine";
-import { GUARDIANS, CHURCH_PHASE2_MOVES, CHURCH_PHASE2_PATTERN } from "../enemies";
+import { GUARDIANS, CHURCH_PHASE2_MOVES, CHURCH_PHASE2_PATTERN, WILD_SPAWN } from "../enemies";
+import { WEAPONS } from "../village/data";
 import { buildPlayerCategories } from "../demo-data";
 import type { Carried } from "../carried";
 
@@ -24,12 +25,23 @@ interface SimConfig {
   perfectStagger?: boolean;
   /** 提案②:舉盾不歸零其他行動條(尚未實裝,模擬層原型) */
   blockKeepsBars?: boolean;
+  /** 槍械配置(2026-09 平衡驗證) */
+  guns?: { revolver?: boolean; shotgun?: boolean; auto?: boolean };
+  bullets?: number;
+  /** 打哪隻守衛(預設教堂) */
+  boss?: "church" | "coalmine" | "mine";
+  /** 候選 nerf:槍械傷害倍率(模擬「巨體對槍傷減半」的近似) */
+  gunDamageMult?: number;
 }
 
 function runOnce(cfg: SimConfig): { win: boolean; t: number; hpLeft: number; bossHp: number; phase2: boolean } {
   const stocks = { bandage: cfg.bandages, elixir: cfg.elixirs, salt: cfg.salts, jerky: cfg.jerky };
   const weapons: Record<string, number> = { "steel-spear": 1, "steel-sword": 1, oniyuki: 1 };
   if (cfg.greatsword) weapons["steel-greatsword"] = 1;
+  if (cfg.guns?.revolver) weapons.revolver = 1;
+  if (cfg.guns?.shotgun) weapons.shotgun = 1;
+  if (cfg.guns?.auto) weapons["auto-rifle"] = 1;
+  const bullets = { n: cfg.bullets ?? 0 };
   const carried = {
     weapons,
     durability: { "steel-spear": 80, "steel-sword": 70, oniyuki: 60, "steel-greatsword": 75 },
@@ -39,15 +51,29 @@ function runOnce(cfg: SimConfig): { win: boolean; t: number; hpLeft: number; bos
     jerky: stocks.jerky,
     loot: {},
   } as unknown as Carried;
+  const gunIds = new Set(["revolver", "shotgun", "auto-rifle"]);
+  const saved: [string, number][] = [];
+  if (cfg.gunDamageMult) {
+    for (const w of WEAPONS) {
+      if (gunIds.has(w.id)) { saved.push([w.id, w.damage]); (w as { damage: number }).damage = Math.max(1, Math.round(w.damage * cfg.gunDamageMult)); }
+    }
+  }
   const categories = buildPlayerCategories(carried);
+  for (const [id, d] of saved) (WEAPONS.find((w) => w.id === id)! as { damage: number }).damage = d;
 
-  const church = GUARDIANS.church;
+  const church = GUARDIANS[cfg.boss ?? "church"];
   let pendingStagger = 0;
   const engine = new CombatEngine(categories, church.moves, {
     onLog: () => {},
     onPauseChange: () => {},
     onHpChange: () => {},
     onBlocked: (perfect) => { if (perfect && cfg.perfectStagger) pendingStagger = 3; },
+    onEnemyAct: (unit, move) => {
+      // 神父孕育:結算時鑽出兩隻孳生失敗體(與 main.ts 同步)
+      if (move.id === "priest-spawn" && unit.hp > 0) {
+        for (let k = 0; k < 2; k++) engine.addEnemy(WILD_SPAWN.moves, { hp: WILD_SPAWN.hp, label: WILD_SPAWN.label });
+      }
+    },
   }, { enemyHp: church.hp, enemyLabel: church.label, freezeResist: true });
 
   engine.playerMaxHp = 90; // 鋼甲
@@ -90,7 +116,7 @@ function runOnce(cfg: SimConfig): { win: boolean; t: number; hpLeft: number; bos
     // 提案①原型:完美格擋 → 硬直(借用引擎的踉蹌欄位)
     if (pendingStagger > 0) { u.staggerLeft = Math.max(u.staggerLeft, pendingStagger); pendingStagger = 0; }
 
-    if (!cfg.noPhase2 && !transformed && u.hp <= u.maxHp / 2) {
+    if ((cfg.boss ?? "church") === "church" && !cfg.noPhase2 && !transformed && u.hp <= u.maxHp / 2) {
       transformed = true;
       engine.transformUnit(u, CHURCH_PHASE2_MOVES, { hasteMult: 1 / 0.85, pattern: CHURCH_PHASE2_PATTERN });
       u.freezeInterruptArmed = true;
@@ -131,8 +157,37 @@ function runOnce(cfg: SimConfig): { win: boolean; t: number; hpLeft: number; bos
       if (stocks.jerky > 0 && itemReady("jerky") && stocks.bandage <= 0 && engine.playerHp <= 60) { useItem("jerky"); continue; }
     }
 
+    // 槍械(2026-09 平衡驗證):自動步槍>左輪;敵過半數時散彈優先;空匣抓空窗換彈
+    if (engine.stunLeft <= 0 && engine.reloadLock <= 0 && cfg.guns) {
+      const rangedCat = engine.playerCategories.find((c) => c.def.id === "ranged");
+      const living = engine.units.filter((x) => x.hp > 0).length;
+      const threatLand = Math.min(...engine.units.filter((x) => x.hp > 0).map((x) => (x.staggerLeft > 0 ? 99 : x.tracker.actualCost - x.tracker.elapsed)));
+      const gunOrder = living >= 2 ? ["shotgun", "auto-rifle", "revolver"] : ["auto-rifle", "revolver", "shotgun"];
+      let acted = false;
+      for (const gid of gunOrder) {
+        const tr = rangedCat?.trackers.find((x) => x.subAction.id === gid);
+        if (!tr || !tr.ready) continue;
+        const per = WEAPONS.find((w) => w.id === gid)?.ammoPerUse ?? 1;
+        if (tr.needsReload) {
+          const rc = tr.subAction.reloadCost ?? 1;
+          if (bullets.n >= per && threatLand > rc + 0.25) {
+            engine.useSubAction("ranged", gid); // 換彈(不耗彈)
+            acted = true;
+          }
+          continue;
+        }
+        if (bullets.n < per) continue;
+        if (engine.useSubAction("ranged", gid)) {
+          bullets.n -= per;
+          acted = true;
+        }
+        break;
+      }
+      if (acted) continue;
+    }
+
     // 輸出:大劍優先疊踉蹌,其次鋼槍/鋼劍輪替,鬼雪墊
-    if (engine.stunLeft <= 0) {
+    if (engine.stunLeft <= 0 && engine.reloadLock <= 0) {
       if (cfg.greatsword && weaponReady("steel-greatsword")) { useWeapon("steel-greatsword"); continue; }
       if (weaponReady("steel-spear")) { useWeapon("steel-spear"); continue; }
       if (weaponReady("steel-sword")) { useWeapon("steel-sword"); continue; }
@@ -145,19 +200,14 @@ function runOnce(cfg: SimConfig): { win: boolean; t: number; hpLeft: number; bos
 
 const N = 400;
 const configs: SimConfig[] = [
-  // ---- 一階段單獨(用戶提問 2026-09):現行規則 ----
-  { name: "P1 頂配(無大劍)σ0.08", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, noPhase2: true },
-  { name: "P1 頂配+大劍 σ0.08", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, noPhase2: true, greatsword: true },
-  { name: "P1 頂配+大劍 神σ0.04", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.04, crisis: true, noPhase2: true, greatsword: true },
-  { name: "P1 頂配+大劍 手殘σ0.15", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.15, crisis: true, noPhase2: true, greatsword: true },
-  { name: "P1 +大劍 鐵路滿載 繃20藥6鹽6", salts: 6, bandages: 20, elixirs: 6, jerky: 10, useShield: true, blockJitter: 0.08, crisis: true, noPhase2: true, greatsword: true },
-  { name: "P1 +大劍 無盾", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: false, blockJitter: 0.08, crisis: true, noPhase2: true, greatsword: true },
-  // ---- 參考:一階段 + 提案①/② ----
-  { name: "P1 +大劍+①完美格擋硬直 σ0.08", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, noPhase2: true, greatsword: true, perfectStagger: true },
-  { name: "P1 +大劍+①+② σ0.08", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, noPhase2: true, greatsword: true, perfectStagger: true, blockKeepsBars: true },
-  // ---- 參考:完整兩階段(現行+大劍) ----
-  { name: "全程 頂配+大劍 σ0.08", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true },
+  { name: "教堂 全槍械(現行)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true, guns: { revolver: true, shotgun: true, auto: true }, bullets: 150 },
+  { name: "教堂 全槍械+槍傷×0.5", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true, guns: { revolver: true, shotgun: true, auto: true }, bullets: 150, gunDamageMult: 0.5 },
+  { name: "教堂 全槍械+槍傷×0.5 手殘", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.15, crisis: true, greatsword: true, guns: { revolver: true, shotgun: true, auto: true }, bullets: 150, gunDamageMult: 0.5 },
+  { name: "教堂 全槍械+槍傷×0.5 彈藥60", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true, guns: { revolver: true, shotgun: true, auto: true }, bullets: 60, gunDamageMult: 0.5 },
+  { name: "煤礦坑 全槍械+槍傷×0.5", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true, guns: { revolver: true, shotgun: true, auto: true }, bullets: 150, gunDamageMult: 0.5, boss: "coalmine" },
 ];
+
+
 
 for (const cfg of configs) {
   let wins = 0;

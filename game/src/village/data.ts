@@ -232,7 +232,8 @@ export const CONSUMABLES: ConsumableDef[] = [
   // 燈油:燻製棚熬獸脂——一罐點亮一座燈柱(壓低周圍遭遇率);罐子笨重,揹著占 3 格
   { id: "oil", label: "燈油", cost: { meat: 6, wood: 15 }, yield: 1, requiresBuilding: "smokehouse" },
   // 子彈:鋼階彈藥(火藥吃煤)——左輪/散彈通用
-  { id: "bullet", label: "子彈", cost: { steel: 2, coal: 2 }, yield: 6, requiresWeaponAny: ["revolver", "shotgun"] },
+  // 2026-09 用戶定案:一顆子彈=鋼30+煤30——槍械威力不動,用彈藥經濟拴死(每一發都是財政決定)
+  { id: "bullet", label: "子彈", cost: { steel: 30, coal: 30 }, yield: 1, requiresWeaponAny: ["revolver", "shotgun"] },
   // 鐵軌:鋪在遠征地圖上的永久建設——從村莊一格一格連出去;軌上水 1/4 步、糧 1/8 步、不遇敵。
   // 鋪到礦坑旁,礦車自動運輸(鐵礦工產出 ×2)。2 根占 1 格,揹得動多少是推車/小貨車的事
   { id: "rail", label: "鐵軌", cost: { ingot: 1, wood: 5 }, yield: 1, requiresBuilding: "smithy", requiresLandmark: "mine" },
@@ -290,7 +291,7 @@ export function carryCapacity(upgrades: Record<string, boolean> | boolean): numb
 /** 彈藥類幾個併 1 格 */
 export const ARROWS_PER_SLOT = 3;
 /** 子彈小巧:6 發併 1 格 */
-export const BULLETS_PER_SLOT = 6;
+export const BULLETS_PER_SLOT = 1; // 2026-09 用戶定案:子彈一發一格——槍械是揹出門的奢侈
 /** 鐵軌沉重:2 根併 1 格 */
 export const RAILS_PER_SLOT = 2;
 // 燈油一罐占 3 格(一罐=一座燈柱的量;與其揹三小瓶不如揹一罐)
