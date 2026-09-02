@@ -26,10 +26,10 @@ if (SANDBOX) (globalThis as unknown as { __sandboxNoSave?: boolean }).__sandboxN
 
 function sandboxCarried() {
   return {
-    weapons: { "steel-spear": 1, "steel-sword": 1, "steel-greatsword": 1, oniyuki: 1, "steel-shield": 1, revolver: 1, shotgun: 1 },
+    weapons: { "steel-spear": 1, "steel-sword": 1, "steel-greatsword": 1, oniyuki: 1, "steel-shield": 1, revolver: 1, shotgun: 1, "auto-rifle": 1 },
     fineWeapons: {},
-    durability: { "steel-spear": 80, "steel-sword": 70, "steel-greatsword": 75, oniyuki: 60, "steel-shield": 50, revolver: 50, shotgun: 45 },
-    bullets: 60,
+    durability: { "steel-spear": 80, "steel-sword": 70, "steel-greatsword": 75, oniyuki: 60, "steel-shield": 50, revolver: 50, shotgun: 45, "auto-rifle": 60 },
+    bullets: 150,
     bandages: 8,
     elixirs: 3,
     salts: 5,
@@ -361,11 +361,17 @@ function canUse(subActionId: string): boolean {
 /** 使用後結算:武器扣耐久(壞了換備用)、弓扣箭、消耗品扣數量 */
 function afterUse(subActionId: string) {
   if (!carried) return;
+  if (engine.justReloaded) return; // 換彈不是射擊:不耗彈藥也不耗任何東西
   const weapon = WEAPONS.find((w) => w.id === subActionId);
   if (weapon) {
     const per = weapon.ammoPerUse ?? 1;
     if (weapon.ammo === "arrow") carried.arrows = Math.max(0, carried.arrows - per);
     if (weapon.ammo === "bullet") carried.bullets = Math.max(0, (carried.bullets ?? 0) - per);
+    if (weapon.noWear) {
+      // 槍械不耗耐久(2026-09 用戶定案):只吃彈藥;死亡照樣全失
+      saveCarried(carried);
+      return;
+    }
     carried.durability[subActionId] = (carried.durability[subActionId] ?? carriedMaxDurability(carried, subActionId)) - 1;
     if (carried.durability[subActionId] <= 0 && weapon.unbreakable) {
       // 特殊武器(鬼雪):不會消失——變成(損毀)留在背包,鐵匠鋪用異晶修復
@@ -422,8 +428,9 @@ function subActionLabel(subActionId: string, baseLabel: string): string {
     if (count <= 0) return `${baseLabel}(損壞)`;
     const dur = carried.durability[subActionId] ?? weapon.durability;
     const spare = count > 1 ? ` ×${count}` : "";
-    const ammoText = weapon.ammo === "arrow" ? `・弓矢 ${carried.arrows}` : weapon.ammo === "bullet" ? `・子彈 ${carried.bullets ?? 0}` : "";
-    return `${baseLabel}${spare}(耐久 ${dur}${ammoText})`;
+    const ammoRaw = weapon.ammo === "arrow" ? `弓矢 ${carried.arrows}` : weapon.ammo === "bullet" ? `子彈 ${carried.bullets ?? 0}` : "";
+    const parts = [weapon.noWear ? "" : `耐久 ${dur}`, ammoRaw].filter(Boolean).join("・");
+    return `${baseLabel}${spare}${parts ? `(${parts})` : ""}`;
   }
   if (subActionId === "bandage") return `${baseLabel} ×${carried.bandages}`;
   if (subActionId === "jerky") return `${baseLabel} ×${carried.jerky ?? 0}`;
@@ -1380,6 +1387,11 @@ function endCombat(message: string, href: string, delayMs: number) {
 }
 
 function render() {
+  if (engine.reloadLock > 0) {
+    statusEl.textContent = `▍換彈中……(${engine.reloadLock.toFixed(1)}s)`;
+  } else if (statusEl.textContent.startsWith("▍換彈中")) {
+    statusEl.textContent = "";
+  }
   playerHpText.textContent = `${engine.playerHp}/${engine.playerMaxHp}`;
   // 血量條(2026-09 用戶要求:數字之外的視覺表示)——沿用 █░ 條語言;敵方各自的條在敵欄逐塊畫
   const pFill = Math.round((engine.playerHp / engine.playerMaxHp) * BAR_WIDTH);
@@ -1493,7 +1505,13 @@ function render() {
       row.pct.textContent = `${pct}%`;
       const hotkeyIdx = rows.indexOf(row) + 1;
       const hotkeyPrefix = hotkeyIdx <= 9 ? `${hotkeyIdx}. ` : "";
-      row.name.textContent = hotkeyPrefix + subActionLabel(t.subAction.id, t.subAction.label);
+      if (t.subAction.magazine && t.needsReload) {
+        row.name.textContent = `${hotkeyPrefix}${t.subAction.label}——換彈!`;
+      } else if (t.subAction.magazine) {
+        row.name.textContent = `${hotkeyPrefix}${subActionLabel(t.subAction.id, t.subAction.label)}・膛 ${t.subAction.magazine - t.magazineUsed}/${t.subAction.magazine}`;
+      } else {
+        row.name.textContent = hotkeyPrefix + subActionLabel(t.subAction.id, t.subAction.label);
+      }
       const usable = t.ready && canUse(t.subAction.id);
       row.bar.classList.toggle("ready", usable);
       row.useLink.disabled = !usable;

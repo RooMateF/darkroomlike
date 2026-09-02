@@ -131,9 +131,11 @@ export interface WeaponDef {
   damage: number;
   /** 重武器:命中疊加敵方踉蹌值(滿 100 → 踉蹌 2.5s;巨體減半) */
   stagger?: number;
-  /** 槍械彈匣:連射 N 發後進入 reload 秒的換彈充能(2026-09 用戶定案) */
+  /** 槍械彈匣:打空後該行動變「換彈」——點選則全行動清空並凍結 reload 秒(2026-09 改版) */
   magazine?: number;
   reload?: number;
+  /** 槍械不耗耐久(2026-09 用戶定案):使用不掉耐久,但死亡照樣全失 */
+  noWear?: boolean;
   /** 盾牌限定:格擋參數(reduce=半格擋減傷比例、cd=冷卻秒數) */
   block?: { reduce: number; cd: number };
   /** 名刀特效:命中疊加敵方凍結值 */
@@ -180,8 +182,10 @@ export const WEAPONS: WeaponDef[] = [
   // 重擊線頂點:兩秒一記的斷崖重斬,踉蹌疊得最快
   { id: "steel-greatsword", label: "鋼大劍", cost: { steel: 18, wood: 30 }, category: "melee", baseCost: 2.0, damage: 22, symbol: ">>>>>", durability: 75, packSize: 5, stagger: 40 },
   // 槍械:鋼階限定。左輪輕快(1 發/擊)、散彈沉重(2 發/擊,單發傷害一致 → 彈數決定傷害)
-  { id: "revolver", label: "左輪手槍", cost: { steel: 10, wood: 10 }, category: "ranged", baseCost: 0.2, damage: 8, symbol: "→!", durability: 50, ammo: "bullet", ammoPerUse: 1, packSize: 2, magazine: 6, reload: 1.0 },
-  { id: "shotgun", label: "散彈槍", cost: { steel: 14, wood: 20 }, category: "ranged", baseCost: 0.5, damage: 16, symbol: "→!!", durability: 45, ammo: "bullet", ammoPerUse: 2, packSize: 3, magazine: 2, reload: 1.0 },
+  { id: "revolver", label: "左輪手槍", cost: { steel: 10, wood: 10 }, category: "ranged", baseCost: 0.2, damage: 8, symbol: "→!", durability: 50, ammo: "bullet", ammoPerUse: 1, packSize: 2, magazine: 6, reload: 1.0, noWear: true },
+  { id: "shotgun", label: "散彈槍", cost: { steel: 14, wood: 20 }, category: "ranged", baseCost: 0.5, damage: 15, symbol: "→!!", durability: 45, ammo: "bullet", ammoPerUse: 2, packSize: 3, magazine: 6, reload: 1.0, noWear: true },
+  // 舊時代自動步槍(2026-09 核可;lootOnly——未來城市地圖的戰利品):彈雨,用彈藥經濟拴著
+  { id: "auto-rifle", label: "舊時代自動步槍", cost: { steel: 30 }, category: "ranged", baseCost: 0.5, damage: 22, symbol: "→!!!", durability: 60, ammo: "bullet", ammoPerUse: 3, packSize: 4, magazine: 30, reload: 2.0, noWear: true, lootOnly: true },
   // 靜默教堂(Lv5)的戰利品:輕得不可思議(呼應敘事)。lootOnly:cost 只作修理費基準
   { id: "alloy-blade", label: "異質短刃", cost: { steel: 12, leather: 20, scroll: 1 }, category: "melee", baseCost: 0.5, damage: 7, symbol: ">>|", durability: 80, packSize: 2, lootOnly: true },
   // ---- 盾牌(格擋鏈,2026-09 用戶定案):啟動 0.5s 防禦窗,前 0.1s 完全格擋(整擊無效);

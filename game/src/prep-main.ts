@@ -241,7 +241,7 @@ for (const w of WEAPONS) {
     const remainingDur = village.weaponDurability?.[w.id] ?? w.durability;
     const row = makePickRow(
       w.label,
-      `占 ${w.packSize} 格・耐久 ${remainingDur}/${w.durability}${ammoText}`,
+      w.noWear ? `占 ${w.packSize} 格・不耗損${ammoText}` : `占 ${w.packSize} 格・耐久 ${remainingDur}/${w.durability}${ammoText}`,
       () => normalStock,
       () => pick.weapons[w.id] ?? 0,
       (n) => (pick.weapons[w.id] = n),
@@ -266,7 +266,7 @@ for (const w of WEAPONS) {
     const fineDur = normalTotal <= 0 ? (village.weaponDurability?.[w.id] ?? fineMax) : fineMax;
     const row = makePickRow(
       `精工${w.label}`,
-      `占 ${w.packSize} 格・耐久 ${fineDur}/${fineMax}(精工:上限 +25%)${ammoText}`,
+      w.noWear ? `占 ${w.packSize} 格・不耗損(精工)${ammoText}` : `占 ${w.packSize} 格・耐久 ${fineDur}/${fineMax}(精工:上限 +25%)${ammoText}`,
       () => fineStock,
       () => pick.fineW[w.id] ?? 0,
       (n) => (pick.fineW[w.id] = n),

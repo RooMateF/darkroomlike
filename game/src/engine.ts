@@ -15,8 +15,10 @@ export interface LogEntry {
 /** 類別內每個子行動各自累積進度,但共用同一次歸零(見 design-notes.md § 2.3.2) */
 class SubActionTracker {
   elapsed = 0;
-  /** 彈匣已射發數(槍械):打滿 magazine → 下一輪充能換用 reloadCost */
+  /** 彈匣已射發數(槍械):打滿 magazine → 該行動變「換彈」 */
   magazineUsed = 0;
+  /** 彈匣已空:下一次點選這個行動=換彈(所有行動清空+凍結 reloadCost 秒) */
+  needsReload = false;
   /** 一次性回轉倍率(道具轉盤:強力道具用完後下一輪 ×1.2),跑滿一輪自動歸 1 */
   costMult = 1;
 
@@ -206,6 +208,10 @@ export class CombatEngine {
   stormBleed = 0;
   /** 血雨領域(教堂 C):道具轉盤整體拖慢到這個秒數(null=正常) */
   itemFieldSeconds: number | null = null;
+  /** 換彈剩餘秒數(2026-09 改版):期間你的所有行動條凍結,敵方照常進逼 */
+  reloadLock = 0;
+  /** 剛剛那次 useSubAction 是換彈(UI 據此跳過彈藥/耐久消耗) */
+  justReloaded = false;
   /** 暈眩剩餘秒數:你的所有行動條凍結(敵方照常行動——被壓制的恐懼感) */
   stunLeft = 0;
   /** 遲緩剩餘秒數:行動條充能減半 */
@@ -343,6 +349,7 @@ export class CombatEngine {
   useBlock(): boolean {
     if (!this.shield || this.blockCooldownLeft > 0 || this.blockWindowLeft > 0) return false;
     if (this.stunLeft > 0) return false; // 暈眩中舉不起盾
+    if (this.reloadLock > 0) return false; // 換彈中雙手占著,舉不起盾
     this.blockWindowLeft = BLOCK_WINDOW;
     this.blockCooldownLeft = this.shield.cd;
     // 格擋自成一類(2026-09 用戶定案):對其他類別而言就是「別類的招」——舉盾讓所有行動條重頭跑;
@@ -407,8 +414,9 @@ export class CombatEngine {
       if (this.stunLeft > 0) this.stunLeft = Math.max(0, this.stunLeft - dt);
       if (this.slowLeft > 0) this.slowLeft = Math.max(0, this.slowLeft - dt);
       if (this.controlImmuneLeft > 0) this.controlImmuneLeft = Math.max(0, this.controlImmuneLeft - dt);
-      // 暈眩中:你的行動條全部凍結,敵方照常進逼
-      if (this.stunLeft <= 0) {
+      if (this.reloadLock > 0) this.reloadLock = Math.max(0, this.reloadLock - dt);
+      // 暈眩/換彈中:你的行動條全部凍結,敵方照常進逼
+      if (this.stunLeft <= 0 && this.reloadLock <= 0) {
         for (const cat of this.playerCategories) cat.tick(dt);
       }
       // 每一隻活著的敵人各自進逼(多目標:同時進攻)
@@ -546,6 +554,24 @@ export class CombatEngine {
     if (!cat) return false;
     const tracker = cat.trackers.find((t) => t.subAction.id === subActionId);
     if (!tracker || !tracker.ready) return false;
+    if (this.reloadLock > 0) return false; // 換彈中:雙手都占著
+
+    // 換彈(2026-09 用戶定案):點選=所有行動清空,凍結 reload 秒後各 CD 才重新起跑
+    if (tracker.needsReload) {
+      tracker.needsReload = false;
+      tracker.magazineUsed = 0;
+      this.reloadLock = tracker.subAction.reloadCost ?? 1;
+      this.justReloaded = true;
+      for (const c of this.playerCategories) {
+        c.resetAll();
+        this.applyItemField(c);
+        for (const t of c.trackers) this.acknowledged.delete(this.key(c.def.id, t.subAction.id));
+      }
+      this.cb.onLog({ id: this.logId++, actor: "你", target: `退出彈殼,壓入新的一輪(${tracker.subAction.label})`, symbol: "=", damage: 0 });
+      this.resume();
+      return true;
+    }
+    this.justReloaded = false;
 
     let dmg = tracker.subAction.damage;
     if (dmg > 0 && this.playerEmpowerNext) {
@@ -608,14 +634,10 @@ export class CombatEngine {
     // - 道具例外(2026-09 用戶定案):整類是一個轉盤——用任何道具全類重轉(無補償),
     //   強力道具(slowReuse,如繃帶)讓下一輪回轉拖長為該秒數
     tracker.elapsed = 0;
-    // 槍械彈匣(2026-09 用戶定案):連射打滿,下一次充能是換彈(較長 CD),之後回到射速
+    // 槍械彈匣(2026-09 改版):打空後這一格的下一個動作變成「換彈」
     if (tracker.subAction.magazine) {
       tracker.magazineUsed++;
-      if (tracker.magazineUsed >= tracker.subAction.magazine) {
-        tracker.magazineUsed = 0;
-        tracker.costMult = (tracker.subAction.reloadCost ?? 1) / (tracker.subAction.baseCost || 1);
-        this.cb.onLog({ id: this.logId++, actor: "你", target: `退出彈殼,壓入新的一輪(${tracker.subAction.label}換彈中)`, symbol: "=", damage: 0 });
-      }
+      if (tracker.magazineUsed >= tracker.subAction.magazine) tracker.needsReload = true;
     }
     if (cat.def.id === "item") {
       const nextSeconds = Math.max(tracker.subAction.slowReuse ?? 1, this.itemFieldSeconds ?? 0); // 下一輪回轉秒數(血雨領域可拖慢)
