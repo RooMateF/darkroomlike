@@ -185,6 +185,8 @@ export interface EngineCallbacks {
   onUnitHit?: (unit: EnemyUnit, dmg: number) => void;
   /** 玩家吃到一下傷害(跳字動畫用;含持續傷害) */
   onPlayerHit?: (dmg: number) => void;
+  /** 某隻敵人完成了一次行動(教堂神父的孕育結算等);move=剛結算的那一招 */
+  onEnemyAct?: (unit: EnemyUnit, move: EnemyMove) => void;
 }
 
 /**
@@ -432,7 +434,9 @@ export class CombatEngine {
         }
         u.tracker.tick(dt);
         if (u.tracker.progress >= 1) {
+          const resolvedMove = u.tracker.currentMove;
           this.resolveEnemyAttack(u);
+          this.cb.onEnemyAct?.(u, resolvedMove);
           if (this.playerHp <= 0) return;
         }
       }
@@ -613,6 +617,36 @@ export class CombatEngine {
         damage: total,
       });
       for (const x of downed) this.cb.onEnemyDown?.(x);
+      if (downed.length > 0) this.cb.onUnitsChanged?.();
+    }
+
+    // 連發(自動步槍):對目前目標連打 N 發,逐發跳字;目標倒了剩餘子彈掃向下一隻
+    if (!pelletsDone && tracker.subAction.burst && dmg > 0) {
+      pelletsDone = true;
+      let total = 0;
+      const hitUnits = new Set<EnemyUnit>();
+      const downed: EnemyUnit[] = [];
+      for (let i = 0; i < tracker.subAction.burst; i++) {
+        const u2 = this.targetUnit;
+        if (!u2 || u2.hp <= 0) break;
+        let d = dmg;
+        if (u2.staggerLeft > 0) d = Math.round(d * 1.25);
+        u2.hp = Math.max(0, u2.hp - d);
+        this.cb.onUnitHit?.(u2, d);
+        total += d;
+        hitUnits.add(u2);
+        if (u2.hp <= 0) {
+          downed.push(u2);
+          this.cb.onEnemyDown?.(u2); // 立即結算,讓 targetUnit 跳到下一隻活的
+        }
+      }
+      this.cb.onLog({
+        id: this.logId++,
+        actor: "你",
+        target: hitUnits.size > 1 ? `連發掃倒,貫穿 ${hitUnits.size} 隻` : ([...hitUnits][0]?.label ?? "敵人"),
+        symbol: tracker.subAction.symbol,
+        damage: total,
+      });
       if (downed.length > 0) this.cb.onUnitsChanged?.();
     }
 

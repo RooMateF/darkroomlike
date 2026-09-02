@@ -198,8 +198,23 @@ export const CHURCH_PHASE2_MOVES: EnemyMove[] = [
   { id: "stab", label: "百手穿刺", baseCost: 1.05, symbol: "»»", damage: 4 },
   { id: "limb-sweep", label: "肢林橫掃", baseCost: 1.9, symbol: "»»»»", damage: 12, status: { kind: "bleed", amount: 40 }, tell: "蜈蚣般的手臂貼著地面壓了過來。" },
   { id: "hundred-slam", label: "百手壓下", baseCost: 2.9, symbol: "»»»»»»", damage: 23, control: { kind: "stun", duration: 1.2 }, pierceBlock: true, tell: "數不清的手同時高高舉起——影子把整座祭壇罩住了。" },
+  // 孕育(2026-09 用戶定案):每第五次行動必定釋放——零傷害,是留給玩家的空窗;結算時鑽出兩隻失敗的滋生體
+  { id: "priest-spawn", label: "孕育", baseCost: 2.0, symbol: "◎◎", damage: 0, tell: "神父的軀體開始蠕動鼓脹——有什麼正要鑽出來。" },
 ];
-export const CHURCH_PHASE2_PATTERN = ["stab", "limb-sweep", "hundred-slam"];
+export const CHURCH_PHASE2_PATTERN = ["stab", "limb-sweep", "hundred-slam", "stab", "priest-spawn"];
+
+/** 失敗的滋生體(教堂神父半血後,每第五次行動鑽出兩隻):脆弱但煩,逼你分心或掏全體攻擊 */
+export const CHURCH_SPAWN: EnemyDef = {
+  id: "church-spawn",
+  label: "失敗的滋生體",
+  intro: "失敗的滋生體從不再祈禱的神父的身體裡鑽出",
+  hp: 5,
+  moves: [
+    { id: "gnaw", label: "啃咬", baseCost: 0.9, symbol: "·»", damage: 2 },
+    { id: "cling", label: "攀附", baseCost: 1.6, symbol: "~»", damage: 4 },
+  ],
+  loot: {},
+};
 
 /** 孳生體(單隻):成群的孳生體在戰場上展開成 3 隻這個(2026-09 多目標系統) */
 export const SPAWN_UNIT: EnemyDef = {
@@ -365,7 +380,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
   // 鋼階頂配+鋼盾:一階段單獨 熟練15~18%/神級42%;含二階段全程 熟練19%;無盾一律 0%——盾是入場券
   church: {
     id: "church-guardian",
-    label: "不再祈禱的東西",
+    label: "不再祈禱的神父",
     intro: "祭壇前跪著一個背影,維持著祈禱的姿勢——但那個輪廓不屬於任何還能被稱為人的東西。『喔，是你，拋棄了我們的舊神的使徒』",
     intro2: "『正好省去了我前往你的村莊的麻煩，就在這裡讓我為舊日的一切復仇吧。』它緩緩站了起來，後背已經腫脹的幾乎失去人形。",
     hp: 440,

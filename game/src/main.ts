@@ -4,7 +4,7 @@ import { buildPlayerCategories } from "./demo-data";
 import { WEAPONS, fineMaxDurability } from "./village/data";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
 import { loadCarried, saveCarried, clearCarried, addLoot, playerMaxHp, carriedMaxDurability, packUsed } from "./carried";
-import { pickRandomEnemy, pickMidEnemy, pickEnemyGroup, GUARDIANS, LANDMARK_REWARDS, LV3_BOSS, EVENT_BOSSES, TENTACLE_GUARD, SPAWN_UNIT, MOON_MUTANT, REDMOON_BOSS, CHURCH_PHASE2_MOVES, CHURCH_PHASE2_PATTERN, type EnemyDef } from "./enemies";
+import { pickRandomEnemy, pickMidEnemy, pickEnemyGroup, GUARDIANS, LANDMARK_REWARDS, LV3_BOSS, EVENT_BOSSES, TENTACLE_GUARD, SPAWN_UNIT, MOON_MUTANT, REDMOON_BOSS, CHURCH_PHASE2_MOVES, CHURCH_PHASE2_PATTERN, CHURCH_SPAWN, type EnemyDef } from "./enemies";
 import { markLandmarkCleared, currentMapId, isAutoPickup } from "./explore/engine";
 
 // 蓋「這趟有收穫」章(空手計數的歸零依據;引導事件用)
@@ -719,6 +719,15 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
     const host = document.querySelector<HTMLElement>("#player-hp-row");
     if (host) spawnDamagePop(host, `-${dmg}`);
   },
+  onEnemyAct: (unit, move) => {
+    // 教堂半血(2026-09 用戶定案):第五招「孕育」必定釋放——零傷害的空窗,結算時鑽出兩隻
+    if (move.id !== "priest-spawn" || unit.hp <= 0) return;
+    appendSystemLog("失敗的滋生體從不再祈禱的神父的身體裡鑽出");
+    for (let k = 0; k < 2; k++) {
+      engine.addEnemy(applyBlessing(CHURCH_SPAWN.moves), { hp: CHURCH_SPAWN.hp, label: CHURCH_SPAWN.label });
+      unitDefs.push(CHURCH_SPAWN);
+    }
+  },
   onEnemyDown: (unit) => {
     // 護贓的觸手倒下:牠纏著的那件贓物直接回到你手上(2026-09 用戶定案)
     if (unit.tag?.startsWith("stolen:")) {
@@ -800,7 +809,7 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
       if (dungeon?.landmarkId === "church" && dungeon.stage >= dungeon.stages) {
         const deathLine = "『原來.....這數百年的時光為的就是這一刻嗎，主啊，謝謝您......』";
         appendSystemLog(deathLine);
-        showBossDialog([deathLine], "不再祈禱的東西");
+        showBossDialog([deathLine], "不再祈禱的神父");
       }
 
       if (isRedmoonFight) {
@@ -1123,7 +1132,7 @@ function churchCheck() {
   appendSystemLog(line1);
   appendSystemLog(line2);
   // 儀式對話框讀完才蛻變開打(2026-09 用戶要求的儀式感)
-  showBossDialog([line1, line2], "不再祈禱的東西", () => {
+  showBossDialog([line1, line2], "不再祈禱的神父", () => {
     engine.transformUnit(u, CHURCH_PHASE2_MOVES, { hasteMult: 1 / 0.85, pattern: CHURCH_PHASE2_PATTERN });
     u.freezeInterruptArmed = true;
     engine.stormBleed = 1; // 2026-09 用戶下修:血雨每 2 秒 −1
