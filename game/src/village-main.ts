@@ -134,6 +134,12 @@ function startVillage() {
             <button class="btn" data-sandbox="scavenger">拾荒的長手</button>
             <button class="btn" data-sandbox="counter">數數的東西</button>
             <button class="btn" data-sandbox="lv3">Lv3 看守</button>
+            <button class="btn" data-sandbox="redmoon">紅月三連戰</button>
+            <button class="btn" data-sandbox="siren">哼歌的東西</button>
+            <button class="btn" data-sandbox="tentacle">收藏的觸手</button>
+            <button class="btn" data-sandbox="group">外圍組隊</button>
+            <button class="btn" data-sandbox="spawnpack">孳生體群</button>
+            <button class="btn" data-sandbox="chain">遺跡連鎖戰</button>
           </div>
         </div>
       </div>

@@ -53,8 +53,8 @@ try {
 } catch {
   dungeon = null;
 }
-if (SANDBOX) {
-  // 模擬戰一律打最深層 Boss:sandbox=church/coalmine/mine/observatory/shrine/scavenger/counter,或 lv3
+if (SANDBOX && ["church", "coalmine", "mine", "observatory", "shrine", "scavenger", "counter", "lv3"].includes(SANDBOX)) {
+  // 守衛型模擬戰:直接打最深層 Boss
   dungeon = {
     key: "sandbox",
     level: SANDBOX === "lv3" ? 3 : 5,
@@ -64,6 +64,9 @@ if (SANDBOX) {
     x: 0,
     y: 0,
   } as unknown as DungeonRun;
+} else if (SANDBOX === "chain") {
+  // 遺跡連鎖戰模擬:層間戰場景(下面會強制排入兩波)
+  dungeon = { key: "sandbox", level: 4, stage: 1, stages: 3, landmarkId: "coalmine", x: 0, y: 0 } as unknown as DungeonRun;
 }
 
 function pickDungeonEnemy(run: DungeonRun): EnemyDef {
@@ -83,17 +86,17 @@ if (!carried && !dungeon) {
 }
 
 // 事件小 Boss(選擇式小劇情觸發,如「唱歌的風」):優先於地城與隨機遭遇
-const eventBossId = localStorage.getItem("pending-event-boss");
-if (eventBossId) localStorage.removeItem("pending-event-boss");
+const eventBossId = SANDBOX === "siren" || SANDBOX === "tentacle" ? SANDBOX : localStorage.getItem("pending-event-boss");
+if (!SANDBOX && eventBossId) localStorage.removeItem("pending-event-boss");
 
 // 外圍組隊(探索頁標記):2~3 隻車輪戰;地城/事件 Boss 不組隊
-const isGroupFight = !eventBossId && !dungeon && localStorage.getItem("pending-group") === "1";
+const isGroupFight = SANDBOX === "group" || (!eventBossId && !dungeon && localStorage.getItem("pending-group") === "1");
 if (localStorage.getItem("pending-group")) localStorage.removeItem("pending-group");
 const groupQueue: EnemyDef[] = isGroupFight ? pickEnemyGroup() : [];
 
 // 紅月窪地(2026-09 核可):踩上 ☾ 觸發——固定三場連鎖(畸體×2 → 畸體×1~2 → 變異野獸)
-const isRedmoonFight = !eventBossId && !dungeon && localStorage.getItem("pending-redmoon") === "1";
-if (localStorage.getItem("pending-redmoon")) localStorage.removeItem("pending-redmoon");
+const isRedmoonFight = SANDBOX === "redmoon" || (!eventBossId && !dungeon && localStorage.getItem("pending-redmoon") === "1");
+if (!SANDBOX && localStorage.getItem("pending-redmoon")) localStorage.removeItem("pending-redmoon");
 
 // 相鄰地圖(中央地圖以外)的野外更兇:一半機率抽中期梯隊
 const pickedDef = eventBossId
@@ -123,6 +126,10 @@ if (isRedmoonFight) {
   initialWave.length = 0;
   initialWave.push(MOON_MUTANT, MOON_MUTANT);
 }
+if (SANDBOX === "spawnpack") {
+  initialWave.length = 0;
+  initialWave.push(SPAWN_UNIT, SPAWN_UNIT, SPAWN_UNIT);
+}
 const enemyDef = initialWave[0];
 
 // 高階遺跡連鎖戰(2026-09 用戶定案):Lv3+ 層間戰有一半機率連 2~3 場——
@@ -136,17 +143,33 @@ if (isRedmoonFight) {
   chainWaves.push(Math.random() < 0.5 ? [MOON_MUTANT] : [MOON_MUTANT, MOON_MUTANT]);
   chainWaves.push([REDMOON_BOSS]);
 }
+if (SANDBOX === "chain") {
+  chainWaves.length = 0;
+  chainWaves.push(expandPack([pickMidEnemy()]), expandPack([pickMidEnemy()]));
+}
 /** 這一戰的完整陣容(含連鎖各波;勝利時戰利品合計、異晶逐隻擲骰) */
 const unitDefs: EnemyDef[] = [...initialWave];
 
 // 拾荒的長手 Boss 戰:贓物快照與歸還記帳(護贓觸手倒下即歸還那件)
+const sandboxStealStore = { kinds: [] as string[], stolen: [] as { kind: string; id?: string; durability?: number; fine?: boolean; count?: number }[] };
 let stolenSnapshot: { kind: string; id?: string; durability?: number; fine?: boolean }[] = [];
 const returnedIdx = new Set<number>();
 if (dungeon?.landmarkId === "scavenger") {
-  try {
-    stolenSnapshot = JSON.parse(localStorage.getItem("maze-stolen") ?? "[]");
-  } catch {
-    stolenSnapshot = [];
+  if (SANDBOX) {
+    // 模擬戰:偽造一整排贓物,展示「打倒護贓觸手取回裝備」的完整機制
+    stolenSnapshot = [
+      { kind: "weapon", id: "steel-knife", durability: 60, fine: false },
+      { kind: "salt" },
+      { kind: "elixir" },
+      { kind: "jerky" },
+      { kind: "bandage" },
+    ];
+  } else {
+    try {
+      stolenSnapshot = JSON.parse(localStorage.getItem("maze-stolen") ?? "[]");
+    } catch {
+      stolenSnapshot = [];
+    }
   }
 }
 let lowHpWarned = false;
@@ -693,7 +716,7 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
 
       if (isRedmoonFight) {
         // 紅月循環收束:計數歸零(窪地由探索頁撤掉);之後再滿三次會再來
-        localStorage.setItem("redmoon-count", "0");
+        if (!SANDBOX) localStorage.setItem("redmoon-count", "0");
         appendSystemLog("那東西倒下時,窪地裡的紫紅色像退潮一樣散了。今晚的月亮,應該會是正常的顏色。");
       }
 
@@ -794,6 +817,33 @@ if (SANDBOX) {
   engine.playerHp = 90;
   engine.firstStrikeBoost = true; // 危機意識也算滿配
   appendSystemLog("〔模擬戰〕滿裝測試場:勝敗不影響存檔,打完自動重開;「撤退」=離開回村。");
+  // 場內換對手列:不用回村,點了直接開打
+  const bar = document.createElement("div");
+  bar.className = "combat-controls";
+  bar.style.flexWrap = "wrap";
+  const fights: [string, string][] = [
+    ["church", "教堂"], ["coalmine", "煤礦坑"], ["mine", "鐵礦坑"], ["observatory", "觀測台"],
+    ["shrine", "祭壇"], ["scavenger", "拾荒的長手"], ["counter", "數數的東西"], ["lv3", "Lv3看守"],
+    ["redmoon", "紅月三連戰"], ["siren", "哼歌的東西"], ["tentacle", "收藏的觸手"],
+    ["group", "外圍組隊"], ["spawnpack", "孳生體群"], ["chain", "遺跡連鎖戰"],
+  ];
+  for (const [id, label] of fights) {
+    const b = document.createElement("button");
+    b.className = "btn-tiny" + (id === SANDBOX ? " ready" : "");
+    b.textContent = label;
+    b.addEventListener("click", () => {
+      window.location.href = `index.html?sandbox=${id}`;
+    });
+    bar.appendChild(b);
+  }
+  const leave = document.createElement("button");
+  leave.className = "btn-tiny";
+  leave.textContent = "離開";
+  leave.addEventListener("click", () => {
+    window.location.href = "village.html";
+  });
+  bar.appendChild(leave);
+  document.querySelector(".combat-controls")!.after(bar);
 }
 // 這一波其餘敵人同時上場(組隊/孳生窩展開)
 for (const d of initialWave.slice(1)) {
@@ -843,16 +893,21 @@ let stoleThisFight = false;
 function performSteal() {
   if (stoleThisFight || !carried) return;
   let kinds: string[] = [];
-  try {
-    kinds = JSON.parse(localStorage.getItem("maze-stolen-kinds") ?? "[]") as string[];
-  } catch {
-    kinds = [];
-  }
   let stolen: { kind: string; id?: string; durability?: number; fine?: boolean; count?: number }[] = [];
-  try {
-    stolen = JSON.parse(localStorage.getItem("maze-stolen") ?? "[]");
-  } catch {
-    stolen = [];
+  if (SANDBOX) {
+    kinds = sandboxStealStore.kinds;
+    stolen = sandboxStealStore.stolen;
+  } else {
+    try {
+      kinds = JSON.parse(localStorage.getItem("maze-stolen-kinds") ?? "[]") as string[];
+    } catch {
+      kinds = [];
+    }
+    try {
+      stolen = JSON.parse(localStorage.getItem("maze-stolen") ?? "[]");
+    } catch {
+      stolen = [];
+    }
   }
 
   let record: { kind: string; id?: string; durability?: number; fine?: boolean } | null = null;
@@ -906,8 +961,13 @@ function performSteal() {
   stoleThisFight = true;
   kinds.push(record.kind);
   stolen.push(record);
-  localStorage.setItem("maze-stolen-kinds", JSON.stringify(kinds));
-  localStorage.setItem("maze-stolen", JSON.stringify(stolen));
+  if (SANDBOX) {
+    sandboxStealStore.kinds = kinds;
+    sandboxStealStore.stolen = stolen;
+  } else {
+    localStorage.setItem("maze-stolen-kinds", JSON.stringify(kinds));
+    localStorage.setItem("maze-stolen", JSON.stringify(stolen));
+  }
   saveCarried(carried);
 }
 
@@ -919,7 +979,7 @@ function returnStolenAt(idx: number): boolean {
   const item = stolenSnapshot[idx];
   if (!item) return false;
   returnedIdx.add(idx);
-  localStorage.setItem("maze-stolen", JSON.stringify(stolenSnapshot.filter((_, i) => !returnedIdx.has(i))));
+  if (!SANDBOX) localStorage.setItem("maze-stolen", JSON.stringify(stolenSnapshot.filter((_, i) => !returnedIdx.has(i))));
   if (item.kind === "weapon" && item.id) {
     carried.weapons[item.id] = (carried.weapons[item.id] ?? 0) + 1;
     if (item.fine) {
