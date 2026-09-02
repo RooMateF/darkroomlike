@@ -200,12 +200,13 @@ function runOnce(cfg: SimConfig): { win: boolean; t: number; hpLeft: number; bos
 
 const N = 400;
 const configs: SimConfig[] = [
-  { name: "教堂 全槍械(現行)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true, guns: { revolver: true, shotgun: true, auto: true }, bullets: 150 },
-  { name: "教堂 全槍械+槍傷×0.5", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true, guns: { revolver: true, shotgun: true, auto: true }, bullets: 150, gunDamageMult: 0.5 },
-  { name: "教堂 全槍械+槍傷×0.5 手殘", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.15, crisis: true, greatsword: true, guns: { revolver: true, shotgun: true, auto: true }, bullets: 150, gunDamageMult: 0.5 },
-  { name: "教堂 全槍械+槍傷×0.5 彈藥60", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true, guns: { revolver: true, shotgun: true, auto: true }, bullets: 60, gunDamageMult: 0.5 },
-  { name: "煤礦坑 全槍械+槍傷×0.5", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true, guns: { revolver: true, shotgun: true, auto: true }, bullets: 150, gunDamageMult: 0.5, boss: "coalmine" },
+  { name: "教堂550 近戰基準(無槍)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true },
+  { name: "教堂550 全槍械(150彈,模擬戰式)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true, guns: { revolver: true, shotgun: true, auto: true }, bullets: 150 },
+  { name: "教堂550 全槍械(30彈=900鋼的家底)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true, guns: { revolver: true, shotgun: true, auto: true }, bullets: 30 },
+  { name: "教堂550 全槍械(12彈=務實)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true, guns: { revolver: true, shotgun: true, auto: true }, bullets: 12 },
+  { name: "教堂550 +散彈只帶10彈(清孳生用)", salts: 5, bandages: 8, elixirs: 3, jerky: 4, useShield: true, blockJitter: 0.08, crisis: true, greatsword: true, guns: { shotgun: true }, bullets: 10 },
 ];
+
 
 
 

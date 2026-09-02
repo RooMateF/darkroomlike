@@ -375,7 +375,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     label: "不再祈禱的神父",
     intro: "祭壇前跪著一個背影,維持著祈禱的姿勢——但那個輪廓不屬於任何還能被稱為人的東西。『喔，是你，拋棄了我們的舊神的使徒』",
     intro2: "『正好省去了我前往你的村莊的麻煩，就在這裡讓我為舊日的一切復仇吧。』它緩緩站了起來，後背已經腫脹的幾乎失去人形。",
-    hp: 440,
+    hp: 550, // 2026-09 上修:槍械時代的體格
     moves: [
       // 低語:鑽進骨頭裡的聲音讓手腳發沉(遲緩)——充能減半,補血與輸出一起變慢
       { id: "whisper", label: "低語", baseCost: 1.9, symbol: "…", damage: 5, control: { kind: "slow", duration: 2.5 }, tell: "那個高大的輪廓朝你微微傾了過來。" },
