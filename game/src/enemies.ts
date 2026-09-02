@@ -33,7 +33,7 @@ export interface EnemyDef {
 export const WILD_SPAWN: EnemyDef = {
   id: "spawn",
   label: "孳生失敗體",
-  intro: "一團不斷蠕動的小東西朝你湧來,形狀說不出像什麼。",
+  intro: "拳頭大的肉團拖著六條沒發育完全的腿朝你湧來。像胎鼠,但沒有頭的位置——嘴開在背上,一開一合。",
   hp: 6,
   moves: [{ id: "swarm", label: "啃咬", baseCost: 0.5, symbol: "·»", damage: 1, status: { kind: "poison", amount: 25 } }],
   loot: { meat: 1 },
@@ -45,7 +45,7 @@ export const ENEMIES: EnemyDef[] = [
     id: "drifter",
     label: "迷途者",
     human: true,
-    intro: "一個衣衫襤褸的身影擋住去路,眼神疲憊而警戒。",
+    intro: "一個裹著好幾層破布的人擋在路上,手裡的木棍削尖過。他看看你的背包,又看看你,像在計算什麼。",
     hp: 10,
     moves: [{ id: "swing", label: "揮擊", baseCost: 1.4, symbol: "»", damage: 2 }],
     loot: { ration: 1 },
@@ -54,7 +54,7 @@ export const ENEMIES: EnemyDef[] = [
     id: "crazed",
     label: "輕度發狂者",
     human: true,
-    intro: "那個人的動作不太連貫,喉嚨裡發出意義不明的聲音。",
+    intro: "那個人朝你走過來,步子一長一短。他的下巴不停地動,像在跟誰講話,可是聲音裡沒有一個完整的字。",
     hp: 12,
     moves: [
       { id: "flail", label: "亂抓", baseCost: 0.7, symbol: "»»", damage: 2 },
@@ -69,7 +69,7 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: "mutant-hound",
     label: "變異犬",
-    intro: "四肢比例不太對勁的犬型生物壓低了身子,眼睛的位置有些不自然。",
+    intro: "一頭狗壓低了身子——體型像牧羊犬,可是前腿比後腿長了一截,兩隻眼睛偏高地長在額頭上,位置更接近人。",
     hp: 14,
     moves: [{ id: "pounce", label: "撲咬", baseCost: 0.9, symbol: "»»»", damage: 3, status: { kind: "bleed", amount: 30 } }],
     loot: { hide: 2, meat: 2 },
@@ -79,7 +79,7 @@ export const ENEMIES: EnemyDef[] = [
     id: "raider",
     label: "廢土掠奪者",
     human: true,
-    intro: "拿著拼裝武器的人影繞著你打量——他要的是你身上的東西。",
+    intro: "拿著拼裝武器的人繞著你打量,刀刃是汽車鋼板磨出來的,握把纏著膠帶。他要的是你身上的東西。",
     hp: 18,
     moves: [
       { id: "slash", label: "揮砍", baseCost: 1.0, symbol: "»»»", damage: 4 },
@@ -99,7 +99,7 @@ export const EVENT_BOSSES: Record<string, EnemyDef> = {
     id: "maze-tentacle",
     boss: true,
     label: "蒼白的觸手",
-    intro: "牆縫裡垂下一條蒼白的觸手,指尖在空中輕輕比劃,像在挑選。",
+    intro: "牆縫裡垂下一條蒼白的觸手,粗細像成人的手臂,表面卻是手指的皮膚——連指紋都有。指尖在空中輕輕比劃,像在挑選。",
     hp: 12,
     moves: [
       { id: "snatch", label: "捲奪", baseCost: 0.3, symbol: "~»", damage: 1, steal: true },
@@ -112,7 +112,7 @@ export const EVENT_BOSSES: Record<string, EnemyDef> = {
   siren: {
     id: "siren",
     label: "哼歌的東西",
-    intro: "牠沒有嘴,歌聲卻從牠身體的某處滲出來。三個音,重複——你聽過這段旋律。",
+    intro: "一隻剝光了羽毛的大鳥蹲在那裡——至少輪廓像鳥。牠沒有頭,脖子的斷口張開成一圈肉瓣,歌聲就從那裡漏出來。三個音,重複。你聽過這段旋律。",
     hp: 45,
     moves: [
       { id: "hum", label: "哼唱", baseCost: 2.0, symbol: "~♪", damage: 0, confusion: 60, tell: "牠的身體鼓了起來,像在吸氣。歌聲變近了。" },
@@ -135,7 +135,7 @@ export const MID_ENEMIES: EnemyDef[] = [
   {
     id: "spawn-pack",
     label: "成群的孳生體",
-    intro: "牆縫裡湧出的東西比外面見過的更多、更急。",
+    intro: "幾十團拳頭大的肉團從牆縫裡擠出來,腿還沒長全就開始爬,彼此踩著彼此。",
     hp: 18,
     moves: [
       { id: "swarm", label: "圍咬", baseCost: 0.5, symbol: "·»", damage: 3, status: { kind: "poison", amount: 20 } },
@@ -148,7 +148,7 @@ export const MID_ENEMIES: EnemyDef[] = [
     id: "veteran",
     label: "廢土老兵",
     human: true,
-    intro: "穿著拼湊護具的身影擋在通道中央,握武器的姿勢比外面那些人熟練得多。",
+    intro: "擋在通道中央的人穿著拼湊的護具,鋼片用皮繩紮在要害上。他沒有出聲,先把重心沉了下去——這個起手式,外面那些人做不出來。",
     hp: 22,
     moves: [
       { id: "slash", label: "劈砍", baseCost: 1.0, symbol: "»»»", damage: 6 },
@@ -159,7 +159,7 @@ export const MID_ENEMIES: EnemyDef[] = [
   {
     id: "lurker",
     label: "潛伏的掠食者",
-    intro: "你聽見水聲的時候,牠已經撲到面前了。",
+    intro: "你先聽見水聲。然後才看清那是什麼:一頭水獺——如果水獺能長到狼的大小的話。牠的嘴往兩側裂開,一直裂到耳根。",
     hp: 20,
     moves: [
       { id: "ambush", label: "突襲", baseCost: 0.8, symbol: "»»»", damage: 5, status: { kind: "bleed", amount: 25 } },
@@ -178,7 +178,7 @@ export function pickMidEnemy(): EnemyDef {
 export const MOON_MUTANT: EnemyDef = {
   id: "moon-mutant",
   label: "月照的畸體",
-  intro: "草堆裡站起幾具不成形的東西——像人,又不再是人。皮膚底下有東西在蠕動。",
+  intro: "草堆裡站起幾具人形。四肢是人的四肢,只是關節全部反著折;皮膚底下有指節大小的東西在移動,一下、一下,像在找出口。",
   hp: 26,
   moves: [
     { id: "bite", label: "咬撕", baseCost: 1.0, symbol: "»»", damage: 5 },
@@ -218,7 +218,7 @@ export const CHURCH_PHASE2_PATTERN = ["stab", "limb-sweep", "hundred-slam", "sta
 export const SPAWN_UNIT: EnemyDef = {
   id: "spawn-one",
   label: "孳生體",
-  intro: "牆縫裡湧出的東西比外面見過的更多、更急。",
+  intro: "牆縫裡擠出來的這一窩比外面見過的更多,也更急——肉團互相踩著,朝你這邊翻滾過來。",
   hp: 7,
   moves: [
     { id: "bite", label: "圍咬", baseCost: 0.9, symbol: "·»", damage: 3, status: { kind: "poison", amount: 15 } },
@@ -265,7 +265,7 @@ export function pickEnemyGroup(): EnemyDef[] {
 export const LV3_BOSS: EnemyDef = {
   id: "ruin-warden",
   label: "遺跡的看守",
-  intro: "最深處的黑暗裡,一個高大的輪廓緩緩起身。那個存在的眼睛看向了你！",
+  intro: "最深處的黑暗裡,一個高大的輪廓緩緩起身——像一頭直立的熊,肩上卻披著石頭一樣的硬殼。那個存在的眼睛看向了你！",
   hp: 80,
   moves: [
     { id: "sweep", label: "橫掃", baseCost: 1.1, symbol: "»»»", damage: 6 },
@@ -317,7 +317,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
   mine: {
     id: "mine-guardian",
     label: "盤據礦坑的巨獸",
-    intro: "黑暗裡站起一頭巨大的生物,肩膀擦過坑道的頂。牠低下頭,鼻息噴在你臉上。",
+    intro: "黑暗裡站起一頭巨獸,肩膀擦過坑道的頂。體格像熊,前肢卻多出一對,四隻手掌全都攤開撐在地上。牠低下頭,鼻息噴在你臉上。",
     hp: 110,
     moves: [
       { id: "swipe", label: "拍擊", baseCost: 1.1, symbol: "»»»", damage: 5 },
