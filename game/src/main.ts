@@ -256,10 +256,12 @@ function buildEnemyPanel() {
     const act = mkRow("動作", "敵方動作");
     const fr = mkRow("凍結", "");
     fr.row.style.display = "none";
-    root.append(title, hp.row, act.row, fr.row);
+    const st = mkRow("踉蹌", "");
+    st.row.style.display = "none";
+    root.append(title, hp.row, act.row, fr.row, st.row);
     host.appendChild(root);
     void u;
-    return { root, title, hpText: hp.name, hpF: hp.f, hpE: hp.e, actF: act.f, actE: act.e, frRow: fr.row, frF: fr.f, frE: fr.e, frPct: fr.infoEl };
+    return { root, title, hpText: hp.name, hpF: hp.f, hpE: hp.e, actF: act.f, actE: act.e, frRow: fr.row, frF: fr.f, frE: fr.e, frPct: fr.infoEl, stRow: st.row, stF: st.f, stE: st.e, stPct: st.infoEl };
   });
 }
 
@@ -1298,6 +1300,15 @@ function render() {
       el.frPct.textContent = u.chilled ? "寒滯!" : `${Math.round(u.freeze)}/100`;
     } else {
       el.frRow.style.display = "none";
+    }
+    if (u.hp > 0 && (u.staggerGauge > 0 || u.staggerLeft > 0)) {
+      el.stRow.style.display = "";
+      const sFill = u.staggerLeft > 0 ? BAR_WIDTH : Math.round((u.staggerGauge / 100) * BAR_WIDTH);
+      el.stF.textContent = "█".repeat(sFill);
+      el.stE.textContent = "░".repeat(BAR_WIDTH - sFill);
+      el.stPct.textContent = u.staggerLeft > 0 ? "踉蹌!" : `${Math.round(u.staggerGauge)}/100`;
+    } else {
+      el.stRow.style.display = "none";
     }
   });
 

@@ -582,6 +582,7 @@ function render() {
       // 鐵軌:一般地形上畫 =(據點/地標等重要符號優先)
       if (tile.revealed && tile.rail && isGround) {
         symbol = "=";
+        cell.classList.add("rail"); // 鐵軌亮色:一眼認得出路線
       }
       // 補給點符號只表達據點本質:S 有儲備 / s 這趟已拿空——
       // 點燈狀態交給高亮與光圈表達(換成 % 反而看不出它是補給點,用戶反饋)

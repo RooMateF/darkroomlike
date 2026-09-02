@@ -142,6 +142,10 @@ export class EnemyUnit {
   hasteMult = 1;
   /** 鬼雪打斷(教堂蛻變 B):下一次凍結值疊滿時,這隻當前蓄力直接歸零(一場一次) */
   freezeInterruptArmed = false;
+  /** 踉蹌值(重武器疊加,滿 100 觸發;巨體與凍結抗性同款減半) */
+  staggerGauge = 0;
+  /** 踉蹌中剩餘秒數:行動條凍住+受創 ×1.25——重武器砸出來的輸出窗 */
+  staggerLeft = 0;
   readonly freezeResist: boolean;
 
   constructor(
@@ -407,6 +411,10 @@ export class CombatEngine {
       // 每一隻活著的敵人各自進逼(多目標:同時進攻)
       for (const u of this.units) {
         if (u.hp <= 0) continue;
+        if (u.staggerLeft > 0) {
+          u.staggerLeft = Math.max(0, u.staggerLeft - dt); // 踉蹌中:這隻整個停擺
+          continue;
+        }
         u.tracker.tick(dt);
         if (u.tracker.progress >= 1) {
           this.resolveEnemyAttack(u);
@@ -544,8 +552,19 @@ export class CombatEngine {
     const heal = tracker.subAction.heal ?? 0;
     const target = this.targetUnit;
     if (dmg > 0 && target) {
+      if (target.staggerLeft > 0) dmg = Math.round(dmg * 1.25); // 踉蹌中受創加成
       target.hp = Math.max(0, target.hp - dmg);
       // 名刀鬼雪:命中疊加凍結值(Boss 抗性減半);滿 100 → 寒滯+強化下一擊,歸零重疊
+      // 踉蹌值(2026-09 實裝):重武器命中疊加;巨體(同凍結抗性)減半;
+      // 疊滿 100 → 踉蹌 STAGGER_DURATION 秒(行動條凍結+受創 ×1.25),期間不再疊加
+      if (tracker.subAction.stagger && target.hp > 0 && target.staggerLeft <= 0) {
+        target.staggerGauge += target.freezeResist ? Math.round(tracker.subAction.stagger / 2) : tracker.subAction.stagger;
+        if (target.staggerGauge >= 100) {
+          target.staggerGauge = 0;
+          target.staggerLeft = STAGGER_DURATION;
+          this.cb.onLog({ id: this.logId++, actor: "你", target: `重擊砸亂了${target.label}的腳步——牠踉蹌了`, symbol: "!!", damage: 0 });
+        }
+      }
       if (tracker.subAction.freeze && target.hp > 0) {
         target.freeze += target.freezeResist ? Math.round(tracker.subAction.freeze / 2) : tracker.subAction.freeze;
         if (target.freeze >= 100) {
@@ -635,6 +654,8 @@ export class CombatEngine {
 
 /** 使用某類別的行動後,其他類別保留的預讀進度比例(design-notes.md 待補:目前先用 0.5 當原型數值) */
 const CARRYOVER_RATIO = 0.5;
+/** 踉蹌持續秒數(重武器疊滿觸發):行動條凍結+受創 ×1.25 */
+const STAGGER_DURATION = 2.5;
 
 // 格擋窗口(§用戶規格 2026-09):啟動後 0.5 秒內的第一擊被接下;前 0.1 秒是完全格擋
 export const BLOCK_WINDOW = 0.5;

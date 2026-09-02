@@ -815,6 +815,10 @@ hr {
 }
 
 /* 主角(@):終端游標式反白方塊——整張地圖唯一的填色格,一眼就能鎖定自己 */
+.map-cell.rail {
+  color: var(--fg-bright);
+}
+
 .map-cell.player {
   color: var(--bg);
   background: var(--fg-bright);
