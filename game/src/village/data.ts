@@ -136,6 +136,8 @@ export interface WeaponDef {
   reload?: number;
   /** 槍械不耗耐久(2026-09 用戶定案):使用不掉耐久,但死亡照樣全失 */
   noWear?: boolean;
+  /** 霰彈:每擊彈丸數(damage=單顆傷害,各自打隨機活敵) */
+  pellets?: number;
   /** 盾牌限定:格擋參數(reduce=半格擋減傷比例、cd=冷卻秒數) */
   block?: { reduce: number; cd: number };
   /** 名刀特效:命中疊加敵方凍結值 */
@@ -183,7 +185,8 @@ export const WEAPONS: WeaponDef[] = [
   { id: "steel-greatsword", label: "鋼大劍", cost: { steel: 18, wood: 30 }, category: "melee", baseCost: 2.0, damage: 22, symbol: ">>>>>", durability: 75, packSize: 5, stagger: 40 },
   // 槍械:鋼階限定。左輪輕快(1 發/擊)、散彈沉重(2 發/擊,單發傷害一致 → 彈數決定傷害)
   { id: "revolver", label: "左輪手槍", cost: { steel: 10, wood: 10 }, category: "ranged", baseCost: 0.2, damage: 8, symbol: "→!", durability: 50, ammo: "bullet", ammoPerUse: 1, packSize: 2, magazine: 6, reload: 1.0, noWear: true },
-  { id: "shotgun", label: "散彈槍", cost: { steel: 14, wood: 20 }, category: "ranged", baseCost: 0.5, damage: 15, symbol: "→!!", durability: 45, ammo: "bullet", ammoPerUse: 2, packSize: 3, magazine: 6, reload: 1.0, noWear: true },
+  // 散彈槍(2026-09 改版):5 顆彈丸各自砸向隨機活敵——群戰神器;單體=全部糊臉 20/擊
+  { id: "shotgun", label: "散彈槍", cost: { steel: 14, wood: 20 }, category: "ranged", baseCost: 0.5, damage: 4, symbol: "→!!", durability: 45, ammo: "bullet", ammoPerUse: 5, packSize: 3, magazine: 10, reload: 1.5, noWear: true, pellets: 5 },
   // 舊時代自動步槍(2026-09 核可;lootOnly——未來城市地圖的戰利品):彈雨,用彈藥經濟拴著
   { id: "auto-rifle", label: "舊時代自動步槍", cost: { steel: 30 }, category: "ranged", baseCost: 0.4, damage: 22, symbol: "→!!!", durability: 60, ammo: "bullet", ammoPerUse: 3, packSize: 4, magazine: 30, reload: 2.0, noWear: true, lootOnly: true },
   // 靜默教堂(Lv5)的戰利品:輕得不可思議(呼應敘事)。lootOnly:cost 只作修理費基準

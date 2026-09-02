@@ -17,7 +17,7 @@ export function buildPlayerCategories(carried: Carried | null): CategoryDef[] {
     .map((w) => ({ id: w.id, label: w.label, baseCost: w.baseCost, symbol: w.symbol, damage: w.damage, freeze: w.freeze, stagger: w.stagger }));
   const ranged = carriedWeapons
     .filter((w) => w.category === "ranged")
-    .map((w) => ({ id: w.id, label: w.label, baseCost: w.baseCost, symbol: w.symbol, damage: w.damage, magazine: w.magazine, reloadCost: w.reload, ammoPerUse: w.ammoPerUse }));
+    .map((w) => ({ id: w.id, label: w.label, baseCost: w.baseCost, symbol: w.symbol, damage: w.damage, magazine: w.magazine, reloadCost: w.reload, ammoPerUse: w.ammoPerUse, pellets: w.pellets }));
 
   // 類別按「戰鬥位置」命名,不按科技——獵弓是冷兵器,掛在「熱武器」底下說不通。
   // 之後火藥武器登場時另立「火器」類別(design-notes.md § 2.3.1 的四類架構保留)

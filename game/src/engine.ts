@@ -579,8 +579,38 @@ export class CombatEngine {
       this.playerEmpowerNext = false;
     }
     const heal = tracker.subAction.heal ?? 0;
+
+    // 霰彈(2026-09 用戶定案):每擊 pellets 顆彈丸,各自砸向隨機一隻活敵——群戰神器
+    let pelletsDone = false;
+    if (tracker.subAction.pellets && dmg > 0) {
+      pelletsDone = true;
+      let total = 0;
+      const hitUnits = new Set<EnemyUnit>();
+      const downed: EnemyUnit[] = [];
+      for (let i = 0; i < tracker.subAction.pellets; i++) {
+        const living = this.units.filter((x) => x.hp > 0);
+        if (living.length === 0) break;
+        const u2 = living[Math.floor(Math.random() * living.length)];
+        let d = dmg;
+        if (u2.staggerLeft > 0) d = Math.round(d * 1.25);
+        u2.hp = Math.max(0, u2.hp - d);
+        total += d;
+        hitUnits.add(u2);
+        if (u2.hp <= 0 && !downed.includes(u2)) downed.push(u2);
+      }
+      this.cb.onLog({
+        id: this.logId++,
+        actor: "你",
+        target: hitUnits.size > 1 ? `彈丸四散,掃中 ${hitUnits.size} 隻` : ([...hitUnits][0]?.label ?? "敵人"),
+        symbol: tracker.subAction.symbol,
+        damage: total,
+      });
+      for (const x of downed) this.cb.onEnemyDown?.(x);
+      if (downed.length > 0) this.cb.onUnitsChanged?.();
+    }
+
     const target = this.targetUnit;
-    if (dmg > 0 && target) {
+    if (!pelletsDone && dmg > 0 && target) {
       if (target.staggerLeft > 0) dmg = Math.round(dmg * 1.25); // 踉蹌中受創加成
       target.hp = Math.max(0, target.hp - dmg);
       // 名刀鬼雪:命中疊加凍結值(Boss 抗性減半);滿 100 → 寒滯+強化下一擊,歸零重疊
@@ -611,6 +641,7 @@ export class CombatEngine {
       }
     }
     if (heal > 0) this.playerHp = Math.min(this.playerMaxHp, this.playerHp + heal);
+    if (!pelletsDone)
     this.cb.onLog({
       id: this.logId++,
       actor: "你",
@@ -620,7 +651,7 @@ export class CombatEngine {
       heal,
     });
     // 目標倒下:通知 UI(護贓觸手歸還贓物等),目標自動跳到下一隻活的
-    if (dmg > 0 && target && target.hp <= 0) {
+    if (!pelletsDone && dmg > 0 && target && target.hp <= 0) {
       this.cb.onEnemyDown?.(target);
       this.cb.onUnitsChanged?.();
     }

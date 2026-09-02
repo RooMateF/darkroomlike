@@ -20,6 +20,8 @@ export interface SubAction {
   magazine?: number;
   /** 每擊消耗彈數(彈匣扣帳用;實際庫存扣帳在戰鬥頁) */
   ammoPerUse?: number;
+  /** 霰彈(2026-09 用戶定案):每擊射出這麼多顆彈丸,各自命中隨機一隻活敵——damage 是單顆彈丸傷害 */
+  pellets?: number;
   /** 換彈充能秒數(搭配 magazine) */
   reloadCost?: number;
   /** 道具類:強力道具用完後,下一輪道具回轉拖長為這個秒數(預設 1s;2026-09 用戶定案) */
