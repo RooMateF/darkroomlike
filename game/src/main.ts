@@ -20,8 +20,29 @@ const saveSiteProgress: typeof saveSiteProgressRaw = (key, progress) => {
 };
 import type { CategoryId } from "./types";
 
+// 模擬戰(?sandbox=<bossId>,2026-09 用戶要求):滿裝測試場——不讀不寫存檔,勝敗自動重開,撤退=離開
+const SANDBOX = new URLSearchParams(window.location.search).get("sandbox");
+if (SANDBOX) (globalThis as unknown as { __sandboxNoSave?: boolean }).__sandboxNoSave = true;
+
+function sandboxCarried() {
+  return {
+    weapons: { "steel-spear": 1, "steel-sword": 1, "steel-greatsword": 1, oniyuki: 1, "steel-shield": 1, shotgun: 1 },
+    fineWeapons: {},
+    durability: { "steel-spear": 80, "steel-sword": 70, "steel-greatsword": 75, oniyuki: 60, "steel-shield": 50, shotgun: 45 },
+    bullets: 24,
+    bandages: 8,
+    elixirs: 3,
+    salts: 5,
+    jerky: 4,
+    scrolls: 2,
+    rations: 4,
+    hp: 90,
+    loot: {},
+  } as unknown as NonNullable<ReturnType<typeof loadCarried>>;
+}
+
 // 玩家的行動類別由隨身行囊決定(整備頁打包的 carried);敵人隨機抽自前期名冊
-const carried = loadCarried();
+const carried = SANDBOX ? sandboxCarried() : loadCarried();
 const PLAYER_CATEGORIES = buildPlayerCategories(carried);
 
 // 地城戰(五級制探勘地點)優先於隨機遭遇;敵人依等級與層數選擇,最深層是 Boss
@@ -31,6 +52,18 @@ try {
   if (raw) dungeon = JSON.parse(raw) as DungeonRun;
 } catch {
   dungeon = null;
+}
+if (SANDBOX) {
+  // 模擬戰一律打最深層 Boss:sandbox=church/coalmine/mine/observatory/shrine/scavenger/counter,或 lv3
+  dungeon = {
+    key: "sandbox",
+    level: SANDBOX === "lv3" ? 3 : 5,
+    stage: 1,
+    stages: 1,
+    landmarkId: SANDBOX === "lv3" ? undefined : SANDBOX,
+    x: 0,
+    y: 0,
+  } as unknown as DungeonRun;
 }
 
 function pickDungeonEnemy(run: DungeonRun): EnemyDef {
@@ -170,6 +203,10 @@ const retreatBtn = document.querySelector<HTMLButtonElement>("#retreat-btn")!;
 
 // 撤退(design-notes.md § 2.10):隨時可退,但有風險——六成機率被追擊一次
 retreatBtn.addEventListener("click", () => {
+  if (SANDBOX) {
+    window.location.href = "village.html";
+    return;
+  }
   if (retreatBtn.disabled) return;
   localStorage.removeItem(DUNGEON_KEY); // 地城進度已在每層勝利時保存,中途撤退不影響
 
@@ -180,7 +217,7 @@ retreatBtn.addEventListener("click", () => {
     appendSystemLog(`你轉身撤退,背後重重挨了一下(-${dmg})。`);
     if (engine.playerHp <= 0) {
       clearCarried();
-      localStorage.setItem("death-cause", "combat");
+      if (!SANDBOX) localStorage.setItem("death-cause", "combat");
       endCombat("你在逃跑途中倒下……一股溫暖的微光在你的意識消散前包裹著你。", "village.html", 2200);
       return;
     }
@@ -630,8 +667,10 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
     if (engine.playerHp <= 0) {
       // 死亡:帶出門的東西全部消失(§3.9),自動送回村莊(已探索的地圖知識與地城層數進度保留)
       clearCarried();
-      localStorage.removeItem(DUNGEON_KEY);
-      localStorage.setItem("death-cause", "combat"); // 回村後代行者依死因給一句叮囑
+      if (!SANDBOX) {
+        localStorage.removeItem(DUNGEON_KEY);
+        localStorage.setItem("death-cause", "combat"); // 回村後代行者依死因給一句叮囑
+      }
       endCombat("你倒下了……但是一股溫暖的微光包裹著你。", "village.html", 2200);
     } else if (engine.enemyHp <= 0) {
       // 連鎖戰:這一波清了,下一波直接壓上——沒有補給、沒有拾取,結算全放最後
@@ -669,7 +708,7 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
       let delay = 1800;
 
       // 地城戰結算:推進層數;打通最深層 → 依等級發放報酬(design-notes.md § 3.10.1)
-      if (dungeon) {
+      if (dungeon && !SANDBOX) {
         localStorage.removeItem(DUNGEON_KEY);
         const progress = siteProgress(dungeon.key);
         const isFinal = dungeon.stage >= dungeon.stages;
@@ -749,6 +788,12 @@ if (carried) {
   engine.playerHp = Math.min(engine.playerMaxHp, Math.max(1, carried.hp ?? engine.playerMaxHp));
 } else {
   engine.playerHp = engine.playerMaxHp;
+}
+if (SANDBOX) {
+  engine.playerMaxHp = 90; // 模擬戰:鋼甲滿裝
+  engine.playerHp = 90;
+  engine.firstStrikeBoost = true; // 危機意識也算滿配
+  appendSystemLog("〔模擬戰〕滿裝測試場:勝敗不影響存檔,打完自動重開;「撤退」=離開回村。");
 }
 // 這一波其餘敵人同時上場(組隊/孳生窩展開)
 for (const d of initialWave.slice(1)) {
@@ -1200,10 +1245,14 @@ function showLootPanel(message: string, gains: Record<string, number>, href: str
 /** 戰鬥結束:停下引擎,短暫停留後自動離開,不需要按鈕 */
 function endCombat(message: string, href: string, delayMs: number) {
   engine.stop();
-  statusEl.textContent = message;
+  statusEl.textContent = SANDBOX ? `〔模擬戰〕${message}(即將重開)` : message;
   skipBtn.style.display = "none";
   retreatBtn.style.display = "none";
   window.setTimeout(() => {
+    if (SANDBOX) {
+      window.location.reload(); // 模擬戰:原地重開下一場
+      return;
+    }
     window.location.href = href;
   }, delayMs);
 }

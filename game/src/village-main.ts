@@ -123,6 +123,18 @@ function startVillage() {
             <input type="file" id="import-file" accept=".json" style="display:none;" />
           </div>
           <div class="hint-line" style="margin-top:6px;">進度會自動保存在這個瀏覽器裡;匯出可備份或搬到其他裝置。</div>
+          <div class="section-title" style="margin-top:14px;">模擬戰(滿裝測試場)</div>
+          <div class="hint-line">鋼階滿裝+危機意識,不影響存檔;打完自動重開,「撤退」=離開。</div>
+          <div style="display:flex; flex-wrap:wrap; gap:6px;" id="sandbox-btns">
+            <button class="btn" data-sandbox="church">教堂</button>
+            <button class="btn" data-sandbox="coalmine">煤礦坑</button>
+            <button class="btn" data-sandbox="mine">鐵礦坑</button>
+            <button class="btn" data-sandbox="observatory">觀測台</button>
+            <button class="btn" data-sandbox="shrine">祭壇</button>
+            <button class="btn" data-sandbox="scavenger">拾荒的長手</button>
+            <button class="btn" data-sandbox="counter">數數的東西</button>
+            <button class="btn" data-sandbox="lv3">Lv3 看守</button>
+          </div>
         </div>
       </div>
     </div>
@@ -219,6 +231,11 @@ function startVillage() {
     return data;
   }
 
+  document.querySelectorAll<HTMLButtonElement>("#sandbox-btns button").forEach((b) => {
+    b.addEventListener("click", () => {
+      window.location.href = `index.html?sandbox=${b.dataset.sandbox}`;
+    });
+  });
   document.querySelector<HTMLButtonElement>("#export-btn")!.addEventListener("click", () => {
     const blob = new Blob([JSON.stringify(gameSaveData(), null, 2)], { type: "application/json" });
     const a = document.createElement("a");

@@ -190,9 +190,9 @@ export const REDMOON_BOSS: EnemyDef = {
 
 /** 不再祈禱的東西・半血蛻變(2026-09 核可 A+B+C):蜈蚣手連招,每第三招百手壓下(穿盾) */
 export const CHURCH_PHASE2_MOVES: EnemyMove[] = [
-  { id: "stab", label: "百手穿刺", baseCost: 0.75, symbol: "»»", damage: 5 },
-  { id: "limb-sweep", label: "肢林橫掃", baseCost: 1.6, symbol: "»»»»", damage: 14, status: { kind: "bleed", amount: 40 }, tell: "蜈蚣般的手臂貼著地面壓了過來。" },
-  { id: "hundred-slam", label: "百手壓下", baseCost: 2.6, symbol: "»»»»»»", damage: 26, control: { kind: "stun", duration: 1.2 }, pierceBlock: true, tell: "數不清的手同時高高舉起——影子把整座祭壇罩住了。" },
+  { id: "stab", label: "百手穿刺", baseCost: 1.05, symbol: "»»", damage: 4 },
+  { id: "limb-sweep", label: "肢林橫掃", baseCost: 1.9, symbol: "»»»»", damage: 12, status: { kind: "bleed", amount: 40 }, tell: "蜈蚣般的手臂貼著地面壓了過來。" },
+  { id: "hundred-slam", label: "百手壓下", baseCost: 2.9, symbol: "»»»»»»", damage: 23, control: { kind: "stun", duration: 1.2 }, pierceBlock: true, tell: "數不清的手同時高高舉起——影子把整座祭壇罩住了。" },
 ];
 export const CHURCH_PHASE2_PATTERN = ["stab", "limb-sweep", "hundred-slam"];
 
@@ -349,8 +349,8 @@ export const GUARDIANS: Record<string, EnemyDef> = {
   },
   // Lv5:本章的極限。2026-08 控制型設計:數值堆滿也打不過,要靠「針對性準備」——
   // 醒神鹽擋鐘鳴/低語、藥劑清撕裂的流血、繃帶硬撐血線。
-  // 蒙地卡羅(鋼階滿血):頂配(繃8藥3鹽5,120 秒全數耗盡)100%;同配無鹽 16%;
-  // 次級配(繃5藥2鹽4)28%;鐵階即使帶鹽也是 0%——「先去北嶺煉鋼」的高牆
+  // 蒙地卡羅 2026-09(格擋/道具轉盤/二階段時代,church-sim.ts):本次下修(傷害微降+全招 CD+0.3s)後,
+  // 鋼階頂配+鋼盾:一階段單獨 熟練15~18%/神級42%;含二階段全程 熟練19%;無盾一律 0%——盾是入場券
   church: {
     id: "church-guardian",
     label: "不再祈禱的東西",
@@ -359,10 +359,10 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     hp: 440,
     moves: [
       // 低語:鑽進骨頭裡的聲音讓手腳發沉(遲緩)——充能減半,補血與輸出一起變慢
-      { id: "whisper", label: "低語", baseCost: 1.6, symbol: "…", damage: 6, control: { kind: "slow", duration: 2.5 }, tell: "那個高大的輪廓朝你微微傾了過來。" },
-      { id: "rend", label: "撕裂", baseCost: 1.2, symbol: "»»»»", damage: 13, status: { kind: "bleed", amount: 55 } },
+      { id: "whisper", label: "低語", baseCost: 1.9, symbol: "…", damage: 5, control: { kind: "slow", duration: 2.5 }, tell: "那個高大的輪廓朝你微微傾了過來。" },
+      { id: "rend", label: "撕裂", baseCost: 1.5, symbol: "»»»»", damage: 11, status: { kind: "bleed", amount: 55 } },
       // 鐘鳴:整座教堂共振的一擊——高傷+暈眩;不帶醒神鹽硬扛,補血節奏會被打碎
-      { id: "toll", label: "鐘鳴", baseCost: 3.0, symbol: "»»»»»»»", damage: 27, control: { kind: "stun", duration: 1.5 }, tell: "它緩緩抬起了手,指向頭頂的鐘。空氣忽地緊繃。" },
+      { id: "toll", label: "鐘鳴", baseCost: 3.3, symbol: "»»»»»»»", damage: 24, control: { kind: "stun", duration: 1.5 }, tell: "它緩緩抬起了手,指向頭頂的鐘。空氣忽地緊繃。" },
     ],
     loot: { shard: 8 },
     freezeResist: true,

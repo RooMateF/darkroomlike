@@ -181,11 +181,13 @@ export function loadCarried(): Carried | null {
 }
 
 export function saveCarried(carried: Carried) {
+  if ((globalThis as unknown as { __sandboxNoSave?: boolean }).__sandboxNoSave) return; // 模擬戰:不寫存檔
   localStorage.setItem(KEY, JSON.stringify(carried));
 }
 
 /** 死亡時呼叫:帶出門的東西全部消失(§3.9) */
 export function clearCarried() {
+  if ((globalThis as unknown as { __sandboxNoSave?: boolean }).__sandboxNoSave) return; // 模擬戰:不動存檔
   localStorage.removeItem(KEY);
 }
 
