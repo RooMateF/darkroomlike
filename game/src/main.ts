@@ -4,7 +4,7 @@ import { buildPlayerCategories } from "./demo-data";
 import { WEAPONS, fineMaxDurability } from "./village/data";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
 import { loadCarried, saveCarried, clearCarried, addLoot, playerMaxHp, carriedMaxDurability, packUsed } from "./carried";
-import { pickRandomEnemy, pickMidEnemy, pickEnemyGroup, GUARDIANS, LANDMARK_REWARDS, LV3_BOSS, EVENT_BOSSES, TENTACLE_GUARD, SPAWN_UNIT, MOON_MUTANT, REDMOON_BOSS, CHURCH_PHASE2_MOVES, CHURCH_PHASE2_PATTERN, CHURCH_SPAWN, type EnemyDef } from "./enemies";
+import { pickRandomEnemy, pickMidEnemy, pickEnemyGroup, GUARDIANS, LANDMARK_REWARDS, LV3_BOSS, EVENT_BOSSES, TENTACLE_GUARD, SPAWN_UNIT, MOON_MUTANT, REDMOON_BOSS, CHURCH_PHASE2_MOVES, CHURCH_PHASE2_PATTERN, WILD_SPAWN, type EnemyDef } from "./enemies";
 import { markLandmarkCleared, currentMapId, isAutoPickup } from "./explore/engine";
 
 // 蓋「這趟有收穫」章(空手計數的歸零依據;引導事件用)
@@ -744,10 +744,10 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
   onEnemyAct: (unit, move) => {
     // 教堂半血(2026-09 用戶定案):第五招「孕育」必定釋放——零傷害的空窗,結算時鑽出兩隻
     if (move.id !== "priest-spawn" || unit.hp <= 0) return;
-    appendSystemLog("失敗的滋生體從不再祈禱的神父的身體裡鑽出");
+    appendSystemLog("孳生失敗體從不再祈禱的神父的身體裡鑽出");
     for (let k = 0; k < 2; k++) {
-      engine.addEnemy(applyBlessing(CHURCH_SPAWN.moves), { hp: CHURCH_SPAWN.hp, label: CHURCH_SPAWN.label });
-      unitDefs.push(CHURCH_SPAWN);
+      engine.addEnemy(applyBlessing(WILD_SPAWN.moves), { hp: WILD_SPAWN.hp, label: WILD_SPAWN.label });
+      unitDefs.push(WILD_SPAWN);
     }
   },
   onEnemyDown: (unit) => {
@@ -934,10 +934,25 @@ if (SANDBOX) {
   engine.playerHp = 90;
   engine.firstStrikeBoost = true; // 危機意識也算滿配
   appendSystemLog("〔模擬戰〕滿裝測試場:勝敗不影響存檔,打完自動重開;「撤退」=離開回村。");
-  // 場內換對手列:不用回村,點了直接開打
-  const bar = document.createElement("div");
-  bar.className = "combat-controls";
-  bar.style.flexWrap = "wrap";
+  // 模擬戰選單(2026-09 用戶要求):對手清單與裝備調整收進左側欄,不擠行動區
+  const split = document.querySelector<HTMLDivElement>(".combat-split")!;
+  const menu = document.createElement("div");
+  menu.className = "sandbox-menu";
+  const addTitle = (text: string) => {
+    const t = document.createElement("div");
+    t.className = "section-title";
+    t.textContent = text;
+    menu.appendChild(t);
+  };
+  const addBtn = (label: string, on: (() => void), ready = false) => {
+    const b = document.createElement("button");
+    b.className = "btn-tiny sandbox-menu-btn" + (ready ? " ready" : "");
+    b.textContent = label;
+    b.addEventListener("click", on);
+    menu.appendChild(b);
+    return b;
+  };
+  addTitle("模擬戰・對手");
   const fights: [string, string][] = [
     ["church", "教堂"], ["coalmine", "煤礦坑"], ["mine", "鐵礦坑"], ["observatory", "觀測台"],
     ["shrine", "祭壇"], ["scavenger", "拾荒的長手"], ["counter", "數數的東西"], ["lv3", "Lv3看守"],
@@ -945,76 +960,46 @@ if (SANDBOX) {
     ["group", "外圍組隊"], ["spawnpack", "孳生體群"], ["chain", "遺跡連鎖戰"],
   ];
   for (const [id, label] of fights) {
-    const b = document.createElement("button");
-    b.className = "btn-tiny" + (id === SANDBOX ? " ready" : "");
-    b.textContent = label;
-    b.addEventListener("click", () => {
+    addBtn(label, () => {
       window.location.href = `index.html?sandbox=${id}`;
-    });
-    bar.appendChild(b);
+    }, id === SANDBOX);
   }
-  const leave = document.createElement("button");
-  leave.className = "btn-tiny";
-  leave.textContent = "離開";
-  leave.addEventListener("click", () => {
-    window.location.href = "village.html";
-  });
-  bar.appendChild(leave);
-  document.querySelector(".combat-controls")!.after(bar);
-
-  // 裝備調整面板(2026-09 用戶要求):全武器加入/移除+修復;加卸重開套用、修復即時
-  const gearPanel = document.createElement("details");
-  gearPanel.className = "combat-controls";
-  gearPanel.style.display = "block";
-  const sum = document.createElement("summary");
-  sum.textContent = "裝備調整(加/卸需重開這場;修復立即生效)";
-  sum.style.cursor = "pointer";
-  gearPanel.appendChild(sum);
-  const gearGrid = document.createElement("div");
-  gearGrid.style.cssText = "display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;";
+  addTitle("裝備調整");
+  const gearHint = document.createElement("div");
+  gearHint.className = "hint-line";
+  gearHint.textContent = "加/卸重開生效;修復立即";
+  menu.appendChild(gearHint);
   const loadout = sandboxLoadout();
   const saveLoadout = () => localStorage.setItem("sandbox-loadout", JSON.stringify(loadout));
   const gearBtns: [string, HTMLButtonElement][] = [];
   const refreshGearBtns = () => {
-    for (const [id, b] of gearBtns) {
+    for (const [id, gb] of gearBtns) {
       const on = (loadout[id] ?? 0) > 0;
-      b.classList.toggle("ready", on);
+      gb.classList.toggle("ready", on);
       const def = WEAPONS.find((w) => w.id === id)!;
-      b.textContent = `${def.label}${on ? " ✓" : ""}`;
+      gb.textContent = `${on ? "✓ " : "　"}${def.label}`;
     }
   };
   for (const w of WEAPONS) {
-    const b = document.createElement("button");
-    b.className = "btn-tiny";
-    b.addEventListener("click", () => {
+    const gb = addBtn(w.label, () => {
       loadout[w.id] = (loadout[w.id] ?? 0) > 0 ? 0 : 1;
       saveLoadout();
       refreshGearBtns();
     });
-    gearGrid.appendChild(b);
-    gearBtns.push([w.id, b]);
+    gearBtns.push([w.id, gb]);
   }
-  gearPanel.appendChild(gearGrid);
-  const gearOps = document.createElement("div");
-  gearOps.style.cssText = "display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;";
-  const mkOp = (label: string, fn: () => void) => {
-    const b = document.createElement("button");
-    b.className = "btn";
-    b.textContent = label;
-    b.addEventListener("click", fn);
-    gearOps.appendChild(b);
-  };
-  mkOp("全部加入", () => {
+  addTitle("操作");
+  addBtn("全部加入", () => {
     for (const w of WEAPONS) loadout[w.id] = 1;
     saveLoadout();
     refreshGearBtns();
   });
-  mkOp("全部移除", () => {
+  addBtn("全部移除", () => {
     for (const w of WEAPONS) loadout[w.id] = 0;
     saveLoadout();
     refreshGearBtns();
   });
-  mkOp("修復所有武器", () => {
+  addBtn("修復所有武器", () => {
     if (!carried) return;
     for (const id of Object.keys(carried.weapons)) {
       carried.durability[id] = carriedMaxDurability(carried, id);
@@ -1022,10 +1007,12 @@ if (SANDBOX) {
     carried.broken = {};
     appendSystemLog("〔模擬戰〕所有武器修復完畢——耐久回滿。");
   });
-  mkOp("套用並重開這場", () => window.location.reload());
-  gearPanel.appendChild(gearOps);
+  addBtn("套用並重開這場", () => window.location.reload());
+  addBtn("離開模擬戰", () => {
+    window.location.href = "village.html";
+  });
   refreshGearBtns();
-  bar.after(gearPanel);
+  split.prepend(menu);
 }
 // 這一波其餘敵人同時上場(組隊/孳生窩展開)
 for (const d of initialWave.slice(1)) {

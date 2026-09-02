@@ -815,6 +815,29 @@ hr {
 }
 
 /* 主角(@):終端游標式反白方塊——整張地圖唯一的填色格,一眼就能鎖定自己 */
+/* 模擬戰左側選單(2026-09):對手與裝備調整豎排,不擠行動區 */
+.sandbox-menu {
+  flex: 0 0 148px;
+  border-right: 1px solid var(--fg-faint);
+  padding-right: 10px;
+  overflow-y: auto;
+  max-height: calc(100vh - 90px);
+  scrollbar-width: thin;
+  scrollbar-color: var(--fg-faint) transparent;
+}
+
+.sandbox-menu .sandbox-menu-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  white-space: nowrap;
+  margin-bottom: 3px;
+}
+
+.sandbox-menu .section-title {
+  margin-top: 10px;
+}
+
 .enemy-block {
   position: relative;
 }

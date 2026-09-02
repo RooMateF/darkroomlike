@@ -27,6 +27,17 @@ export interface EnemyDef {
   pattern?: string[];
 }
 
+/** 孳生失敗體(野外同款;教堂神父的「孕育」鑽出的也是這個) */
+export const WILD_SPAWN: EnemyDef = {
+  id: "spawn",
+  label: "孳生失敗體",
+  intro: "一團不斷蠕動的小東西朝你湧來,形狀說不出像什麼。",
+  hp: 6,
+  moves: [{ id: "swarm", label: "啃咬", baseCost: 0.5, symbol: "·»", damage: 1, status: { kind: "poison", amount: 25 } }],
+  loot: { meat: 1 },
+  shardChance: 0.4,
+};
+
 export const ENEMIES: EnemyDef[] = [
   {
     id: "drifter",
@@ -50,15 +61,7 @@ export const ENEMIES: EnemyDef[] = [
     loot: { bandage: 1 },
     shardChance: 0.3,
   },
-  {
-    id: "spawn",
-    label: "孳生失敗體",
-    intro: "一團不斷蠕動的小東西朝你湧來,形狀說不出像什麼。",
-    hp: 6,
-    moves: [{ id: "swarm", label: "啃咬", baseCost: 0.5, symbol: "·»", damage: 1, status: { kind: "poison", amount: 25 } }],
-    loot: { meat: 1 },
-    shardChance: 0.4,
-  },
+  WILD_SPAWN,
   {
     id: "mutant-hound",
     label: "變異犬",
@@ -198,23 +201,12 @@ export const CHURCH_PHASE2_MOVES: EnemyMove[] = [
   { id: "stab", label: "百手穿刺", baseCost: 1.05, symbol: "»»", damage: 4 },
   { id: "limb-sweep", label: "肢林橫掃", baseCost: 1.9, symbol: "»»»»", damage: 12, status: { kind: "bleed", amount: 40 }, tell: "蜈蚣般的手臂貼著地面壓了過來。" },
   { id: "hundred-slam", label: "百手壓下", baseCost: 2.9, symbol: "»»»»»»", damage: 23, control: { kind: "stun", duration: 1.2 }, pierceBlock: true, tell: "數不清的手同時高高舉起——影子把整座祭壇罩住了。" },
-  // 孕育(2026-09 用戶定案):每第五次行動必定釋放——零傷害,是留給玩家的空窗;結算時鑽出兩隻失敗的滋生體
+  // 孕育(2026-09 用戶定案):每第五次行動必定釋放——零傷害,是留給玩家的空窗;結算時鑽出兩隻孳生失敗體(野外同款)
   { id: "priest-spawn", label: "孕育", baseCost: 2.0, symbol: "◎◎", damage: 0, tell: "神父的軀體開始蠕動鼓脹——有什麼正要鑽出來。" },
 ];
 export const CHURCH_PHASE2_PATTERN = ["stab", "limb-sweep", "hundred-slam", "stab", "priest-spawn"];
 
-/** 失敗的滋生體(教堂神父半血後,每第五次行動鑽出兩隻):脆弱但煩,逼你分心或掏全體攻擊 */
-export const CHURCH_SPAWN: EnemyDef = {
-  id: "church-spawn",
-  label: "失敗的滋生體",
-  intro: "失敗的滋生體從不再祈禱的神父的身體裡鑽出",
-  hp: 5,
-  moves: [
-    { id: "gnaw", label: "啃咬", baseCost: 0.9, symbol: "·»", damage: 2 },
-    { id: "cling", label: "攀附", baseCost: 1.6, symbol: "~»", damage: 4 },
-  ],
-  loot: {},
-};
+
 
 /** 孳生體(單隻):成群的孳生體在戰場上展開成 3 隻這個(2026-09 多目標系統) */
 export const SPAWN_UNIT: EnemyDef = {
