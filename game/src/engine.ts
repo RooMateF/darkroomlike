@@ -129,6 +129,8 @@ export interface EnemyUnitOpts {
   pattern?: string[];
   /** 自訂識別(拾荒的長手的護贓觸手掛 stolen:N,倒下即歸還那件贓物) */
   tag?: string;
+  /** 人類型態:倒下留屍(未來復活機制);非人類倒下即從敵欄消失 */
+  human?: boolean;
 }
 
 /** 戰場上的一隻敵人(2026-09 多目標改版):各自的血量/行動條/凍結/狂暴 */
@@ -151,6 +153,7 @@ export class EnemyUnit {
   /** 踉蹌中剩餘秒數:行動條凍住+受創 ×1.25——重武器砸出來的輸出窗 */
   staggerLeft = 0;
   readonly freezeResist: boolean;
+  readonly human: boolean;
 
   constructor(
     public moves: EnemyMove[],
@@ -161,6 +164,7 @@ export class EnemyUnit {
     this.label = opts.label;
     this.tag = opts.tag;
     this.freezeResist = opts.freezeResist ?? false;
+    this.human = opts.human ?? false;
     this.tracker = new EnemyTracker(moves, () => (this.chilled ? 0.5 : 1) * this.hasteMult, opts.pattern);
   }
 }

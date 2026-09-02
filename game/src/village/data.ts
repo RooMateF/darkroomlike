@@ -177,7 +177,7 @@ export const WEAPONS: WeaponDef[] = [
   // ---- 鐵階(冶煉的鐵) ----
   { id: "iron-knife", label: "鐵刀", cost: { ingot: 6, wood: 10 }, category: "melee", baseCost: 0.4, damage: 3, symbol: ">|", durability: 40, packSize: 2 },
   // 匕首(2026-09 用戶定案):貼身的招架輔助——帶著它,完美格擋窗 0.1s→0.15s;只占 1 格
-  { id: "dagger", label: "匕首", cost: { ingot: 5, leather: 5 }, category: "melee", baseCost: 0.8, damage: 3, symbol: ">·", durability: 45, packSize: 1, parry: 0.05 },
+  { id: "dagger", label: "匕首", cost: { ingot: 5, leather: 5 }, category: "melee", baseCost: 0.35, damage: 3, symbol: ">·", durability: 45, packSize: 1, parry: 0.05 },
   { id: "iron-sword", label: "鐵劍", cost: { ingot: 10, wood: 10 }, category: "melee", baseCost: 1.0, damage: 8, symbol: ">>", durability: 55, packSize: 3 },
   { id: "iron-spear", label: "鐵槍", cost: { ingot: 8, wood: 15 }, category: "melee", baseCost: 1.2, damage: 10, symbol: ">>>", durability: 60, packSize: 4 },
   // 重擊線(石斧的後繼):慢而沉,疊踉蹌——控場向的選擇

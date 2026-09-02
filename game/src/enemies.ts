@@ -12,6 +12,8 @@ export interface EnemyDef {
   intro2?: string;
   /** Boss 戰(2026-09):專屬敘述/對話用全螢幕儀式對話框呈現 */
   boss?: boolean;
+  /** 人類型態(2026-09 用戶定案):倒下後屍體留在戰場(灰塊)——未來集團戰的復活機制掛在這;非人類倒下即消失 */
+  human?: boolean;
   hp: number;
   moves: EnemyMove[];
   /** 擊倒後的掉落(固定量,先求簡單) */
@@ -42,6 +44,7 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: "drifter",
     label: "迷途者",
+    human: true,
     intro: "一個衣衫襤褸的身影擋住去路,眼神疲憊而警戒。",
     hp: 10,
     moves: [{ id: "swing", label: "揮擊", baseCost: 1.4, symbol: "»", damage: 2 }],
@@ -50,6 +53,7 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: "crazed",
     label: "輕度發狂者",
+    human: true,
     intro: "那個人的動作不太連貫,喉嚨裡發出意義不明的聲音。",
     hp: 12,
     moves: [
@@ -74,6 +78,7 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: "raider",
     label: "廢土掠奪者",
+    human: true,
     intro: "拿著拼裝武器的人影繞著你打量——他要的是你身上的東西。",
     hp: 18,
     moves: [
@@ -142,6 +147,7 @@ export const MID_ENEMIES: EnemyDef[] = [
   {
     id: "veteran",
     label: "廢土老兵",
+    human: true,
     intro: "穿著拼湊護具的身影擋在通道中央,握武器的姿勢比外面那些人熟練得多。",
     hp: 22,
     moves: [
@@ -324,6 +330,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
   observatory: {
     id: "observatory-guardian",
     label: "不肯離開的守望者",
+    human: true,
     intro: "圓頂下的人影轉過身——他的眼睛睜得太開了,開到不像還能閉上。「不准看,」他嘶啞地說,「還不到時候。」",
     hp: 90,
     moves: [

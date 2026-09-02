@@ -818,9 +818,10 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
           label: wave[0].label,
           freezeResist: wave[0].freezeResist,
           pattern: wave[0].pattern,
+          human: wave[0].human,
         });
         for (const d of wave.slice(1)) {
-          engine.addEnemy(applyBlessing(d.moves), { hp: d.hp, label: d.label, freezeResist: d.freezeResist, pattern: d.pattern });
+          engine.addEnemy(applyBlessing(d.moves), { hp: d.hp, label: d.label, freezeResist: d.freezeResist, pattern: d.pattern, human: d.human });
         }
         unitDefs.push(...wave);
         appendSystemLog(wave[0].intro);
@@ -921,7 +922,7 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
       }
     }
   },
-}, { enemyHp: enemyDef.hp, enemyLabel: enemyDef.label, freezeResist: enemyDef.freezeResist, pattern: enemyDef.pattern });
+}, { enemyHp: enemyDef.hp, enemyLabel: enemyDef.label, freezeResist: enemyDef.freezeResist, pattern: enemyDef.pattern, human: enemyDef.human });
 
 // HP 跨戰鬥持續:從行囊接續上一場打完的血量(回村整備才會回滿);上限含皮甲加成
 engine.playerMaxHp = playerMaxHp();
@@ -1024,7 +1025,7 @@ if (SANDBOX) {
 }
 // 這一波其餘敵人同時上場(組隊/孳生窩展開)
 for (const d of initialWave.slice(1)) {
-  engine.addEnemy(applyBlessing(d.moves), { hp: d.hp, label: d.label, freezeResist: d.freezeResist, pattern: d.pattern });
+  engine.addEnemy(applyBlessing(d.moves), { hp: d.hp, label: d.label, freezeResist: d.freezeResist, pattern: d.pattern, human: d.human });
 }
 // 拾荒的長手:每件贓物由一條護贓觸手纏著上場——打倒觸手直接取回
 if (dungeon?.landmarkId === "scavenger") {
@@ -1585,6 +1586,12 @@ function render() {
   engine.units.forEach((u, i) => {
     const el = unitEls[i];
     if (!el) return;
+    // 倒下處理(2026-09 用戶定案):非人類直接消失;人類型態留屍(灰塊,未來復活機制的掛點)
+    if (u.hp <= 0 && !u.human) {
+      el.root.style.display = "none";
+      return;
+    }
+    el.root.style.display = "";
     const isTarget = engine.targetUnit === u;
     el.title.textContent = `${isTarget ? "▶ " : "　"}${u.label}${u.hp <= 0 ? "(倒下)" : ""}`;
     el.root.style.opacity = u.hp <= 0 ? "0.35" : "1";
