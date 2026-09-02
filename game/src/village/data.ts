@@ -172,7 +172,8 @@ export const WEAPONS: WeaponDef[] = [
   { id: "wood-spear", label: "木槍", cost: { wood: 40 }, category: "melee", baseCost: 0.9, damage: 3, symbol: ">>", durability: 30, packSize: 3 },
   // 位階 1:石製——重攻擊的代表(2.0s/11,DPS 5.5):兩秒的破綻換一記真正的重斬
   { id: "stone-axe", label: "石斧", cost: { wood: 30, stone: 40 }, category: "melee", baseCost: 1.8, damage: 11, symbol: ">>>", durability: 45, packSize: 4, stagger: 20 },
-  { id: "hunting-bow", label: "獵弓", cost: { wood: 50, hide: 10 }, category: "ranged", baseCost: 1.0, damage: 4, symbol: "→", durability: 40, ammo: "arrow", ammoPerUse: 1, packSize: 3 },
+  // 獵弓(2026-09 定位確認):槍械時代的另一條遠程路——輕便、箭矢便宜量大、永不換彈
+  { id: "hunting-bow", label: "獵弓", cost: { wood: 50, hide: 10 }, category: "ranged", baseCost: 1.0, damage: 4, symbol: "→", durability: 40, ammo: "arrow", ammoPerUse: 1, packSize: 2 },
   // ---- 鐵階(冶煉的鐵) ----
   { id: "iron-knife", label: "鐵刀", cost: { ingot: 6, wood: 10 }, category: "melee", baseCost: 0.4, damage: 3, symbol: ">|", durability: 40, packSize: 2 },
   // 匕首(2026-09 用戶定案):貼身的招架輔助——帶著它,完美格擋窗 0.1s→0.15s;只占 1 格
@@ -293,7 +294,7 @@ export function carryCapacity(upgrades: Record<string, boolean> | boolean): numb
 }
 
 /** 彈藥類幾個併 1 格 */
-export const ARROWS_PER_SLOT = 3;
+export const ARROWS_PER_SLOT = 5; // 2026-09:箭矢輕,5 支併 1 格(對照子彈 1 發 1 格)
 /** 子彈小巧:6 發併 1 格 */
 /** 攜帶上限(2026-09 用戶定案):近戰 3 把(含重複)、遠程/槍械 2 把、盾 1 面;道具無限制 */
 export const WEAPON_CARRY_LIMITS: Record<"melee" | "ranged" | "shield", number> = { melee: 3, ranged: 2, shield: 1 };
