@@ -805,7 +805,7 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
     // 瀕死警告:低於三成血時給一次感官描寫(不重複刷)
     if (engine.playerHp > 0 && engine.playerHp <= engine.playerMaxHp * 0.3 && !lowHpWarned) {
       lowHpWarned = true;
-      appendSystemLog("你的視線開始發黑,耳邊嗡嗡作響——再這樣下去會死。");
+      appendSystemLog("視線的邊緣開始發黑,耳朵裡有一層薄薄的嗡鳴。你知道自己快撐不住了。");
     }
     if (engine.playerHp <= 0) {
       // 死亡:帶出門的東西全部消失(§3.9),自動送回村莊(已探索的地圖知識與地城層數進度保留)
@@ -1229,7 +1229,7 @@ function churchCheck() {
     u.freezeInterruptArmed = true;
     engine.stormBleed = 1; // 2026-09 用戶下修:血雨每 2 秒 −1
     engine.setItemField(1.5);
-    appendSystemLog("血雨沒有停。落在身上的每一滴都燙得像火,傷口不肯闔上。(持續流血;道具使用變慢)");
+    appendSystemLog("血雨沒有停下。濃稠的血液落在皮膚上竟然燙的發痛,皮膚表面被這滾燙的血液燙出了新的傷口。(持續流血;道具使用變慢)");
   });
 }
 

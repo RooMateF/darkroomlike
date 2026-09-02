@@ -491,12 +491,12 @@ export class CombatEngine {
         this.cb.onBlocked?.(blocked === "perfect");
       }
       if (blocked === "perfect") {
-        this.cb.onLog({ id: this.logId++, actor: "你", target: `完全格擋!盾面把${unit.label}的攻勢整個彈開`, symbol: "◎", damage: 0 });
+        this.cb.onLog({ id: this.logId++, actor: "你", target: `完全格擋!那一擊落在盾面正中,力道順著弧面滑開了`, symbol: "◎", damage: 0 });
         // 2026-09 定案(方案C):完美格擋「有前搖的大招」→ 對方被反彈的力道掀得踉蹌 3 秒(輸出窗)
         if (move.tell) {
           unit.staggerGauge = 0;
           unit.staggerLeft = Math.max(unit.staggerLeft, PERFECT_PARRY_STAGGER);
-          this.cb.onLog({ id: this.logId++, actor: "你", target: `${unit.label}被彈開的力道掀得踉蹌——僵在了原地`, symbol: "!!", damage: 0 });
+          this.cb.onLog({ id: this.logId++, actor: "你", target: `力道原路彈了回去。${unit.label}晃了兩步,一時間動彈不得`, symbol: "!!", damage: 0 });
         }
       } else {
         this.playerHp = Math.max(0, this.playerHp - dmg);
@@ -589,7 +589,7 @@ export class CombatEngine {
         this.applyItemField(c);
         for (const t of c.trackers) this.acknowledged.delete(this.key(c.def.id, t.subAction.id));
       }
-      this.cb.onLog({ id: this.logId++, actor: "你", target: `退出彈殼,壓入新的一輪(${tracker.subAction.label})`, symbol: "=", damage: 0 });
+      this.cb.onLog({ id: this.logId++, actor: "你", target: `彈殼落地。你低著頭把新的一輪子彈壓進${tracker.subAction.label},內心默默數著數`, symbol: "=", damage: 0 });
       this.resume();
       return true;
     }
@@ -704,7 +704,7 @@ export class CombatEngine {
         if (target.staggerGauge >= 100) {
           target.staggerGauge = 0;
           target.staggerLeft = STAGGER_DURATION;
-          this.cb.onLog({ id: this.logId++, actor: "你", target: `重擊砸亂了${target.label}的腳步——牠踉蹌了`, symbol: "!!", damage: 0 });
+          this.cb.onLog({ id: this.logId++, actor: "你", target: `這一下落在要害上。${target.label}的腳步亂了,重心還沒找回來`, symbol: "!!", damage: 0 });
         }
       }
       if (tracker.subAction.freeze && target.hp > 0) {
