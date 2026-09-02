@@ -466,7 +466,7 @@ for (const cat of PLAYER_CATEGORIES) {
     useLink.textContent = "使用";
     useLink.disabled = true;
     useLink.addEventListener("click", () => {
-      if (!canUse(sa.id)) return;
+      if (bossDialogActive || !canUse(sa.id)) return;
       if (engine.useSubAction(cat.id, sa.id)) afterUse(sa.id);
     });
 
@@ -508,7 +508,7 @@ const blockRowEls = (() => {
   const useLink = document.createElement("button");
   useLink.className = "use-link";
   useLink.textContent = "格擋";
-  useLink.addEventListener("click", () => engine.useBlock());
+  useLink.addEventListener("click", () => { if (!bossDialogActive) engine.useBlock(); });
   line.append(name, barWrap, useLink);
   categoriesEl.appendChild(line);
   return { line, name, bar, barFilled, barEmpty, pct, useLink };
@@ -598,9 +598,55 @@ function applyBlessing(moves: EnemyMove[]): EnemyMove[] {
 }
 const combatMoves = applyBlessing(enemyDef.moves);
 
+// ---- Boss 儀式對話框(2026-09 用戶要求):Boss 專屬敘述/對話全螢幕呈現,期間時間停住 ----
+let bossDialogActive = false;
+const bossOverlayEl = document.createElement("div");
+bossOverlayEl.className = "event-overlay";
+bossOverlayEl.style.display = "none";
+bossOverlayEl.innerHTML = `
+  <div class="event-box">
+    <div class="event-title" id="boss-dialog-title"></div>
+    <div class="event-text" id="boss-dialog-text"></div>
+    <div class="event-options"><button class="btn ready" id="boss-dialog-next">繼續</button></div>
+  </div>
+`;
+document.body.appendChild(bossOverlayEl);
+const bossDialogTitle = bossOverlayEl.querySelector<HTMLDivElement>("#boss-dialog-title")!;
+const bossDialogText = bossOverlayEl.querySelector<HTMLDivElement>("#boss-dialog-text")!;
+const bossDialogNext = bossOverlayEl.querySelector<HTMLButtonElement>("#boss-dialog-next")!;
+let bossDialogLines: string[] = [];
+let bossDialogIdx = 0;
+let bossDialogDone: (() => void) | null = null;
+
+function showBossDialog(lines: string[], title: string, onDone?: () => void) {
+  engine.stop(); // 儀式進行中,時間停住(開場時鐘還沒開也無害)
+  bossDialogActive = true;
+  bossDialogLines = lines;
+  bossDialogIdx = 0;
+  bossDialogDone = onDone ?? null;
+  bossDialogTitle.textContent = title;
+  bossDialogText.textContent = lines[0] ?? "";
+  bossOverlayEl.style.display = "flex";
+}
+
+bossDialogNext.addEventListener("click", () => {
+  bossDialogIdx++;
+  if (bossDialogIdx < bossDialogLines.length) {
+    bossDialogText.textContent = bossDialogLines[bossDialogIdx];
+    return;
+  }
+  bossOverlayEl.style.display = "none";
+  bossDialogActive = false;
+  const done = bossDialogDone;
+  bossDialogDone = null;
+  engine.start(); // 戰鬥已結束時 step 會自己早退,重開時鐘無害
+  done?.();
+});
+
 // 鍵盤快捷鍵(戰鬥的出手頻率高,全滑鼠會累死):數字 1~9 = 使用對應列;空白鍵 = 暫不使用;R = 撤退
 window.addEventListener("keydown", (e) => {
   if (e.repeat) return;
+  if (bossDialogActive) return; // 儀式對話框開著:先讀完
   if (lootPanelActive) return; // 掉落面板開著:按鍵交給面板
   if (e.key === " ") {
     e.preventDefault();
@@ -711,7 +757,15 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
         }
         unitDefs.push(...wave);
         appendSystemLog(wave[0].intro);
+        if (wave[0].boss) showBossDialog([wave[0].intro], wave[0].label);
         return;
+      }
+
+      // 教堂死亡語:儀式歸儀式,不跟地城結算綁在一起(模擬戰也演)
+      if (dungeon?.landmarkId === "church" && dungeon.stage >= dungeon.stages) {
+        const deathLine = "『原來.....這數百年的時光為的就是這一刻嗎，主啊，謝謝您......』";
+        appendSystemLog(deathLine);
+        showBossDialog([deathLine], "不再祈禱的東西");
       }
 
       if (isRedmoonFight) {
@@ -741,9 +795,6 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
         } else {
           saveSiteProgress(dungeon.key, { stage: dungeon.stage, cleared: true });
           delay = 3000;
-          if (dungeon.landmarkId === "church") {
-            appendSystemLog("『原來.....這數百年的時光為的就是這一刻嗎，主啊，謝謝您......』");
-          }
           if (dungeon.level === 1) {
             gains.ration = (gains.ration ?? 0) + 2;
             message = "這裡清理乾淨了。屋棚還算牢固,適合當作外出時的落腳點";
@@ -868,6 +919,9 @@ try {
 }
 appendSystemLog(enemyDef.intro);
 if (enemyDef.intro2) appendSystemLog(enemyDef.intro2);
+if (enemyDef.boss) {
+  showBossDialog(enemyDef.intro2 ? [enemyDef.intro, enemyDef.intro2] : [enemyDef.intro], enemyDef.label);
+}
 if (dungeon?.landmarkId === "scavenger" && stolenSnapshot.length > 0) {
   appendSystemLog("幾條蒼白的觸手從牆縫裡垂下,各自纏著你被搶走的東西。");
 } else if (unitDefs.length > 1) {
@@ -1015,7 +1069,9 @@ function scavengerCheck() {
   if (boss.hp / boss.maxHp <= 0.5) {
     scavengerEnraged = true;
     boss.hasteMult = 1 / 0.75;
-    appendSystemLog("失去收藏的長手抽搐著暴起,他的真身顯露出來，頭顱連著脖子接在牆壁上，無數隻手從牆壁縫裡伸出。他的眼睛發紅，或許在眼前與迷宮融為一體的怪物曾經是個人類......");
+    const enrageText = "失去收藏的長手抽搐著暴起,他的真身顯露出來，頭顱連著脖子接在牆壁上，無數隻手從牆壁縫裡伸出。他的眼睛發紅，或許在眼前與迷宮融為一體的怪物曾經是個人類......";
+    appendSystemLog(enrageText);
+    showBossDialog([enrageText], "拾荒的長手");
   }
 }
 
@@ -1027,13 +1083,18 @@ function churchCheck() {
   const u = engine.units[0];
   if (!u || u.hp <= 0 || u.hp > u.maxHp / 2) return;
   churchTransformed = true;
-  appendSystemLog("他腫脹的後背被撐開來，血肉與鮮血化作暴雨灑滿了教堂，從後背伸出來的，是數不清可能有數十隻如同蜈蚣般的手。");
-  appendSystemLog("『啊......我們的主在數百年前早就拋棄了我們，任由這顆星球被外來的力量不斷侵蝕。整個這片大陸早已被深淵的力量佔據，事到如今你們又能做到些什麼！』");
-  engine.transformUnit(u, CHURCH_PHASE2_MOVES, { hasteMult: 1 / 0.85, pattern: CHURCH_PHASE2_PATTERN });
-  u.freezeInterruptArmed = true;
-  engine.stormBleed = 1; // 2026-09 用戶下修:血雨每 2 秒 −1
-  engine.setItemField(1.5);
-  appendSystemLog("血雨沒有停。落在身上的每一滴都燙得像火,傷口不肯闔上。(持續流血;道具使用變慢)");
+  const line1 = "他腫脹的後背被撐開來，血肉與鮮血化作暴雨灑滿了教堂，從後背伸出來的，是數不清可能有數十隻如同蜈蚣般的手。";
+  const line2 = "『啊......我們的主在數百年前早就拋棄了我們，任由這顆星球被外來的力量不斷侵蝕。整個這片大陸早已被深淵的力量佔據，事到如今你們又能做到些什麼！』";
+  appendSystemLog(line1);
+  appendSystemLog(line2);
+  // 儀式對話框讀完才蛻變開打(2026-09 用戶要求的儀式感)
+  showBossDialog([line1, line2], "不再祈禱的東西", () => {
+    engine.transformUnit(u, CHURCH_PHASE2_MOVES, { hasteMult: 1 / 0.85, pattern: CHURCH_PHASE2_PATTERN });
+    u.freezeInterruptArmed = true;
+    engine.stormBleed = 1; // 2026-09 用戶下修:血雨每 2 秒 −1
+    engine.setItemField(1.5);
+    appendSystemLog("血雨沒有停。落在身上的每一滴都燙得像火,傷口不肯闔上。(持續流血;道具使用變慢)");
+  });
 }
 
 /** 掉落面板開著:主戰鬥快捷鍵(1~9/空白/R/0)全部讓路給面板自己的按鍵 */
@@ -1264,6 +1325,7 @@ function showLootPanel(message: string, gains: Record<string, number>, href: str
 
   // 面板快捷鍵:數字=逐件撿、A=全拾、E=離開、B=整理背包;背包開著時 ↑↓ 選擇、U 使用、D 丟
   const onLootKey = (e: KeyboardEvent) => {
+    if (bossDialogActive) return;
     if (e.repeat) return;
     if (packOpen) {
       if (e.key === "ArrowUp" || e.key === "ArrowDown") {
@@ -1442,7 +1504,7 @@ function render() {
   requestAnimationFrame(render);
 }
 
-engine.start();
+if (!bossDialogActive) engine.start(); // 開場儀式對話框開著:收掉才開鐘
 render();
 
 // 除錯用:因為瀏覽器分頁在背景時 rAF 會被節流甚至暫停,方便手動在 console 推進時間驗證邏輯

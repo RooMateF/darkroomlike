@@ -10,6 +10,8 @@ export interface EnemyDef {
   intro: string;
   /** 開場第二句(接在 intro 後面自成一行;教堂 Boss 的宣戰用) */
   intro2?: string;
+  /** Boss 戰(2026-09):專屬敘述/對話用全螢幕儀式對話框呈現 */
+  boss?: boolean;
   hp: number;
   moves: EnemyMove[];
   /** 擊倒後的掉落(固定量,先求簡單) */
@@ -87,6 +89,7 @@ export const EVENT_BOSSES: Record<string, EnemyDef> = {
   // 沒有危機意識(首擊×2)基本必被偷;完美格擋(0.1s)也擋得下。每場只偷一件(戰鬥頁守門)
   tentacle: {
     id: "maze-tentacle",
+    boss: true,
     label: "蒼白的觸手",
     intro: "牆縫裡垂下一條蒼白的觸手,指尖在空中輕輕比劃,像在挑選。",
     hp: 12,
@@ -111,6 +114,7 @@ export const EVENT_BOSSES: Record<string, EnemyDef> = {
     loot: { hide: 3, shard: 2 },
     shardChance: 1,
     freezeResist: true,
+  boss: true,
   },
 };
 
@@ -186,6 +190,7 @@ export const REDMOON_BOSS: EnemyDef = {
   ],
   loot: { meat: 4, shard: 6 },
   freezeResist: true,
+  boss: true,
 };
 
 /** 不再祈禱的東西・半血蛻變(2026-09 核可 A+B+C):蜈蚣手連招,每第三招百手壓下(穿盾) */
@@ -255,6 +260,7 @@ export const LV3_BOSS: EnemyDef = {
   ],
   loot: { hide: 4, meat: 4, shard: 3 },
   freezeResist: true,
+  boss: true,
 };
 
 /**
@@ -278,6 +284,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     pattern: ["tap", "count", "tap", "count", "tap", "count", "reckoning"],
     loot: {},
     freezeResist: true,
+  boss: true,
   },
   // 東南迷宮:拾荒的長手(2026-09 定案)——迷宮五盜的收贓者;
   // 血量門檻歸還贓物(95/85/75/65%各一件,50%全回+狂暴 CD×0.75),守門在戰鬥頁
@@ -292,6 +299,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     ],
     loot: {},
     freezeResist: true,
+  boss: true,
   },
   mine: {
     id: "mine-guardian",
@@ -304,6 +312,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     ],
     loot: { hide: 6, meat: 6, shard: 4 },
     freezeResist: true,
+  boss: true,
   },
   observatory: {
     id: "observatory-guardian",
@@ -317,6 +326,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     ],
     loot: { bandage: 2, ration: 2, shard: 3 },
     freezeResist: true,
+  boss: true,
   },
   shrine: {
     id: "shrine-guardian",
@@ -329,6 +339,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     ],
     loot: { meat: 5, hide: 3, shard: 3 },
     freezeResist: true,
+  boss: true,
   },
   // 北嶺煤礦坑(Lv4):鐵階裝備的攻堅目標——毒塵+崩落暈眩是特色威脅。
   // 蒙地卡羅(現實補給:繃2/藥1/肉16/鹽3,滿血進場):勝率 60%(單場 100 秒);
@@ -346,6 +357,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     ],
     loot: { coal: 8, stone: 6, shard: 6 },
     freezeResist: true,
+  boss: true,
   },
   // Lv5:本章的極限。2026-08 控制型設計:數值堆滿也打不過,要靠「針對性準備」——
   // 醒神鹽擋鐘鳴/低語、藥劑清撕裂的流血、繃帶硬撐血線。
@@ -366,6 +378,7 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     ],
     loot: { shard: 8 },
     freezeResist: true,
+  boss: true,
   },
 };
 
