@@ -185,11 +185,11 @@ export const WEAPONS: WeaponDef[] = [
   // 重擊線(石斧的後繼):慢而沉,疊踉蹌——控場向的選擇
   { id: "iron-axe", label: "鐵斧", cost: { ingot: 12, wood: 20 }, category: "melee", baseCost: 1.8, damage: 18, symbol: ">>>>", durability: 55, packSize: 4, stagger: 30 },
   // 舊時代軍用品:軍規的緊湊設計——鐵階最好的刀(觀測台獎勵;之後可仿製)
-  { id: "bayonet", label: "軍用刺刀", cost: { ingot: 8, leather: 5 }, category: "melee", baseCost: 0.4, damage: 4, symbol: ">|", durability: 50, packSize: 2 },
+  { id: "bayonet", label: "軍用刺刀", cost: { ingot: 8, leather: 5 }, category: "melee", baseCost: 0.4, damage: 5, symbol: ">|", durability: 50, packSize: 2 },
   // ---- 鋼階(鐵+煤合煉) ----
   { id: "steel-knife", label: "鋼刀", cost: { steel: 8, leather: 5 }, category: "melee", baseCost: 0.6, damage: 8, symbol: ">|", durability: 60, packSize: 2 },
   { id: "steel-sword", label: "鋼劍", cost: { steel: 12, wood: 20 }, category: "melee", baseCost: 1.0, damage: 13, symbol: ">>", durability: 70, packSize: 3 },
-  { id: "steel-spear", label: "鋼槍", cost: { steel: 14, wood: 30 }, category: "melee", baseCost: 1.2, damage: 17, symbol: ">>>", durability: 80, packSize: 4 },
+  { id: "steel-spear", label: "鋼槍", cost: { steel: 14, wood: 30 }, category: "melee", baseCost: 1.2, damage: 16, symbol: ">>>", durability: 80, packSize: 4 },
   // 重擊線頂點:兩秒一記的斷崖重斬,踉蹌疊得最快
   { id: "steel-greatsword", label: "鋼大劍", cost: { steel: 18, wood: 30 }, category: "melee", baseCost: 1.7, damage: 26, symbol: ">>>>>", durability: 75, packSize: 5, stagger: 50 },
   // 槍械:鋼階限定。左輪輕快(1 發/擊)、散彈沉重(2 發/擊,單發傷害一致 → 彈數決定傷害)
