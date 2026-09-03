@@ -518,7 +518,7 @@ export class CombatEngine {
         dmg = 0;
         viaRiposte = true;
         unit.riposteLeft = 0;
-        this.cb.onLog({ id: this.logId++, actor: "你", target: `招架!刃口貼著來勢一滑,${unit.label}的這一擊整個落空`, symbol: "◎", damage: 0 });
+        this.cb.onLog({ id: this.logId++, actor: "你", target: `招架!刃口彈開了攻擊,${unit.label}的這一擊落空！`, symbol: "◎", damage: 0 });
       } else if (this.blockWindowLeft > 0 && this.shield) {
         blocked = this.blockWindowLeft >= BLOCK_WINDOW - (BLOCK_PERFECT + this.perfectWindowBonus) ? "perfect" : "partial";
         // 穿盾招(百手壓下):普通格擋的減傷上限只有一半,想無傷只能抓 0.1s 的完全格擋
@@ -533,7 +533,7 @@ export class CombatEngine {
         if (move.heavy) {
           unit.staggerGauge = 0;
           unit.staggerLeft = Math.max(unit.staggerLeft, PERFECT_PARRY_STAGGER);
-          this.cb.onLog({ id: this.logId++, actor: "你", target: `力道原路彈了回去。${unit.label}晃了兩步,一時間動彈不得`, symbol: "!!", damage: 0 });
+          this.cb.onLog({ id: this.logId++, actor: "你", target: `將招式彈了回去！${unit.label}晃了兩步,一時間動彈不得`, symbol: "!!", damage: 0 });
         }
       } else {
         this.playerHp = Math.max(0, this.playerHp - dmg);
