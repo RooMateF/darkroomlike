@@ -165,8 +165,8 @@ export interface WeaponDef {
   pellets?: number;
   /** 招架輔助(匕首):帶在身上,完美格擋窗延長這麼多秒(2026-09 用戶定案「微調格擋時間」) */
   parry?: number;
-  /** 連斬(劍類):同一把連續出手每擊 +perStack 傷害比例,最多 max 疊;插入任何別的行動就斷 */
-  combo?: { perStack: number; max: number };
+  /** 壓制(劍類):砍在敵方動作條 ≥ threshold 時把牠的條往回推 push(大招 heavyPush),巨體減半 */
+  suppress?: { push: number; heavyPush: number; threshold: number };
   /** 連發:每擊對單體連打 N 發(damage=單發傷害) */
   burst?: number;
   /** 連發各發傷害(後座力遞減);缺項用 damage 補 */
@@ -210,9 +210,9 @@ export const WEAPONS: WeaponDef[] = [
   // 匕首(2026-09 用戶定案):貼身的招架輔助——帶著它,完美格擋窗 0.1s→0.15s;只占 1 格
   // 匕首鏈(2026-09 用戶定案):招架輔助的代價是脆——鐵 20 耐久、鋼 30;速度同款,鋼傷微增
   { id: "dagger", label: "鐵匕首", cost: { ingot: 25, leather: 5 }, category: "melee", baseCost: 0.35, damage: 3, symbol: ">·", durability: 20, packSize: 1, parry: 0.05 },
-  // 劍類的定位(2026-09 用戶定案):連斬——同一把劍連續出手,每多一擊 +8% 傷害,最多疊 5(+40%);
-  // 換武器/用道具/舉盾都會斷。素傷不如刺刀,但站得住的拉鋸戰裡越砍越狠
-  { id: "iron-sword", label: "鐵劍", cost: { ingot: 50, wood: 10, leather: 10 }, category: "melee", baseCost: 1.0, damage: 8, symbol: ">>", durability: 55, packSize: 3, combo: { perStack: 0.08, max: 5 } },
+  // 劍類的定位(2026-09 用戶定案):壓制——砍在敵人蓄力過半時,把牠的動作條往回推 25%(大招 15%,巨體減半)。
+  // 斧頭是「打倒」、鬼雪是「凍住」,劍是「讓牠一直出不了手」;太早砍沒效果,要盯著敵方的條下刀
+  { id: "iron-sword", label: "鐵劍", cost: { ingot: 50, wood: 10, leather: 10 }, category: "melee", baseCost: 1.0, damage: 8, symbol: ">>", durability: 55, packSize: 3, suppress: { push: 0.25, heavyPush: 0.15, threshold: 0.5 } },
   { id: "iron-spear", label: "鐵槍", cost: { ingot: 40, wood: 15, leather: 10 }, category: "melee", baseCost: 1.2, damage: 10, symbol: ">>>", durability: 60, packSize: 4 },
   // 重擊線(石斧的後繼):慢而沉,疊踉蹌——控場向的選擇
   { id: "iron-axe", label: "鐵斧", cost: { ingot: 60, wood: 20, leather: 15 }, category: "melee", baseCost: 1.8, damage: 18, symbol: ">>>>", durability: 55, packSize: 4, stagger: 30 },
@@ -221,7 +221,7 @@ export const WEAPONS: WeaponDef[] = [
   // ---- 鋼階(鐵+煤合煉) ----
   { id: "steel-knife", label: "鋼刀", cost: { steel: 8, leather: 5 }, category: "melee", baseCost: 0.6, damage: 8, symbol: ">|", durability: 60, packSize: 2 },
   { id: "steel-dagger", label: "鋼匕首", cost: { steel: 6, leather: 5 }, category: "melee", baseCost: 0.35, damage: 4, symbol: ">·", durability: 30, packSize: 1, parry: 0.05 },
-  { id: "steel-sword", label: "鋼劍", cost: { steel: 12, wood: 20, leather: 10 }, category: "melee", baseCost: 1.0, damage: 13, symbol: ">>", durability: 70, packSize: 3, combo: { perStack: 0.08, max: 5 } },
+  { id: "steel-sword", label: "鋼劍", cost: { steel: 12, wood: 20, leather: 10 }, category: "melee", baseCost: 1.0, damage: 13, symbol: ">>", durability: 70, packSize: 3, suppress: { push: 0.25, heavyPush: 0.15, threshold: 0.5 } },
   { id: "steel-spear", label: "鋼槍", cost: { steel: 14, wood: 30, leather: 10 }, category: "melee", baseCost: 1.2, damage: 16, symbol: ">>>", durability: 80, packSize: 4 },
   // 重擊線頂點:兩秒一記的斷崖重斬,踉蹌疊得最快
   { id: "steel-greatsword", label: "鋼大劍", cost: { steel: 18, wood: 30, leather: 20 }, category: "melee", baseCost: 1.7, damage: 26, symbol: ">>>>>", durability: 75, packSize: 5, stagger: 50 },

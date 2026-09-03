@@ -10,6 +10,8 @@ export interface LogEntry {
   heal?: number;
   crit?: boolean;
   blocked?: boolean;
+  /** 這一擊壓制了對方(劍類:把牠的動作條往回推了) */
+  suppressed?: boolean;
 }
 
 /** 類別內每個子行動各自累積進度,但共用同一次歸零(見 design-notes.md § 2.3.2) */
@@ -232,10 +234,6 @@ export class CombatEngine {
   firstStrikeBoost = false;
   /** 我方下一擊傷害 ×1.5(凍結觸發的獎勵) */
   playerEmpowerNext = false;
-  /** 連斬(劍類):目前連著出手的那把、已疊的層數、上限——插入任何別的行動就歸零 */
-  comboId: string | null = null;
-  comboStacks = 0;
-  comboMax = 0;
   /** 裝備中的盾(格擋參數;null=沒帶盾,不能格擋) */
   shield: { label: string; reduce: number; cd: number } | null = null;
   /** 格擋窗口剩餘秒數(0.5s;前 0.1s 完全格擋) */
@@ -366,7 +364,6 @@ export class CombatEngine {
     if (!this.shield || this.blockCooldownLeft > 0 || this.blockWindowLeft > 0) return false;
     if (this.stunLeft > 0) return false; // 暈眩中舉不起盾
     if (this.reloadLock > 0) return false; // 換彈中雙手占著,舉不起盾
-    this.breakCombo(); // 舉盾也是別的動作:連斬斷
     this.blockWindowLeft = BLOCK_WINDOW;
     this.blockCooldownLeft = this.shield.cd;
     // 格擋自成一類(2026-09 用戶定案):對其他類別而言就是「別類的招」——舉盾讓所有行動條重頭跑;
@@ -379,12 +376,6 @@ export class CombatEngine {
     this.cb.onLog({ id: this.logId++, actor: "你", target: "舉起了盾", symbol: "[]", damage: 0 });
     this.resume(); // 舉盾也是一個決定:Wait 暫停直接解除,CD 繼續跑(2026-09 用戶反饋)
     return true;
-  }
-
-  /** 連斬中斷:任何不是「同一把劍」的行動都會呼叫 */
-  private breakCombo() {
-    this.comboId = null;
-    this.comboStacks = 0;
   }
 
   /** 解除控制效果並給予免疫窗口(醒神鹽)——混亂也是「腦子的事」,一併醒掉 */
@@ -615,7 +606,6 @@ export class CombatEngine {
     if (tracker.needsReload) {
       tracker.needsReload = false;
       tracker.magazineUsed = 0;
-      this.breakCombo();
       this.reloadLock = tracker.subAction.reloadCost ?? 1;
       this.justReloaded = true;
       for (const c of this.playerCategories) {
@@ -630,20 +620,6 @@ export class CombatEngine {
     this.justReloaded = false;
 
     let dmg = tracker.subAction.damage;
-    // 連斬(劍類,2026-09 用戶定案):同一把連續出手才疊,第一擊是基準,之後每擊 +perStack
-    const combo = tracker.subAction.combo;
-    if (combo) {
-      if (this.comboId === tracker.subAction.id) {
-        this.comboStacks = Math.min(combo.max, this.comboStacks + 1);
-      } else {
-        this.comboId = tracker.subAction.id;
-        this.comboStacks = 0;
-      }
-      this.comboMax = combo.max;
-      if (this.comboStacks > 0) dmg = Math.round(dmg * (1 + this.comboStacks * combo.perStack));
-    } else {
-      this.breakCombo();
-    }
     if (dmg > 0 && this.playerEmpowerNext) {
       dmg = Math.round(dmg * 1.5); // 凍結獎勵:下一擊 ×1.5
       this.playerEmpowerNext = false;
@@ -652,6 +628,8 @@ export class CombatEngine {
 
     // 霰彈(2026-09 用戶定案):每擊 pellets 顆彈丸,各自砸向隨機一隻活敵——群戰神器
     let pelletsDone = false;
+    let suppressedHit = false; // 壓制(劍類):這一擊有沒有把對方的動作條推回去
+
     if (tracker.subAction.pellets && dmg > 0) {
       pelletsDone = true;
       let total = 0;
@@ -746,6 +724,15 @@ export class CombatEngine {
       if (target.staggerLeft > 0) dmg = Math.round(dmg * 1.25); // 踉蹌中受創加成
       target.hp = Math.max(0, target.hp - dmg);
       this.cb.onUnitHit?.(target, dmg);
+      // 壓制(劍類,2026-09 用戶定案):砍在對方蓄力過半時,把牠的動作條往回推——
+      // 大招推得少、巨體減半;踉蹌中的對手條本來就凍著,不重複算
+      const sup = tracker.subAction.suppress;
+      if (sup && target.hp > 0 && target.staggerLeft <= 0 && target.tracker.progress >= sup.threshold) {
+        let push = target.tracker.currentMove.heavy ? sup.heavyPush : sup.push;
+        if (target.freezeResist) push /= 2;
+        target.tracker.elapsed = Math.max(0, target.tracker.elapsed - target.tracker.actualCost * push);
+        suppressedHit = true;
+      }
       // 名刀鬼雪:命中疊加凍結值(Boss 抗性減半);滿 100 → 寒滯+強化下一擊,歸零重疊
       // 踉蹌值(2026-09 實裝):重武器命中疊加;巨體(同凍結抗性)減半;
       // 疊滿 100 → 踉蹌 STAGGER_DURATION 秒(行動條凍結+受創 ×1.25),期間不再疊加
@@ -782,6 +769,7 @@ export class CombatEngine {
       symbol: tracker.subAction.symbol,
       damage: dmg,
       heal,
+      suppressed: suppressedHit || undefined,
     });
     // 目標倒下:通知 UI(護贓觸手歸還贓物等),目標自動跳到下一隻活的
     if (!pelletsDone && dmg > 0 && target && target.hp <= 0) {

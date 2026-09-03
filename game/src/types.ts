@@ -32,9 +32,9 @@ export interface SubAction {
   reloadCost?: number;
   /** 道具類:強力道具用完後,下一輪道具回轉拖長為這個秒數(預設 1s;2026-09 用戶定案) */
   slowReuse?: number;
-  /** 連斬(劍類,2026-09 用戶定案):同一把連續出手,每多一擊傷害 +perStack(比例),最多疊 max;
-   * 中間插入任何別的行動(換武器/道具/舉盾/換彈)就斷 */
-  combo?: { perStack: number; max: number };
+  /** 壓制(劍類,2026-09 用戶定案):砍在敵方動作條 ≥ threshold 時,把牠的動作條往回推 push(比例;大招 heavyPush);
+   * 巨體減半——不是把牠打倒,而是讓牠一直出不了手 */
+  suppress?: { push: number; heavyPush: number; threshold: number };
 }
 
 export type CategoryId = "melee" | "ranged" | "magic" | "item";
