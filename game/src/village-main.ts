@@ -1,6 +1,6 @@
 import "./style.css";
 import { VillageEngine, TICK_MS, GATHERABLE } from "./village/engine";
-import { JOBS, BUILDINGS, WEAPONS, CONSUMABLES, UPGRADES, TRADES, repairCost, PERK_SLOTS, SMITHY_IRON_UPGRADE_COST, BARTER_RAW, BARTER_RATE } from "./village/data";
+import { JOBS, BUILDINGS, WEAPONS, CONSUMABLES, UPGRADES, TRADES, repairCost, brokenRepairCost, PERK_SLOTS, SMITHY_IRON_UPGRADE_COST, BARTER_RAW, BARTER_RATE } from "./village/data";
 import { PERK_LABEL } from "./village/events-data";
 import { clearedSiteCount, specialSites, siteProgress } from "./explore/sites";
 import { generateMap } from "./explore/map-gen";
@@ -1388,7 +1388,7 @@ function startVillage() {
 
       // 損毀的特殊武器:鐵匠鋪(鐵級)修復,費用=cost(鬼雪=異晶 30)
       if (brokenN > 0) {
-        const rc = row.weapon.cost;
+        const rc = brokenRepairCost(row.weapon.id);
         const rcText = Object.entries(rc)
           .map(([id, n]) => `${RESOURCE_LABEL[id as ResourceId]}${n}`)
           .join(" ");

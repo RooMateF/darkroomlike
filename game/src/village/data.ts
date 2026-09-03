@@ -116,7 +116,10 @@ export function isIronTierWeapon(weaponId: string): boolean {
   return !!weapon && ((weapon.cost.iron ?? 0) > 0 || (weapon.cost.ingot ?? 0) > 0 || (weapon.cost.steel ?? 0) > 0);
 }
 
-/** 修理成本:打造成本的一半(向上取整)——受損就修,不修的話耐久會一直帶著 */
+/** 修理一律吃皮革(2026-09 用戶定案):每次修理的皮革下限——配方本身沒皮革的(木槍/石斧/弓/木盾)也要用上 */
+export const REPAIR_LEATHER_MIN = 10;
+
+/** 修理成本:打造成本的一半(向上取整)+皮革至少 REPAIR_LEATHER_MIN——受損就修,不修的話耐久會一直帶著 */
 export function repairCost(weaponId: string): Partial<Record<import("./types").ResourceId, number>> {
   const weapon = WEAPONS.find((w) => w.id === weaponId);
   if (!weapon) return {};
@@ -124,6 +127,16 @@ export function repairCost(weaponId: string): Partial<Record<import("./types").R
   for (const [id, n] of Object.entries(weapon.cost)) {
     cost[id as import("./types").ResourceId] = Math.ceil((n ?? 0) / 2);
   }
+  cost.leather = Math.max(cost.leather ?? 0, REPAIR_LEATHER_MIN);
+  return cost;
+}
+
+/** 損毀特殊武器(鬼雪等)的修復費:cost 全額(異晶)+皮革至少 REPAIR_LEATHER_MIN */
+export function brokenRepairCost(weaponId: string): Partial<Record<import("./types").ResourceId, number>> {
+  const weapon = WEAPONS.find((w) => w.id === weaponId);
+  if (!weapon) return {};
+  const cost: Partial<Record<import("./types").ResourceId, number>> = { ...weapon.cost };
+  cost.leather = Math.max(cost.leather ?? 0, REPAIR_LEATHER_MIN);
   return cost;
 }
 

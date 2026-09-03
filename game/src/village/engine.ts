@@ -1,4 +1,4 @@
-import { BUILDINGS, CONSUMABLES, HUT_CAP_BONUS, JOBS, TRADES, UPGRADES, WEAPONS, repairCost, isIronTierWeapon , PERK_SLOTS , fineMaxDurability, SMITHY_IRON_UPGRADE_COST, BARTER_RATE, BARTER_RAW } from "./data";
+import { BUILDINGS, CONSUMABLES, HUT_CAP_BONUS, JOBS, TRADES, UPGRADES, WEAPONS, repairCost, brokenRepairCost, isIronTierWeapon , PERK_SLOTS , fineMaxDurability, SMITHY_IRON_UPGRADE_COST, BARTER_RATE, BARTER_RAW } from "./data";
 import { EVENTS, FOLLOWUP_POOLS, type VillageEvent, type PassiveEvent } from "./events-data";
 import { clearedSiteCount } from "../explore/sites";
 import { RESOURCE_LABEL, type ResourceId } from "./types";
@@ -316,8 +316,9 @@ export class VillageEngine {
 
   repairBrokenWeapon(weaponId: string) {
     const weapon = WEAPONS.find((w) => w.id === weaponId);
-    if (!weapon || !this.canRepairBroken(weaponId) || !this.canAfford(weapon.cost)) return;
-    for (const [id, amount] of Object.entries(weapon.cost)) {
+    const cost = brokenRepairCost(weaponId);
+    if (!weapon || !this.canRepairBroken(weaponId) || !this.canAfford(cost)) return;
+    for (const [id, amount] of Object.entries(cost)) {
       this.resources[id as ResourceId] -= amount ?? 0;
     }
     this.brokenWeapons[weaponId]--;
