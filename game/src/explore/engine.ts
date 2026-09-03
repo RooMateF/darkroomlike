@@ -349,6 +349,9 @@ export class ExploreEngine {
   private hungerSteps = 0;
   /** 戰後喘息:每場戰鬥結束後 3 步內不再觸發隨機遭遇,避免連環戰把節奏打爛 */
   private encounterGrace = 0;
+  /** 轉場鎖(2026-09 用戶回報):遭遇觸發/進地城/倒下之後、跳頁之前的空檔,地圖移動全部鎖住——
+   * 不再能多走幾步把存檔位置走歪;跳頁後新引擎實例天然歸零,不需要解鎖 */
+  transitionLock = false;
   /** 開著的選擇式小劇情(事件框):有它在,移動整個停住等抉擇 */
   pendingChoiceEvent: ChoiceEventDef | null = null;
   /** 抉擇後的結果文本(第二幕):按「繼續」才收起 */
@@ -549,11 +552,13 @@ export class ExploreEngine {
 
   /** 跨圖移動:保存這張地圖的進度,切換目前地圖並記下落點;由 UI 重新載入頁面完成切換 */
   travelThroughExit(): ExitLink | null {
+    if (this.transitionLock) return null;
     const link = this.exitLinkHere();
     if (!link) return null;
     this.saveState();
     localStorage.setItem(CURRENT_MAP_KEY, link.to);
     localStorage.setItem(MAP_ENTRY_KEY, JSON.stringify({ x: link.entryX, y: link.entryY, water: this.water }));
+    this.transitionLock = true; // 越界的 700ms 轉場空檔,舊引擎不再收步
     return link;
   }
 
@@ -568,6 +573,7 @@ export class ExploreEngine {
 
   /** 玩家按下「深入調查」:寫入地城狀態,由 UI 觸發跳戰鬥頁 */
   startDungeon(): boolean {
+    if (this.transitionLock) return false; // 已經在轉場中,別疊第二個目的地
     const current = this.currentSite();
     if (!current) return false;
     // 靜默教堂上了鎖:要先在某座遺跡深處找到黑鐵鑰匙(UI 端會顯示鎖的敘事)
@@ -582,6 +588,7 @@ export class ExploreEngine {
     localStorage.setItem(DUNGEON_KEY, JSON.stringify(run));
     this.encounterGrace = 3; // 地城戰打完出來也給喘息,不會一出門又被隨機遭遇堵上
     this.saveState();
+    this.transitionLock = true;
     return true;
   }
 
@@ -851,6 +858,7 @@ export class ExploreEngine {
   /** dx/dy 為 -1/0/1,代表移動方向 */
   move(dx: number, dy: number) {
     if (this.pendingChoiceEvent || this.pendingChoiceResult) return; // 事件框開著:先做完抉擇
+    if (this.transitionLock) return; // 轉場中(遭遇/進地城/倒下):腳步停在觸發的那一格
     const nx = this.playerX + dx;
     const ny = this.playerY + dy;
     const target = this.grid[ny]?.[nx];
@@ -887,6 +895,7 @@ export class ExploreEngine {
       this.cb.onLog("窪地裡的草全倒向中央,像被什麼巨大的重量壓過。空氣裡有一股鐵鏽味。");
       localStorage.setItem("pending-redmoon", "1");
       this.saveState();
+      this.transitionLock = true;
       this.cb.onEncounter();
       return;
     }
@@ -905,6 +914,7 @@ export class ExploreEngine {
             this.markTheftBand(b);
             localStorage.setItem("pending-event-boss", "tentacle");
             this.saveState();
+            this.transitionLock = true;
             this.cb.onEncounter();
             return;
           }
@@ -1099,6 +1109,7 @@ export class ExploreEngine {
       }
       this.encounterGrace = 3;
       this.saveState();
+      this.transitionLock = true;
       this.cb.onEncounter();
       return;
     }
@@ -1388,6 +1399,7 @@ export class ExploreEngine {
     if (this.pendingBossAfterResult) {
       this.pendingBossAfterResult = false;
       this.saveState();
+      this.transitionLock = true;
       this.cb.onEncounter();
     }
   }
@@ -1516,6 +1528,7 @@ export class ExploreEngine {
     localStorage.removeItem("maze-stolen");
     localStorage.removeItem("maze-stolen-kinds");
     this.saveState();
+    this.transitionLock = true;
     this.cb.onDeath();
   }
 }
