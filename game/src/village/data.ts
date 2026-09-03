@@ -187,7 +187,8 @@ export const WEAPONS: WeaponDef[] = [
   // 2026-09 用戶定案:武器類的鐵需求 ×5(鐵產線的產能就是軍備的天花板)
   { id: "iron-knife", label: "鐵刀", cost: { ingot: 30, wood: 10 }, category: "melee", baseCost: 0.6, damage: 6, symbol: ">|", durability: 40, packSize: 2 },
   // 匕首(2026-09 用戶定案):貼身的招架輔助——帶著它,完美格擋窗 0.1s→0.15s;只占 1 格
-  { id: "dagger", label: "匕首", cost: { ingot: 25, leather: 5 }, category: "melee", baseCost: 0.35, damage: 3, symbol: ">·", durability: 45, packSize: 1, parry: 0.05 },
+  // 匕首鏈(2026-09 用戶定案):招架輔助的代價是脆——鐵 20 耐久、鋼 30;速度同款,鋼傷微增
+  { id: "dagger", label: "鐵匕首", cost: { ingot: 25, leather: 5 }, category: "melee", baseCost: 0.35, damage: 3, symbol: ">·", durability: 20, packSize: 1, parry: 0.05 },
   { id: "iron-sword", label: "鐵劍", cost: { ingot: 50, wood: 10 }, category: "melee", baseCost: 1.0, damage: 8, symbol: ">>", durability: 55, packSize: 3 },
   { id: "iron-spear", label: "鐵槍", cost: { ingot: 40, wood: 15 }, category: "melee", baseCost: 1.2, damage: 10, symbol: ">>>", durability: 60, packSize: 4 },
   // 重擊線(石斧的後繼):慢而沉,疊踉蹌——控場向的選擇
@@ -196,6 +197,7 @@ export const WEAPONS: WeaponDef[] = [
   { id: "bayonet", label: "軍用刺刀", cost: { ingot: 40, leather: 5 }, category: "melee", baseCost: 0.4, damage: 5, symbol: ">|", durability: 50, packSize: 2 },
   // ---- 鋼階(鐵+煤合煉) ----
   { id: "steel-knife", label: "鋼刀", cost: { steel: 8, leather: 5 }, category: "melee", baseCost: 0.6, damage: 8, symbol: ">|", durability: 60, packSize: 2 },
+  { id: "steel-dagger", label: "鋼匕首", cost: { steel: 6, leather: 5 }, category: "melee", baseCost: 0.35, damage: 4, symbol: ">·", durability: 30, packSize: 1, parry: 0.05 },
   { id: "steel-sword", label: "鋼劍", cost: { steel: 12, wood: 20 }, category: "melee", baseCost: 1.0, damage: 13, symbol: ">>", durability: 70, packSize: 3 },
   { id: "steel-spear", label: "鋼槍", cost: { steel: 14, wood: 30 }, category: "melee", baseCost: 1.2, damage: 16, symbol: ">>>", durability: 80, packSize: 4 },
   // 重擊線頂點:兩秒一記的斷崖重斬,踉蹌疊得最快
