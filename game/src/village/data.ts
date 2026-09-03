@@ -31,10 +31,10 @@ export const BUILDINGS: BuildingDef[] = [
     cost: { wood: 15, stone: 10 },
     effect: "人口上限 +4",
     repeatable: true,
-    costGrowth: 1.4,
+    costGrowth: 1.3, // 2026-09 用戶反饋級距太大:1.4→1.3
     // 每蓋滿 5 棟,成本額外翻倍一次——壓住人口帶動的產能雪球,中後期擴村是實質的投資決策
     tierEvery: 5,
-    tierGrowth: 2,
+    tierGrowth: 1.5, // 同上:每滿 5 棟 ×2→×1.5
   },
   // 解鎖新功能的建築要有份量,是需要存一陣子才蓋得起的目標,不是順手就有
   { id: "farm", label: "田", cost: { wood: 120, stone: 60 }, effect: "解鎖「農夫」工作" },
