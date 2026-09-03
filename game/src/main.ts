@@ -1555,6 +1555,7 @@ function render() {
     if (dot > 0) rows.push(`<div class="status-line">持續傷害 每 2 秒 -${dot}</div>`);
     if (engine.firstStrikeBoost) spRow("危機意識", 1, "首擊 ×2");
     if (engine.playerEmpowerNext) spRow("凍結反擊", 1, "下一擊 ×1.5");
+    if (engine.comboStacks > 0 && engine.comboMax > 0) spRow("連斬", engine.comboStacks / engine.comboMax, `${engine.comboStacks}/${engine.comboMax}`);
     if (engine.confusionPending) spRow("混亂(發作)", 1, "!!");
     else if (engine.confusionGauge > 0) spRow("混亂", engine.confusionGauge / 100, `${Math.round(engine.confusionGauge)}/100`);
     if (engine.stunLeft > 0) spRow("暈眩", engine.stunTotal > 0 ? engine.stunLeft / engine.stunTotal : 1, `${engine.stunLeft.toFixed(1)}s`);

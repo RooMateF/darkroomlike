@@ -14,7 +14,7 @@ export function buildPlayerCategories(carried: Carried | null): CategoryDef[] {
 
   const melee = carriedWeapons
     .filter((w) => w.category === "melee")
-    .map((w) => ({ id: w.id, label: w.label, baseCost: w.baseCost, symbol: w.symbol, damage: w.damage, freeze: w.freeze, stagger: w.stagger }));
+    .map((w) => ({ id: w.id, label: w.label, baseCost: w.baseCost, symbol: w.symbol, damage: w.damage, freeze: w.freeze, stagger: w.stagger, combo: w.combo }));
   const ranged = carriedWeapons
     .filter((w) => w.category === "ranged")
     .map((w) => ({ id: w.id, label: w.label, baseCost: w.baseCost, symbol: w.symbol, damage: w.damage, magazine: w.magazine, reloadCost: w.reload, ammoPerUse: w.ammoPerUse, pellets: w.pellets, burst: w.burst, burstDamages: w.burstDamages }));

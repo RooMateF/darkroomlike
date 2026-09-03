@@ -232,6 +232,10 @@ export class CombatEngine {
   firstStrikeBoost = false;
   /** 我方下一擊傷害 ×1.5(凍結觸發的獎勵) */
   playerEmpowerNext = false;
+  /** 連斬(劍類):目前連著出手的那把、已疊的層數、上限——插入任何別的行動就歸零 */
+  comboId: string | null = null;
+  comboStacks = 0;
+  comboMax = 0;
   /** 裝備中的盾(格擋參數;null=沒帶盾,不能格擋) */
   shield: { label: string; reduce: number; cd: number } | null = null;
   /** 格擋窗口剩餘秒數(0.5s;前 0.1s 完全格擋) */
@@ -362,6 +366,7 @@ export class CombatEngine {
     if (!this.shield || this.blockCooldownLeft > 0 || this.blockWindowLeft > 0) return false;
     if (this.stunLeft > 0) return false; // 暈眩中舉不起盾
     if (this.reloadLock > 0) return false; // 換彈中雙手占著,舉不起盾
+    this.breakCombo(); // 舉盾也是別的動作:連斬斷
     this.blockWindowLeft = BLOCK_WINDOW;
     this.blockCooldownLeft = this.shield.cd;
     // 格擋自成一類(2026-09 用戶定案):對其他類別而言就是「別類的招」——舉盾讓所有行動條重頭跑;
@@ -374,6 +379,12 @@ export class CombatEngine {
     this.cb.onLog({ id: this.logId++, actor: "你", target: "舉起了盾", symbol: "[]", damage: 0 });
     this.resume(); // 舉盾也是一個決定:Wait 暫停直接解除,CD 繼續跑(2026-09 用戶反饋)
     return true;
+  }
+
+  /** 連斬中斷:任何不是「同一把劍」的行動都會呼叫 */
+  private breakCombo() {
+    this.comboId = null;
+    this.comboStacks = 0;
   }
 
   /** 解除控制效果並給予免疫窗口(醒神鹽)——混亂也是「腦子的事」,一併醒掉 */
@@ -604,6 +615,7 @@ export class CombatEngine {
     if (tracker.needsReload) {
       tracker.needsReload = false;
       tracker.magazineUsed = 0;
+      this.breakCombo();
       this.reloadLock = tracker.subAction.reloadCost ?? 1;
       this.justReloaded = true;
       for (const c of this.playerCategories) {
@@ -618,6 +630,20 @@ export class CombatEngine {
     this.justReloaded = false;
 
     let dmg = tracker.subAction.damage;
+    // 連斬(劍類,2026-09 用戶定案):同一把連續出手才疊,第一擊是基準,之後每擊 +perStack
+    const combo = tracker.subAction.combo;
+    if (combo) {
+      if (this.comboId === tracker.subAction.id) {
+        this.comboStacks = Math.min(combo.max, this.comboStacks + 1);
+      } else {
+        this.comboId = tracker.subAction.id;
+        this.comboStacks = 0;
+      }
+      this.comboMax = combo.max;
+      if (this.comboStacks > 0) dmg = Math.round(dmg * (1 + this.comboStacks * combo.perStack));
+    } else {
+      this.breakCombo();
+    }
     if (dmg > 0 && this.playerEmpowerNext) {
       dmg = Math.round(dmg * 1.5); // 凍結獎勵:下一擊 ×1.5
       this.playerEmpowerNext = false;

@@ -851,7 +851,9 @@ function startVillage() {
           ? `${weapon.damage}×${weapon.pellets}`
           : weapon.burstDamages
             ? weapon.burstDamages.join("+")
-            : String(weapon.damage);
+            : weapon.combo
+              ? `${weapon.damage} 連斬+${Math.round(weapon.combo.perStack * 100)}%×${weapon.combo.max}`
+              : String(weapon.damage);
     const mats = td("mats");
     row.append(name, owned, dur, speed, dmg, mats);
     const ops = td("ops");
