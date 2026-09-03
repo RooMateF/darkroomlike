@@ -48,9 +48,7 @@ export const BUILDINGS: BuildingDef[] = [
   { id: "smithy", label: "工匠鋪", cost: { wood: 1500, stone: 1200 }, effect: "可修理受損的武器", requiresSiteLevel: 3 }, // 2026-09 用戶定案:×10,對齊產線建築的千位數門檻
   // 交易所:撿過異晶(知道「有人收這種東西」)才浮現;開張後用異晶兌換稀有物資(TRADES)
   { id: "trading-post", label: "交易所", cost: { wood: 1500, stone: 800 }, effect: "用異晶兌換稀有的物資", requiresExplore: true, requiresResourceSeen: "shard" },
-  // 火車:本章基建的頂點——沿著鋪好的鐵軌行駛的鋼鐵巨獸;不論放在哪個時期都是巨額工程。
-  // 通車後:鐵軌通礦坑的礦車運輸再翻倍(×4)。(2026-09:軌上零消耗改為鋪軌即生效,不再綁火車)
-  { id: "train", label: "火車", cost: { wood: 3000, stone: 1500, ingot: 120, steel: 40, coal: 60 }, effect: "沿鐵軌行駛的鋼鐵巨獸:鐵軌通礦坑後,礦車運輸產能再翻倍", requiresLandmark: "coalmine" },
+  // (火車建築 2026-09 用戶定案移除:鐵軌連通礦坑即直接 ×4,不必另外造車)
 ];
 
 // 工匠鋪→鐵匠鋪升格費(2026-09 用戶定案:礦坑解放後不再免費自動升格):
@@ -283,7 +281,7 @@ export const CONSUMABLES: ConsumableDef[] = [
   { id: "bullet", label: "子彈", cost: { steel: 30, coal: 30 }, yield: 1, requiresWeaponAny: ["revolver", "shotgun"], note: "槍械彈藥" },
   // 鐵軌:鋪在遠征地圖上的永久建設——從村莊一格一格連出去;軌上水 1/4 步、糧 1/8 步、不遇敵。
   // 鋪到礦坑旁,礦車自動運輸(鐵礦工產出 ×2)。2 根占 1 格,揹得動多少是推車/小貨車的事
-  { id: "rail", label: "鐵軌", cost: { ingot: 20, wood: 500, stone: 200 }, yield: 1, requiresBuilding: "smithy", requiresLandmark: "mine", note: "鋪上鐵軌後，在上面行走不會消耗水跟糧食；鐵軌連通礦坑後，礦車自動運輸，鐵礦工的產量翻倍（火車通車後再翻倍）" }, // 2026-09 用戶定案:枕木與道碴也是真實開銷
+  { id: "rail", label: "鐵軌", cost: { ingot: 20, wood: 500, stone: 200 }, yield: 1, requiresBuilding: "smithy", requiresLandmark: "mine", note: "鋪上鐵軌後，在上面行走不會消耗水跟糧食；鐵軌連通礦坑後，礦車自動運輸，鐵礦工的產量變為四倍" }, // 2026-09 用戶定案:枕木與道碴也是真實開銷
 ];
 
 // ---- 一次性裝備升級(改變探索/戰鬥的基礎參數) ----
