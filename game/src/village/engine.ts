@@ -1,4 +1,4 @@
-import { BUILDINGS, CONSUMABLES, HUT_CAP_BONUS, JOBS, TRADES, UPGRADES, WEAPONS, repairCost, isIronTierWeapon , PERK_SLOTS , fineMaxDurability} from "./data";
+import { BUILDINGS, CONSUMABLES, HUT_CAP_BONUS, JOBS, TRADES, UPGRADES, WEAPONS, repairCost, isIronTierWeapon , PERK_SLOTS , fineMaxDurability, SMITHY_IRON_UPGRADE_COST } from "./data";
 import { EVENTS, FOLLOWUP_POOLS, type VillageEvent, type PassiveEvent } from "./events-data";
 import { clearedSiteCount } from "../explore/sites";
 import { RESOURCE_LABEL, type ResourceId } from "./types";
@@ -256,14 +256,34 @@ export class VillageEngine {
     return dur !== undefined && dur < this.currentMaxDurability(weaponId);
   }
 
-  /** 鐵礦坑解放後,工匠鋪升格為鐵匠鋪(才能處理鐵製以上的武器) */
-  isSmithyIronCapable(): boolean {
+  /** 鐵礦坑是否已解放(升格鐵匠鋪的前置) */
+  isMineCleared(): boolean {
     try {
       const cleared = JSON.parse(localStorage.getItem("landmarks-cleared") ?? "[]") as string[];
       return cleared.includes("mine");
     } catch {
       return false;
     }
+  }
+
+  /** 工匠鋪是否已升格為鐵匠鋪(2026-09 用戶定案:礦坑解放後要另花材料升格,不再免費自動) */
+  isSmithyIronCapable(): boolean {
+    return this.upgrades["smithy-iron"] === true;
+  }
+
+  canUpgradeSmithy(): boolean {
+    return this.hasBuilding("smithy") && this.isMineCleared() && !this.isSmithyIronCapable();
+  }
+
+  /** 升格工匠鋪→鐵匠鋪:爐膛與砧換成吃得動鐵的規格 */
+  upgradeSmithy() {
+    if (!this.canUpgradeSmithy() || !this.canAfford(SMITHY_IRON_UPGRADE_COST)) return;
+    for (const [id, amount] of Object.entries(SMITHY_IRON_UPGRADE_COST)) {
+      this.resources[id as ResourceId] -= amount ?? 0;
+    }
+    this.upgrades["smithy-iron"] = true;
+    this.saveState();
+    this.cb.onLog("爐膛重新砌過,鐵砧換上了新的。工匠鋪升格為鐵匠鋪——鐵製的武器,現在修得動了。");
   }
 
   /** 這把武器目前修得了嗎(工匠鋪修木石皮革類;鐵製以上要等升格為鐵匠鋪) */

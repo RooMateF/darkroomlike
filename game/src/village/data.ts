@@ -44,7 +44,7 @@ export const BUILDINGS: BuildingDef[] = [
   // 第一次外出探索後浮現(見過外面的世界,才知道獸皮可以鞣製成皮革)
   { id: "tannery", label: "製革場", cost: { wood: 1000, stone: 600, hide: 100 }, effect: "解鎖「製革工」工作", requiresExplore: true },
   // 修理受損武器的地方——出現時機:打通第一座 Lv3 遺跡後(在遺跡裡找到還能用的工具與鐵砧)。
-  // 蓋出來時是「工匠鋪」(只能修木/石/皮革類武器);鐵礦坑解放後自動升格為「鐵匠鋪」,才能修鐵製以上的武器
+  // 蓋出來時是「工匠鋪」(只能修木/石/皮革類武器);鐵礦坑解放後可花材料升格為「鐵匠鋪」,才能修鐵製以上的武器
   { id: "smithy", label: "工匠鋪", cost: { wood: 150, stone: 120 }, effect: "可修理受損的武器", requiresSiteLevel: 3 },
   // 交易所:撿過異晶(知道「有人收這種東西」)才浮現;開張後用異晶兌換稀有物資(TRADES)
   { id: "trading-post", label: "交易所", cost: { wood: 1500, stone: 800 }, effect: "用異晶兌換稀有的物資", requiresExplore: true, requiresResourceSeen: "shard" },
@@ -52,6 +52,10 @@ export const BUILDINGS: BuildingDef[] = [
   // 通車後:軌上移動不再消耗水糧;鐵軌通礦坑的礦車運輸再翻倍(×4)
   { id: "train", label: "火車", cost: { wood: 3000, stone: 1500, ingot: 120, steel: 40, coal: 60 }, effect: "沿鐵軌行駛的鋼鐵巨獸:軌上移動不再消耗水與糧;鐵軌通礦坑後,運輸產能再翻倍", requiresLandmark: "coalmine" },
 ];
+
+// 工匠鋪→鐵匠鋪升格費(2026-09 用戶定案:礦坑解放後不再免費自動升格):
+// 爐膛與鐵砧要換成吃得動鐵的規格——鐵礦正是剛解放的礦坑產出,升格本身就是第一張鐵礦訂單
+export const SMITHY_IRON_UPGRADE_COST: Partial<Record<import("./types").ResourceId, number>> = { wood: 400, stone: 300, iron: 80 };
 
 // ---- 交易所兌換清單(異晶 → 稀有物資) ----
 

@@ -1,6 +1,6 @@
 import "./style.css";
 import { VillageEngine, TICK_MS, GATHERABLE } from "./village/engine";
-import { JOBS, BUILDINGS, WEAPONS, CONSUMABLES, UPGRADES, TRADES, repairCost, PERK_SLOTS } from "./village/data";
+import { JOBS, BUILDINGS, WEAPONS, CONSUMABLES, UPGRADES, TRADES, repairCost, PERK_SLOTS, SMITHY_IRON_UPGRADE_COST } from "./village/data";
 import { PERK_LABEL } from "./village/events-data";
 import { clearedSiteCount, specialSites, siteProgress } from "./explore/sites";
 import { generateMap } from "./explore/map-gen";
@@ -581,7 +581,9 @@ function startVillage() {
     btn.className = "btn";
     btn.textContent = "建造";
     btn.addEventListener("click", () => {
-      engine.build(building.id);
+      // 工匠鋪的按鈕在「升格待付費」狀態下是升格鈕(2026-09 用戶定案)
+      if (building.id === "smithy" && engine.canUpgradeSmithy()) engine.upgradeSmithy();
+      else engine.build(building.id);
       render();
     });
     foot.append(effect, btn);
@@ -1182,10 +1184,20 @@ function startVillage() {
       const buildable = engine.canBuild(row.building.id);
       const maxedOut = !row.building.repeatable && count > 0;
 
-      // 工匠鋪在鐵礦坑解放後升格為鐵匠鋪(同一棟建築,名字與能力演化)
+      // 工匠鋪在鐵礦坑解放後可付費升格為鐵匠鋪(同一棟建築,名字與能力演化;2026-09 改為要花材料)
       let label = row.building.label;
       if (row.building.id === "smithy" && engine.isSmithyIronCapable()) label = "鐵匠鋪";
       row.name.textContent = count > 0 ? `${label} ×${count}` : label;
+      if (row.building.id === "smithy" && engine.canUpgradeSmithy()) {
+        row.cost.textContent = Object.entries(SMITHY_IRON_UPGRADE_COST)
+          .map(([id, n]) => `${RESOURCE_LABEL[id as ResourceId]} ${n}`)
+          .join("　");
+        const affordable = engine.canAfford(SMITHY_IRON_UPGRADE_COST);
+        row.btn.disabled = !affordable;
+        row.btn.classList.toggle("ready", affordable);
+        row.btn.textContent = "升格為鐵匠鋪";
+        continue;
+      }
       row.cost.textContent = maxedOut
         ? ""
         : Object.entries(cost)

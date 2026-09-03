@@ -403,6 +403,8 @@ export class ExploreEngine {
       this.reveal(start.x, start.y);
     }
 
+    // 撒點遺跡補種:後續版本新增的探勘點要能長進既有存檔的地圖
+    this.syncSeededSites();
     // 紅月窪地(2026-09 核可):紅月事件滿三次 → 近村刷 ☾;打贏後撤掉
     this.syncRedmoonSite();
 
@@ -502,6 +504,24 @@ export class ExploreEngine {
     }
 
     this.saveState();
+  }
+
+  /** 撒點遺跡補種(2026-09):後續版本新增的 Lv1~3 探勘點,補畫進既有存檔的地圖(含清出周邊一圈路) */
+  private syncSeededSites() {
+    const protect = ["site", "depot", "redmoon", "chest", "landmark", "exit", "slopeL", "slopeV", "slopeR"];
+    for (const s of specialSites()) {
+      if ((s.mapId ?? "A") !== this.mapId || s.level > 3) continue;
+      if (siteProgress(s.key).cleared) continue;
+      const t = this.grid[s.y]?.[s.x];
+      if (!t || protect.includes(t.type)) continue;
+      t.type = "site";
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const n = this.grid[s.y + dy]?.[s.x + dx];
+          if (n && (n.type === "wall" || n.type === "water")) n.type = "plain";
+        }
+      }
+    }
   }
 
   /** Lv1/Lv3 打通後變成補給點(前線基地);只處理本地圖的點 */
