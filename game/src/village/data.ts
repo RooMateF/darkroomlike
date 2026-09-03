@@ -184,36 +184,37 @@ export const WEAPONS: WeaponDef[] = [
   // 獵弓(2026-09 定位確認):槍械時代的另一條遠程路——輕便、箭矢便宜量大、永不換彈
   { id: "hunting-bow", label: "獵弓", cost: { wood: 50, hide: 10 }, category: "ranged", baseCost: 1.0, damage: 4, symbol: "→", durability: 40, ammo: "arrow", ammoPerUse: 1, packSize: 2 },
   // ---- 鐵階(冶煉的鐵) ----
-  // 2026-09 用戶定案:武器類的鐵需求 ×5(鐵產線的產能就是軍備的天花板)
-  { id: "iron-knife", label: "鐵刀", cost: { ingot: 30, wood: 10 }, category: "melee", baseCost: 0.6, damage: 6, symbol: ">|", durability: 40, packSize: 2 },
+  // 2026-09 用戶定案:武器類的鐵需求 ×5(鐵產線的產能就是軍備的天花板);
+  // 鐵/鋼階全面補皮革(握柄/劍鞘/槍托)——皮革到後期仍是軍備的固定開銷
+  { id: "iron-knife", label: "鐵刀", cost: { ingot: 30, wood: 10, leather: 5 }, category: "melee", baseCost: 0.6, damage: 6, symbol: ">|", durability: 40, packSize: 2 },
   // 匕首(2026-09 用戶定案):貼身的招架輔助——帶著它,完美格擋窗 0.1s→0.15s;只占 1 格
   // 匕首鏈(2026-09 用戶定案):招架輔助的代價是脆——鐵 20 耐久、鋼 30;速度同款,鋼傷微增
   { id: "dagger", label: "鐵匕首", cost: { ingot: 25, leather: 5 }, category: "melee", baseCost: 0.35, damage: 3, symbol: ">·", durability: 20, packSize: 1, parry: 0.05 },
-  { id: "iron-sword", label: "鐵劍", cost: { ingot: 50, wood: 10 }, category: "melee", baseCost: 1.0, damage: 8, symbol: ">>", durability: 55, packSize: 3 },
-  { id: "iron-spear", label: "鐵槍", cost: { ingot: 40, wood: 15 }, category: "melee", baseCost: 1.2, damage: 10, symbol: ">>>", durability: 60, packSize: 4 },
+  { id: "iron-sword", label: "鐵劍", cost: { ingot: 50, wood: 10, leather: 10 }, category: "melee", baseCost: 1.0, damage: 8, symbol: ">>", durability: 55, packSize: 3 },
+  { id: "iron-spear", label: "鐵槍", cost: { ingot: 40, wood: 15, leather: 10 }, category: "melee", baseCost: 1.2, damage: 10, symbol: ">>>", durability: 60, packSize: 4 },
   // 重擊線(石斧的後繼):慢而沉,疊踉蹌——控場向的選擇
-  { id: "iron-axe", label: "鐵斧", cost: { ingot: 60, wood: 20 }, category: "melee", baseCost: 1.8, damage: 18, symbol: ">>>>", durability: 55, packSize: 4, stagger: 30 },
+  { id: "iron-axe", label: "鐵斧", cost: { ingot: 60, wood: 20, leather: 15 }, category: "melee", baseCost: 1.8, damage: 18, symbol: ">>>>", durability: 55, packSize: 4, stagger: 30 },
   // 舊時代軍用品:軍規的緊湊設計——鐵階最好的刀(觀測台獎勵;之後可仿製)
   { id: "bayonet", label: "軍用刺刀", cost: { ingot: 40, leather: 5 }, category: "melee", baseCost: 0.4, damage: 5, symbol: ">|", durability: 50, packSize: 2 },
   // ---- 鋼階(鐵+煤合煉) ----
   { id: "steel-knife", label: "鋼刀", cost: { steel: 8, leather: 5 }, category: "melee", baseCost: 0.6, damage: 8, symbol: ">|", durability: 60, packSize: 2 },
   { id: "steel-dagger", label: "鋼匕首", cost: { steel: 6, leather: 5 }, category: "melee", baseCost: 0.35, damage: 4, symbol: ">·", durability: 30, packSize: 1, parry: 0.05 },
-  { id: "steel-sword", label: "鋼劍", cost: { steel: 12, wood: 20 }, category: "melee", baseCost: 1.0, damage: 13, symbol: ">>", durability: 70, packSize: 3 },
-  { id: "steel-spear", label: "鋼槍", cost: { steel: 14, wood: 30 }, category: "melee", baseCost: 1.2, damage: 16, symbol: ">>>", durability: 80, packSize: 4 },
+  { id: "steel-sword", label: "鋼劍", cost: { steel: 12, wood: 20, leather: 10 }, category: "melee", baseCost: 1.0, damage: 13, symbol: ">>", durability: 70, packSize: 3 },
+  { id: "steel-spear", label: "鋼槍", cost: { steel: 14, wood: 30, leather: 10 }, category: "melee", baseCost: 1.2, damage: 16, symbol: ">>>", durability: 80, packSize: 4 },
   // 重擊線頂點:兩秒一記的斷崖重斬,踉蹌疊得最快
-  { id: "steel-greatsword", label: "鋼大劍", cost: { steel: 18, wood: 30 }, category: "melee", baseCost: 1.7, damage: 26, symbol: ">>>>>", durability: 75, packSize: 5, stagger: 50 },
+  { id: "steel-greatsword", label: "鋼大劍", cost: { steel: 18, wood: 30, leather: 20 }, category: "melee", baseCost: 1.7, damage: 26, symbol: ">>>>>", durability: 75, packSize: 5, stagger: 50 },
   // 槍械:鋼階限定。左輪輕快(1 發/擊)、散彈沉重(2 發/擊,單發傷害一致 → 彈數決定傷害)
-  { id: "revolver", label: "左輪手槍", cost: { steel: 10, wood: 10 }, category: "ranged", baseCost: 0.5, damage: 8, symbol: "→!", durability: 50, ammo: "bullet", ammoPerUse: 1, packSize: 2, magazine: 6, reload: 1.2, noWear: true },
+  { id: "revolver", label: "左輪手槍", cost: { steel: 10, wood: 10, leather: 10 }, category: "ranged", baseCost: 0.5, damage: 8, symbol: "→!", durability: 50, ammo: "bullet", ammoPerUse: 1, packSize: 2, magazine: 6, reload: 1.2, noWear: true },
   // 散彈槍(2026-09 改版):5 顆彈丸(各 6 傷)各自砸向隨機活敵——群戰神器;單體=全部糊臉 30/擊
-  { id: "shotgun", label: "散彈槍", cost: { steel: 14, wood: 20 }, category: "ranged", baseCost: 1.3, damage: 6, symbol: "→!!", durability: 45, ammo: "bullet", ammoPerUse: 5, packSize: 3, magazine: 10, reload: 1.6, noWear: true, pellets: 5 },
+  { id: "shotgun", label: "散彈槍", cost: { steel: 14, wood: 20, leather: 15 }, category: "ranged", baseCost: 1.3, damage: 6, symbol: "→!!", durability: 45, ammo: "bullet", ammoPerUse: 5, packSize: 3, magazine: 10, reload: 1.6, noWear: true, pellets: 5 },
   // 舊時代自動步槍(2026-09 核可;lootOnly——未來城市地圖的戰利品):彈雨,用彈藥經濟拴著
-  { id: "auto-rifle", label: "舊時代自動步槍", cost: { steel: 30 }, category: "ranged", baseCost: 1.0, damage: 6, symbol: "→!!!", durability: 60, ammo: "bullet", ammoPerUse: 3, packSize: 4, magazine: 30, reload: 2.2, noWear: true, lootOnly: true, burst: 3, burstDamages: [6, 5, 5] },
+  { id: "auto-rifle", label: "舊時代自動步槍", cost: { steel: 30, leather: 10 }, category: "ranged", baseCost: 1.0, damage: 6, symbol: "→!!!", durability: 60, ammo: "bullet", ammoPerUse: 3, packSize: 4, magazine: 30, reload: 2.2, noWear: true, lootOnly: true, burst: 3, burstDamages: [6, 5, 5] },
   // 靜默教堂(Lv5)的戰利品:輕得不可思議(呼應敘事)。lootOnly:cost 只作修理費基準
   { id: "alloy-blade", label: "異質短刃", cost: { steel: 12, leather: 20, scroll: 1 }, category: "melee", baseCost: 0.5, damage: 7, symbol: ">>|", durability: 80, packSize: 2, lootOnly: true },
   // ---- 盾牌(格擋鏈,2026-09 用戶定案):啟動 0.5s 防禦窗,前 0.1s 完全格擋(整擊無效);
   // 之後半格擋依盾減傷(附帶效果照吃)。CD 與減傷率由盾決定;半格擋耗 1 耐久,完全格擋免費
   { id: "wood-shield", label: "木盾", cost: { wood: 50, hide: 5 }, category: "shield", baseCost: 0, damage: 0, symbol: "[]", durability: 20, packSize: 3, block: { reduce: 0.5, cd: 5 } },
-  { id: "iron-shield", label: "鐵盾", cost: { ingot: 50, wood: 10 }, category: "shield", baseCost: 0, damage: 0, symbol: "[]", durability: 35, packSize: 3, block: { reduce: 0.65, cd: 4 } },
+  { id: "iron-shield", label: "鐵盾", cost: { ingot: 50, wood: 10, leather: 10 }, category: "shield", baseCost: 0, damage: 0, symbol: "[]", durability: 35, packSize: 3, block: { reduce: 0.65, cd: 4 } },
   { id: "steel-shield", label: "鋼盾", cost: { steel: 12, leather: 5 }, category: "shield", baseCost: 0, damage: 0, symbol: "[]", durability: 50, packSize: 3, block: { reduce: 0.8, cd: 3.5 } },
   // 名刀——鬼雪(迷宮寶箱,2026-09 用戶定案):快劍手感,命中疊敵方凍結值 24(Boss 抗性減半;計量每秒消退 1——實戰 2 秒節奏下與舊版 +20 無消退的凍結週期相同);
   // 不會損壞消失——耐久歸零變(損毀)留在背包,鐵匠鋪花異晶 30 修復(cost 即修復費)
