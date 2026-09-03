@@ -184,15 +184,16 @@ export const WEAPONS: WeaponDef[] = [
   // 獵弓(2026-09 定位確認):槍械時代的另一條遠程路——輕便、箭矢便宜量大、永不換彈
   { id: "hunting-bow", label: "獵弓", cost: { wood: 50, hide: 10 }, category: "ranged", baseCost: 1.0, damage: 4, symbol: "→", durability: 40, ammo: "arrow", ammoPerUse: 1, packSize: 2 },
   // ---- 鐵階(冶煉的鐵) ----
-  { id: "iron-knife", label: "鐵刀", cost: { ingot: 6, wood: 10 }, category: "melee", baseCost: 0.6, damage: 6, symbol: ">|", durability: 40, packSize: 2 },
+  // 2026-09 用戶定案:武器類的鐵需求 ×5(鐵產線的產能就是軍備的天花板)
+  { id: "iron-knife", label: "鐵刀", cost: { ingot: 30, wood: 10 }, category: "melee", baseCost: 0.6, damage: 6, symbol: ">|", durability: 40, packSize: 2 },
   // 匕首(2026-09 用戶定案):貼身的招架輔助——帶著它,完美格擋窗 0.1s→0.15s;只占 1 格
-  { id: "dagger", label: "匕首", cost: { ingot: 5, leather: 5 }, category: "melee", baseCost: 0.35, damage: 3, symbol: ">·", durability: 45, packSize: 1, parry: 0.05 },
-  { id: "iron-sword", label: "鐵劍", cost: { ingot: 10, wood: 10 }, category: "melee", baseCost: 1.0, damage: 8, symbol: ">>", durability: 55, packSize: 3 },
-  { id: "iron-spear", label: "鐵槍", cost: { ingot: 8, wood: 15 }, category: "melee", baseCost: 1.2, damage: 10, symbol: ">>>", durability: 60, packSize: 4 },
+  { id: "dagger", label: "匕首", cost: { ingot: 25, leather: 5 }, category: "melee", baseCost: 0.35, damage: 3, symbol: ">·", durability: 45, packSize: 1, parry: 0.05 },
+  { id: "iron-sword", label: "鐵劍", cost: { ingot: 50, wood: 10 }, category: "melee", baseCost: 1.0, damage: 8, symbol: ">>", durability: 55, packSize: 3 },
+  { id: "iron-spear", label: "鐵槍", cost: { ingot: 40, wood: 15 }, category: "melee", baseCost: 1.2, damage: 10, symbol: ">>>", durability: 60, packSize: 4 },
   // 重擊線(石斧的後繼):慢而沉,疊踉蹌——控場向的選擇
-  { id: "iron-axe", label: "鐵斧", cost: { ingot: 12, wood: 20 }, category: "melee", baseCost: 1.8, damage: 18, symbol: ">>>>", durability: 55, packSize: 4, stagger: 30 },
+  { id: "iron-axe", label: "鐵斧", cost: { ingot: 60, wood: 20 }, category: "melee", baseCost: 1.8, damage: 18, symbol: ">>>>", durability: 55, packSize: 4, stagger: 30 },
   // 舊時代軍用品:軍規的緊湊設計——鐵階最好的刀(觀測台獎勵;之後可仿製)
-  { id: "bayonet", label: "軍用刺刀", cost: { ingot: 8, leather: 5 }, category: "melee", baseCost: 0.4, damage: 5, symbol: ">|", durability: 50, packSize: 2 },
+  { id: "bayonet", label: "軍用刺刀", cost: { ingot: 40, leather: 5 }, category: "melee", baseCost: 0.4, damage: 5, symbol: ">|", durability: 50, packSize: 2 },
   // ---- 鋼階(鐵+煤合煉) ----
   { id: "steel-knife", label: "鋼刀", cost: { steel: 8, leather: 5 }, category: "melee", baseCost: 0.6, damage: 8, symbol: ">|", durability: 60, packSize: 2 },
   { id: "steel-sword", label: "鋼劍", cost: { steel: 12, wood: 20 }, category: "melee", baseCost: 1.0, damage: 13, symbol: ">>", durability: 70, packSize: 3 },
@@ -210,7 +211,7 @@ export const WEAPONS: WeaponDef[] = [
   // ---- 盾牌(格擋鏈,2026-09 用戶定案):啟動 0.5s 防禦窗,前 0.1s 完全格擋(整擊無效);
   // 之後半格擋依盾減傷(附帶效果照吃)。CD 與減傷率由盾決定;半格擋耗 1 耐久,完全格擋免費
   { id: "wood-shield", label: "木盾", cost: { wood: 50, hide: 5 }, category: "shield", baseCost: 0, damage: 0, symbol: "[]", durability: 20, packSize: 3, block: { reduce: 0.5, cd: 5 } },
-  { id: "iron-shield", label: "鐵盾", cost: { ingot: 10, wood: 10 }, category: "shield", baseCost: 0, damage: 0, symbol: "[]", durability: 35, packSize: 3, block: { reduce: 0.65, cd: 4 } },
+  { id: "iron-shield", label: "鐵盾", cost: { ingot: 50, wood: 10 }, category: "shield", baseCost: 0, damage: 0, symbol: "[]", durability: 35, packSize: 3, block: { reduce: 0.65, cd: 4 } },
   { id: "steel-shield", label: "鋼盾", cost: { steel: 12, leather: 5 }, category: "shield", baseCost: 0, damage: 0, symbol: "[]", durability: 50, packSize: 3, block: { reduce: 0.8, cd: 3.5 } },
   // 名刀——鬼雪(迷宮寶箱,2026-09 用戶定案):快劍手感,命中疊敵方凍結值 24(Boss 抗性減半;計量每秒消退 1——實戰 2 秒節奏下與舊版 +20 無消退的凍結週期相同);
   // 不會損壞消失——耐久歸零變(損毀)留在背包,鐵匠鋪花異晶 30 修復(cost 即修復費)
@@ -250,7 +251,7 @@ export const CONSUMABLES: ConsumableDef[] = [
   { id: "bullet", label: "子彈", cost: { steel: 30, coal: 30 }, yield: 1, requiresWeaponAny: ["revolver", "shotgun"] },
   // 鐵軌:鋪在遠征地圖上的永久建設——從村莊一格一格連出去;軌上水 1/4 步、糧 1/8 步、不遇敵。
   // 鋪到礦坑旁,礦車自動運輸(鐵礦工產出 ×2)。2 根占 1 格,揹得動多少是推車/小貨車的事
-  { id: "rail", label: "鐵軌", cost: { ingot: 1, wood: 5 }, yield: 1, requiresBuilding: "smithy", requiresLandmark: "mine" },
+  { id: "rail", label: "鐵軌", cost: { ingot: 20, wood: 500, stone: 200 }, yield: 1, requiresBuilding: "smithy", requiresLandmark: "mine" }, // 2026-09 用戶定案:枕木與道碴也是真實開銷
 ];
 
 // ---- 一次性裝備升級(改變探索/戰鬥的基礎參數) ----
