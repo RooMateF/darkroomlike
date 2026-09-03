@@ -841,6 +841,13 @@ function startVillage() {
     });
 
     row.append(name, cost, btn);
+    // 功能備註(2026-09 用戶要求):第二行冷冰冰講它拿來幹嘛
+    if (def.note) {
+      const note = document.createElement("span");
+      note.className = "craft-note";
+      note.textContent = `▍${def.note}`;
+      row.appendChild(note);
+    }
     weaponsEl.appendChild(row);
     return { def, row, btn };
   });

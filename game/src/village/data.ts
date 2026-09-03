@@ -236,7 +236,8 @@ export interface ConsumableDef {
   requiresWeaponAny?: string[];
   /** 需要先解放對應地標(如鐵軌要先解放鐵礦坑) */
   requiresLandmark?: string;
-  /** 需要先蓋出的建築之外,額外需要的建築(如鐵軌要鐵匠鋪) */
+  /** 冰冷的功能備註(2026-09 用戶要求):物資列下方一行,講它拿來幹嘛 */
+  note?: string;
 }
 
 // 肉乾不走手動打造——由「燻肉師」職業在燻製棚持續燒製(見 JOBS)
@@ -244,17 +245,17 @@ export interface ConsumableDef {
 // 否則會直接搶走肉乾的補品定位;醫療產線(藥草/繃帶製造)留給後續章節解鎖
 export const CONSUMABLES: ConsumableDef[] = [
   // 乾糧同步走高價路線(與弓矢一致的量級):遠征的糧錢是實質開銷,不是零頭
-  { id: "ration", label: "乾糧", cost: { grain: 30, wood: 10 }, yield: 2 },
+  { id: "ration", label: "乾糧", cost: { grain: 30, wood: 10 }, yield: 2, note: "遠征口糧:每走 2 步吃 1 份(軌上 8 步);輕便,不回血。" },
   // 弓矢:遠程輸出的彈藥錢——有感但不至於奢侈(2026-08 定案 30/20)
-  { id: "arrow", label: "弓矢", cost: { wood: 30, stone: 20 }, yield: 3, requiresWeapon: "hunting-bow" },
+  { id: "arrow", label: "弓矢", cost: { wood: 30, stone: 20 }, yield: 3, requiresWeapon: "hunting-bow", note: "獵弓的彈藥:1 擊 1 支;5 支併 1 格。" },
   // 燈油:燻製棚熬獸脂——一罐點亮一座燈柱(壓低周圍遭遇率);罐子笨重,揹著占 3 格
-  { id: "oil", label: "燈油", cost: { meat: 6, wood: 15 }, yield: 1, requiresBuilding: "smokehouse" },
+  { id: "oil", label: "燈油", cost: { meat: 6, wood: 15 }, yield: 1, requiresBuilding: "smokehouse", note: "站在據點上點燈:1 罐 1 座,永久壓低周圍 8 格的遭遇率;1 罐占 3 格。" },
   // 子彈:鋼階彈藥(火藥吃煤)——左輪/散彈通用
   // 2026-09 用戶定案:一顆子彈=鋼30+煤30——槍械威力不動,用彈藥經濟拴死(每一發都是財政決定)
-  { id: "bullet", label: "子彈", cost: { steel: 30, coal: 30 }, yield: 1, requiresWeaponAny: ["revolver", "shotgun"] },
+  { id: "bullet", label: "子彈", cost: { steel: 30, coal: 30 }, yield: 1, requiresWeaponAny: ["revolver", "shotgun"], note: "槍械彈藥,左輪/散彈/步槍通用;1 發占 1 格。" },
   // 鐵軌:鋪在遠征地圖上的永久建設——從村莊一格一格連出去;軌上水 1/4 步、糧 1/8 步、不遇敵。
   // 鋪到礦坑旁,礦車自動運輸(鐵礦工產出 ×2)。2 根占 1 格,揹得動多少是推車/小貨車的事
-  { id: "rail", label: "鐵軌", cost: { ingot: 20, wood: 500, stone: 200 }, yield: 1, requiresBuilding: "smithy", requiresLandmark: "mine" }, // 2026-09 用戶定案:枕木與道碴也是真實開銷
+  { id: "rail", label: "鐵軌", cost: { ingot: 20, wood: 500, stone: 200 }, yield: 1, requiresBuilding: "smithy", requiresLandmark: "mine", note: "遠征地圖上的永久建設,從村莊一格一格連出去:軌上省水糧、不遇敵;鋪到礦坑旁礦車自動運輸;2 根占 1 格。" }, // 2026-09 用戶定案:枕木與道碴也是真實開銷
 ];
 
 // ---- 一次性裝備升級(改變探索/戰鬥的基礎參數) ----
