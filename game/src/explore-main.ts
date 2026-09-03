@@ -68,23 +68,37 @@ statusEl.textContent = "方向鍵 / WASD 移動,或點擊 @ 的某一側往該�
 
 // 遠征紀錄落地保存(2026-09 用戶定案):切分頁/跳戰鬥頁/跨圖都不洗掉,滾動保留 100 筆;
 // 回到村莊(走回村口/倒下)時由村莊殼層清掉這一趟的紀錄
-const EXPLORE_LOG_KEY = "explore-log";
+const EXPLORE_LOG_KEY = "explore-log-v2"; // v2:存「畫面由上而下」順序;v1 是時間序,直接棄用
 function renderLogLine(text: string) {
+  // 還原專用:存檔存的就是「畫面由上而下」的順序,照序 append 即可(組內順序原樣保留)
   const line = document.createElement("div");
   line.className = "log-line";
   line.textContent = text;
-  // 置頂更新(2026-09 用戶試行):最新訊息在最上面;保留最近 100 筆供捲動回顧(敘事碎片值得回頭看)
-  logEl.prepend(line);
+  logEl.appendChild(line);
   while (logEl.childElementCount > 100) logEl.removeChild(logEl.lastChild!);
 }
+// 同一瞬間的成組訊息(2026-09):同一個 JS 任務裡連續寫入的行算一組——整組置頂,組內照時間順序由上而下
+let burstAnchor: HTMLDivElement | null = null;
+let burstResetQueued = false;
 function appendLog(text: string) {
-  renderLogLine(text);
+  const line = document.createElement("div");
+  line.className = "log-line";
+  line.textContent = text;
+  if (burstAnchor?.isConnected) burstAnchor.after(line);
+  else logEl.prepend(line);
+  burstAnchor = line;
+  if (!burstResetQueued) {
+    burstResetQueued = true;
+    setTimeout(() => {
+      burstAnchor = null;
+      burstResetQueued = false;
+    }, 0);
+  }
+  while (logEl.childElementCount > 100) logEl.removeChild(logEl.lastChild!);
   logEl.scrollTop = 0;
   try {
-    const arr = JSON.parse(localStorage.getItem(EXPLORE_LOG_KEY) ?? "[]") as string[];
-    arr.push(text);
-    while (arr.length > 100) arr.shift();
-    localStorage.setItem(EXPLORE_LOG_KEY, JSON.stringify(arr));
+    // 直接保存畫面的由上而下順序(含成組排序),還原時照序重排就不會顛倒
+    localStorage.setItem(EXPLORE_LOG_KEY, JSON.stringify([...logEl.children].map((c) => c.textContent ?? "")));
   } catch {
     /* 壞資料不擋遊戲 */
   }

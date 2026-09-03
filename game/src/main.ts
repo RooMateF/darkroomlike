@@ -620,8 +620,7 @@ function appendLog(entry: LogEntry) {
   if (entry.blocked) target.textContent += "(盾架住了大半)";
 
   line.append(actor, symbol, target);
-  logEl.prepend(line);
-  trimBattleLog();
+  placeLogLine(line);
 }
 
 /** 系統訊息(武器損壞等),沒有攻擊符號動畫 */
@@ -629,7 +628,24 @@ function appendSystemLog(text: string) {
   const line = document.createElement("div");
   line.className = "log-line";
   line.textContent = text;
-  logEl.prepend(line);
+  placeLogLine(line);
+}
+
+// 同一瞬間的成組訊息(2026-09):同一個 JS 任務裡連續寫入的行算一組——
+// 整組置頂,組內照時間順序由上而下(連發逐彈、蛻變多行敘述才不會讀起來顛倒)
+let burstAnchor: HTMLDivElement | null = null;
+let burstResetQueued = false;
+function placeLogLine(line: HTMLDivElement) {
+  if (burstAnchor?.isConnected) burstAnchor.after(line);
+  else logEl.prepend(line);
+  burstAnchor = line;
+  if (!burstResetQueued) {
+    burstResetQueued = true;
+    setTimeout(() => {
+      burstAnchor = null;
+      burstResetQueued = false;
+    }, 0);
+  }
   trimBattleLog();
 }
 

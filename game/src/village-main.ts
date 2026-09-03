@@ -192,28 +192,43 @@ function startVillage() {
   document.querySelector<HTMLButtonElement>("#theme-toggle")!.addEventListener("click", toggleTheme);
 
   // 紀錄落地保存(2026-09 用戶定案):跳頁/重載不再洗掉,滾動保留最近 100 筆
-  const VILLAGE_LOG_KEY = "village-log";
+  const VILLAGE_LOG_KEY = "village-log-v2"; // v2:存「畫面由上而下」順序;v1 是時間序,直接棄用
   function renderLogLine(text: string) {
+    // 還原專用:存檔存的就是「畫面由上而下」的順序,照序 append 即可(組內順序原樣保留)
     const line = document.createElement("div");
     line.className = "log-line";
     line.textContent = text;
-    // 置頂更新(2026-09 用戶試行):最新訊息在最上面,舊的往下沉;保留最近 100 筆供捲動回顧
-    logEl.prepend(line);
+    logEl.appendChild(line);
     while (logEl.childElementCount > 100) logEl.removeChild(logEl.lastChild!);
   }
+  // 同一瞬間的成組訊息(2026-09 用戶回報「文本反了」):同一個 JS 任務裡連續寫入的行算一組——
+  // 整組置頂,組內維持由上而下的時間順序,成對的「事件→她的反應」才不會果因倒置
+  let burstAnchor: HTMLDivElement | null = null;
+  let burstResetQueued = false;
   function appendLog(text: string) {
-    renderLogLine(text);
+    const line = document.createElement("div");
+    line.className = "log-line";
+    line.textContent = text;
+    if (burstAnchor?.isConnected) burstAnchor.after(line);
+    else logEl.prepend(line);
+    burstAnchor = line;
+    if (!burstResetQueued) {
+      burstResetQueued = true;
+      setTimeout(() => {
+        burstAnchor = null;
+        burstResetQueued = false;
+      }, 0);
+    }
+    while (logEl.childElementCount > 100) logEl.removeChild(logEl.lastChild!);
     logEl.scrollTop = 0;
     try {
-      const arr = JSON.parse(localStorage.getItem(VILLAGE_LOG_KEY) ?? "[]") as string[];
-      arr.push(text);
-      while (arr.length > 100) arr.shift();
-      localStorage.setItem(VILLAGE_LOG_KEY, JSON.stringify(arr));
+      // 直接保存畫面的由上而下順序(含成組排序),還原時照序重排就不會顛倒
+      localStorage.setItem(VILLAGE_LOG_KEY, JSON.stringify([...logEl.children].map((c) => c.textContent ?? "")));
     } catch {
       /* 壞資料不擋遊戲 */
     }
   }
-  // 開頁還原歷史紀錄(存檔照時間順序、逐筆 prepend → 最新的自然浮在最上面)
+  // 開頁還原歷史紀錄(存檔=畫面由上而下的順序,照序排回)
   try {
     for (const t of JSON.parse(localStorage.getItem(VILLAGE_LOG_KEY) ?? "[]") as string[]) renderLogLine(t);
     logEl.scrollTop = 0;
@@ -1443,7 +1458,7 @@ function startVillage() {
     const deathCause = localStorage.getItem("death-cause");
     if (!deathCause) return;
     localStorage.removeItem("death-cause");
-    localStorage.removeItem("explore-log"); // 遠征以倒下告終(含戰鬥頁戰死):清掉這一趟的遠征紀錄
+    localStorage.removeItem("explore-log-v2"); // 遠征以倒下告終(含戰鬥頁戰死):清掉這一趟的遠征紀錄
     localStorage.setItem("died-once", "1"); // 她看過你被抬回來的樣子——之後的道別會不一樣
     const tips = REVIVAL_TIPS[deathCause] ?? REVIVAL_TIPS.combat;
     const idxKey = `revival-tip-${deathCause}`;
@@ -1458,7 +1473,7 @@ function startVillage() {
   function handleReturnHome() {
     returnCarriedToVillage();
     engine.reloadState();
-    localStorage.removeItem("explore-log"); // 回村=這趟遠征結束,清掉當次遠征紀錄(村莊紀錄照舊保留)
+    localStorage.removeItem("explore-log-v2"); // 回村=這趟遠征結束,清掉當次遠征紀錄(村莊紀錄照舊保留)
     processDeathCause();
   }
 
