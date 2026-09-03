@@ -796,19 +796,55 @@ function startVillage() {
     render();
   }
 
-  const weaponRows = WEAPONS.map((weapon) => {
-    const row = document.createElement("div");
-    row.className = "craft-line";
-    row.style.display = "none";
+  // 武器打造表(2026-09 用戶反饋:「鐵匕首 ×1(精工 ×1)(耐久 20)」擠在名稱裡太雜)——真正的表格:
+  // 武器/持有/耐久/出手/傷害 各自成欄,材料維持「鐵 30　木材 10　皮革 5」的寫法(不夠的標記),操作在最右
+  const td = (cls = "") => {
+    const cell = document.createElement("td");
+    if (cls) cell.className = cls;
+    return cell;
+  };
+  const weaponTable = document.createElement("table");
+  weaponTable.className = "craft-table";
+  weaponTable.style.display = "none";
+  const weaponHeadRow = document.createElement("tr");
+  for (const [h, cls] of [["武器", ""], ["持有", "num"], ["耐久", "num"], ["出手", "num"], ["傷害", "num"], ["材料", "mats"], ["", "ops"]] as [string, string][]) {
+    const th = document.createElement("th");
+    th.textContent = h;
+    if (cls) th.className = cls;
+    weaponHeadRow.appendChild(th);
+  }
+  const weaponThead = document.createElement("thead");
+  weaponThead.appendChild(weaponHeadRow);
+  const weaponTbody = document.createElement("tbody");
+  weaponTable.append(weaponThead, weaponTbody);
+  // 欄位多、版面窄時可橫向捲動,不讓操作欄被切掉
+  const weaponTableWrap = document.createElement("div");
+  weaponTableWrap.className = "craft-table-wrap";
+  weaponTableWrap.appendChild(weaponTable);
+  weaponsEl.appendChild(weaponTableWrap);
 
-    const name = document.createElement("span");
-    name.className = "building-name";
+  const weaponRows = WEAPONS.map((weapon) => {
+    const row = document.createElement("tr");
+    row.style.display = "none";
+    const name = td("name");
     name.textContent = weapon.label;
-    const cost = document.createElement("span");
-    cost.className = "building-cost";
-    cost.textContent = Object.entries(weapon.cost)
-      .map(([id, n]) => `${RESOURCE_LABEL[id as ResourceId]} ${n}`)
-      .join("　");
+    const owned = td("num");
+    const dur = td("num");
+    dur.textContent = String(weapon.durability);
+    const speed = td("num");
+    speed.textContent = weapon.category === "shield" ? "—" : `${weapon.baseCost}s`;
+    const dmg = td("num");
+    dmg.textContent =
+      weapon.category === "shield" && weapon.block
+        ? `擋 ${Math.round(weapon.block.reduce * 100)}%`
+        : weapon.pellets
+          ? `${weapon.damage}×${weapon.pellets}`
+          : weapon.burstDamages
+            ? weapon.burstDamages.join("+")
+            : String(weapon.damage);
+    const mats = td("mats");
+    row.append(name, owned, dur, speed, dmg, mats);
+    const ops = td("ops");
     const btn = document.createElement("button");
     btn.className = "btn";
     btn.textContent = "打造";
@@ -822,10 +858,14 @@ function startVillage() {
       else engine.repairWeapon(weapon.id);
       render();
     });
-
-    row.append(name, cost, repairBtn, btn);
-    weaponsEl.appendChild(row);
-    return { weapon, row, name, cost, btn, repairBtn };
+    // 修理費另起一行小字(按鈕只留短字,操作欄才不會撐太寬)
+    const repairCostEl = document.createElement("div");
+    repairCostEl.className = "repair-cost";
+    repairCostEl.style.display = "none";
+    ops.append(repairBtn, btn, repairCostEl);
+    row.appendChild(ops);
+    weaponTbody.appendChild(row);
+    return { weapon, row, owned, mats, btn, repairBtn, repairCostEl };
   });
 
   // 消耗品打造(乾糧/繃帶/弓矢),同樣依「見過材料 + 前置建築/武器」浮現
@@ -1352,41 +1392,52 @@ function startVillage() {
       b.classList.toggle("ready", t.id === tab);
     }
     let anyCraftVisible = false;
+    weaponTable.style.display = tab === "weapon" ? "" : "none";
     for (const row of weaponRows) {
       // lootOnly(如異質短刃):不開放打造——沒入手前整列隱藏,入手後只顯示持有/修理
       const brokenN = engine.brokenWeapons[row.weapon.id] ?? 0;
       const visible = row.weapon.lootOnly ? engine.weaponCount(row.weapon.id) > 0 || brokenN > 0 : engine.isWeaponVisible(row.weapon.id);
-      row.row.style.display = visible && tab === "weapon" ? "" : "none";
+      row.row.style.display = visible ? "" : "none";
       if (!visible) continue;
       anyCraftVisible = true;
 
       const count = engine.weaponCount(row.weapon.id);
       const craftable = !row.weapon.lootOnly && engine.canAfford(row.weapon.cost);
-      if (row.weapon.lootOnly) {
-        row.btn.style.display = "none";
-        row.cost.textContent = "";
-      }
-      // 打造列只標最大耐久(規格);殘耐久是「這一把」的狀態,看整備頁——受損時修理鈕就是訊號
+      row.btn.style.display = row.weapon.lootOnly ? "none" : "";
+      // 打造表只標最大耐久(規格);殘耐久是「這一把」的狀態,看整備頁——受損時修理鈕就是訊號
       const fineOwned = engine.fineWeapons[row.weapon.id] ?? 0;
-      row.name.textContent = `${count > 0 ? `${row.weapon.label} ×${count}` : row.weapon.label}${fineOwned > 0 ? `(精工 ×${fineOwned})` : ""}(耐久 ${row.weapon.durability})`;
+      row.owned.textContent = count > 0 ? `${count}${fineOwned > 0 ? `(精 ${fineOwned})` : ""}` : "—";
       row.btn.disabled = !craftable;
       row.btn.classList.toggle("ready", craftable);
+      // 材料欄:「鐵 30　木材 10　皮革 5」,不夠的那一項標記;lootOnly 的 cost 只是修理基準,不列
+      row.mats.innerHTML = "";
+      if (!row.weapon.lootOnly) {
+        Object.entries(row.weapon.cost).forEach(([id, n], i) => {
+          const span = document.createElement("span");
+          span.textContent = `${i > 0 ? "　" : ""}${RESOURCE_LABEL[id as ResourceId]} ${n}`;
+          if ((engine.resources[id as ResourceId] ?? 0) < (n ?? 0)) span.className = "short";
+          row.mats.appendChild(span);
+        });
+      }
 
-      // 修理鈕:工匠鋪/鐵匠鋪 + 受損 + 位階修得動才出現,顯示修理成本
+      // 修理鈕:工匠鋪/鐵匠鋪 + 受損 + 位階修得動才出現;修理費放按鈕下的小字
       const canRepairHere = engine.canRepairWeapon(row.weapon.id) && count > 0;
       row.repairBtn.style.display = canRepairHere ? "" : "none";
+      row.repairCostEl.style.display = "none";
       if (canRepairHere) {
         const rc = repairCost(row.weapon.id);
         const rcText = Object.entries(rc)
           .map(([id, n]) => `${RESOURCE_LABEL[id as ResourceId]}${n}`)
           .join(" ");
         const affordable = engine.canAfford(rc);
-        row.repairBtn.textContent = `修理(${rcText})`;
+        row.repairBtn.textContent = "修理";
         row.repairBtn.disabled = !affordable;
         row.repairBtn.classList.toggle("ready", affordable);
+        row.repairCostEl.textContent = `修理:${rcText}`;
+        row.repairCostEl.style.display = "";
       }
 
-      // 損毀的特殊武器:鐵匠鋪(鐵級)修復,費用=cost(鬼雪=異晶 30)
+      // 損毀的特殊武器:鐵匠鋪(鐵級)修復,費用=cost(鬼雪=異晶 30)+皮革
       if (brokenN > 0) {
         const rc = brokenRepairCost(row.weapon.id);
         const rcText = Object.entries(rc)
@@ -1395,17 +1446,18 @@ function startVillage() {
         const can = engine.canRepairBroken(row.weapon.id);
         const affordable = can && engine.canAfford(rc);
         row.repairBtn.style.display = "";
-        row.repairBtn.textContent = can ? `修復損毀(${rcText})` : `修復損毀(需鐵匠鋪)`;
+        row.repairBtn.textContent = "修復損毀";
         row.repairBtn.disabled = !affordable;
         row.repairBtn.classList.toggle("ready", affordable);
         row.repairBtn.dataset.brokenRepair = "1";
+        row.repairCostEl.textContent = can ? `修復:${rcText}` : "需鐵匠鋪";
+        row.repairCostEl.style.display = "";
       } else {
         delete row.repairBtn.dataset.brokenRepair;
       }
 
       // 丟棄改到整備頁的倉庫管理(2026-09 用戶反饋:打造列擠爆版面)
     }
-
     // 消耗品:乾糧/繃帶/弓矢
     for (const row of consumableRows) {
       const visible = engine.isConsumableVisible(row.def.id);

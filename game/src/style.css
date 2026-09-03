@@ -1035,6 +1035,72 @@ hr {
   border-bottom: 1px dotted var(--fg-faint);
 }
 
+/* 武器打造表(2026-09 用戶反饋:改成真正的表格,材料各自一欄) */
+.craft-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.craft-table th {
+  text-align: left;
+  font-weight: normal;
+  color: var(--fg-dim);
+  padding: 2px 6px;
+  border-bottom: 1px solid var(--fg-faint);
+  white-space: nowrap;
+}
+
+.craft-table td {
+  padding: 3px 6px;
+  border-bottom: 1px dotted var(--fg-faint);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.craft-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.craft-table td.num {
+  color: var(--fg-dim);
+}
+
+.craft-table td.name {
+  color: var(--fg);
+}
+
+.craft-table td.mats {
+  color: var(--fg-dim);
+  white-space: normal; /* 材料串太長時允許折行,表格不撐寬 */
+}
+
+.craft-table .short {
+  color: var(--fg);
+  text-decoration: underline dotted; /* 這一項材料不夠 */
+}
+
+.craft-table-wrap {
+  overflow-x: auto; /* 極窄版面時橫向捲動,不切掉操作欄 */
+  scrollbar-width: thin;
+  scrollbar-color: var(--fg-faint) transparent;
+}
+
+.craft-table .ops {
+  text-align: right;
+}
+
+.craft-table .ops .btn {
+  margin-left: 4px;
+}
+
+.craft-table .repair-cost {
+  font-size: 11px;
+  color: var(--fg-dim);
+  margin-top: 2px;
+}
+
 /* 物資列的功能備註(與交易所的系統效果行同款) */
 .craft-line .craft-note {
   flex: 1 0 100%;
