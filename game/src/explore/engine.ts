@@ -2,7 +2,7 @@ import { BLOCKED, LANDMARKS, TILE_SYMBOL, type Checkpoint, type Tile, type TileT
 import { generateMap, startPosition, exitLinkAt, borderDepotFor, MAP_DEFS, MAP_WIDTH, MAP_HEIGHT, MAZE, COAL_RIDGE, type MapId, type ExitLink } from "./map-gen";
 import { loadCarried, saveCarried, clearCarried, addLoot, packUsed, playerMaxHp, type Carried } from "../carried";
 import { RESOURCE_LABEL, type ResourceId } from "../village/types";
-import { siteAt, siteProgress, specialSites, hasChurchKey, DUNGEON_KEY, SITE_ARRIVAL_TEXT, type DungeonRun } from "./sites";
+import { siteAt, siteProgress, specialSites, hasChurchKey, DUNGEON_KEY, SITE_ARRIVAL_TEXT, LV1_TO_LV3, type DungeonRun } from "./sites";
 import { RATIONS_PER_SLOT } from "../village/data";
 import { CHOICE_EVENTS, type ChoiceEventDef } from "./choice-events";
 
@@ -75,6 +75,19 @@ const STATE_KEY = "explore-state-v10"; // v10:煤礦坑外推(要比鐵礦坑遠
     /* 壞資料就放棄遷移,別擋開機 */
   }
   localStorage.setItem("map-v9-migrated", "1");
+})();
+
+// ---- 補給點群改造一次性遷移(2026-09):升成 Lv3 的舊 Lv1 若已打通,進度歸零重新當關卡 ----
+(function migrateLv1ToLv3() {
+  if (localStorage.getItem("lv1-to-lv3-migrated")) return;
+  try {
+    const progress = JSON.parse(localStorage.getItem("site-progress") ?? "{}") as Record<string, unknown>;
+    for (const key of LV1_TO_LV3) delete progress[key];
+    localStorage.setItem("site-progress", JSON.stringify(progress));
+  } catch {
+    /* 壞資料就放棄遷移,別擋開機 */
+  }
+  localStorage.setItem("lv1-to-lv3-migrated", "1");
 })();
 
 /** 迷宮牆內(不含外圈牆):視野與偷竊規則的適用範圍 */
@@ -511,12 +524,14 @@ export class ExploreEngine {
 
   /** 撒點遺跡補種(2026-09):後續版本新增的 Lv1~3 探勘點,補畫進既有存檔的地圖(含清出周邊一圈路) */
   private syncSeededSites() {
-    const protect = ["site", "depot", "redmoon", "chest", "landmark", "exit", "slopeL", "slopeV", "slopeR"];
+    const protect = ["site", "redmoon", "chest", "landmark", "exit", "slopeL", "slopeV", "slopeR"];
     for (const s of specialSites()) {
       if ((s.mapId ?? "A") !== this.mapId || s.level > 3) continue;
       if (siteProgress(s.key).cleared) continue;
       const t = this.grid[s.y]?.[s.x];
       if (!t || protect.includes(t.type)) continue;
+      // 未打通的點位上若是補給點(舊 Lv1 升 Lv3 的遺留),改回探勘點;點過燈的留著,別吞玩家的燈油
+      if (t.type === "depot" && t.lit) continue;
       t.type = "site";
       for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) {

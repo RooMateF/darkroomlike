@@ -24,6 +24,9 @@ export interface SiteProgress {
 
 const SITE_SEED = 77130921;
 
+/** 由 Lv1 升成 Lv3 的點(2026-09 補給點群改造);引擎據此一次性重置這些點的舊進度 */
+export const LV1_TO_LV3 = new Set(["28,18", "51,21", "56,18", "60,38"]);
+
 function mulberry32(seed: number) {
   let a = seed >>> 0;
   return function () {
@@ -109,6 +112,16 @@ export function specialSites(): SpecialSite[] {
       const key = `${x},${y}`;
       taken.add(key);
       sites.push({ key, x, y, level: 1, stages: 1 });
+    }
+  }
+
+  // 補給點群改造(2026-09 用戶定案):原野上三個以上擠在一起的補給點沒必要——
+  // 多出來的 Lv1(含被兩個原生補給點夾著的教堂線哨站 28,18)升成三層 Lv3(鐵階中高難度)。
+  // key 不變、不動亂數序列(其他點位不受影響),打通後照樣升格補給點;礦坑線哨站(52,21)(58,17)保留
+  for (const s of sites) {
+    if (s.level === 1 && LV1_TO_LV3.has(s.key)) {
+      s.level = 3;
+      s.stages = 3;
     }
   }
 
