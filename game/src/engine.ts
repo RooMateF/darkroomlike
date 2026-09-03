@@ -482,6 +482,15 @@ export class CombatEngine {
         (c) => c.def.id !== "item" && c.trackers.some((t) => t.ready && !this.acknowledged.has(this.key(c.def.id, t.subAction.id))),
       );
       if (hasNewlyReady) {
+        // 就緒寬限:差不到 PAUSE_SNAP_SECONDS 的行動條一併補滿,暫停畫面上不會出現「99% 但按不下去」
+        for (const c of this.playerCategories) {
+          for (const t of c.trackers) {
+            if (!t.ready && t.actualCost - t.elapsed <= PAUSE_SNAP_SECONDS) {
+              t.costMult = 1; // 與 tick() 跑滿時的處理一致:拖長的那一輪算跑完了
+              t.elapsed = t.actualCost;
+            }
+          }
+        }
         this.paused = true;
         this.cb.onPauseChange(true);
       }
@@ -817,6 +826,9 @@ export class CombatEngine {
 
 /** 使用某類別的行動後,其他類別保留的預讀進度比例(design-notes.md 待補:目前先用 0.5 當原型數值) */
 const CARRYOVER_RATIO = 0.5;
+/** 決策暫停的就緒寬限(2026-09 用戶定案):暫停觸發那一刻,0.05 秒內就會跑滿的行動條直接補滿視為就緒——
+ * 免得獵弓(1.0s)先滿把鐵槍(1.2s)卡在 99% 差幾毫秒,還得多按一次「暫不使用」 */
+const PAUSE_SNAP_SECONDS = 0.05;
 /** 踉蹌持續秒數(重武器疊滿觸發):行動條凍結+受創 ×1.25 */
 const STAGGER_DURATION = 2.5;
 /** 完美格擋大招的硬直秒數(2026-09 方案C):同踉蹌效果 */
