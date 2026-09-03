@@ -914,6 +914,13 @@ function startVillage() {
     foot.append(effect, btn);
 
     row.append(head, foot);
+    // 主觀描述與系統效果分行(2026-09 用戶定案):flavor 講氣氛,這一行冷冰冰講數據
+    if (def.effect) {
+      const sysLine = document.createElement("div");
+      sysLine.className = "trade-effect";
+      sysLine.textContent = `▍${def.effect}`;
+      row.appendChild(sysLine);
+    }
     tradesEl.appendChild(row);
     return { def, row, btn };
   });

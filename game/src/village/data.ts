@@ -45,7 +45,7 @@ export const BUILDINGS: BuildingDef[] = [
   { id: "tannery", label: "製革場", cost: { wood: 1000, stone: 600, hide: 100 }, effect: "解鎖「製革工」工作", requiresExplore: true },
   // 修理受損武器的地方——出現時機:打通第一座 Lv3 遺跡後(在遺跡裡找到還能用的工具與鐵砧)。
   // 蓋出來時是「工匠鋪」(只能修木/石/皮革類武器);鐵礦坑解放後可花材料升格為「鐵匠鋪」,才能修鐵製以上的武器
-  { id: "smithy", label: "工匠鋪", cost: { wood: 150, stone: 120 }, effect: "可修理受損的武器", requiresSiteLevel: 3 },
+  { id: "smithy", label: "工匠鋪", cost: { wood: 1500, stone: 1200 }, effect: "可修理受損的武器", requiresSiteLevel: 3 }, // 2026-09 用戶定案:×10,對齊產線建築的千位數門檻
   // 交易所:撿過異晶(知道「有人收這種東西」)才浮現;開張後用異晶兌換稀有物資(TRADES)
   { id: "trading-post", label: "交易所", cost: { wood: 1500, stone: 800 }, effect: "用異晶兌換稀有的物資", requiresExplore: true, requiresResourceSeen: "shard" },
   // 火車:本章基建的頂點——沿著鋪好的鐵軌行駛的鋼鐵巨獸;不論放在哪個時期都是巨額工程。
@@ -71,6 +71,8 @@ export interface TradeDef {
   shards: number;
   /** 一句來歷敘事(show-don't-tell:交易的對象是誰,玩家自己想) */
   flavor: string;
+  /** 冰冷的系統效果(2026-09 用戶定案:主觀描述與數據分行)——沒有的品項不顯示 */
+  effect?: string;
   /** 見過這種資源才上架(撿過/打過掉落)——沒見過的東西攤子上不會擺 */
   requiresResourceSeen?: import("./types").ResourceId;
   /** 熟客門檻:累積交易滿 N 次,買家才亮出這件私貨(交易所獨賣品的解鎖路徑) */
@@ -80,11 +82,11 @@ export interface TradeDef {
 }
 
 export const TRADES: TradeDef[] = [
-  { id: "trade-bandage", get: "bandage", qty: 1, shards: 3, flavor: "織得極密的繃帶,這個時代製造不出這種材料。", requiresResourceSeen: "bandage" },
-  { id: "trade-scroll", get: "scroll", qty: 1, shards: 6, flavor: "封印著未知力量的卷軸,將其打開會對前面的目標引發燃燒的現象。", requiresResourceSeen: "scroll" },
+  { id: "trade-bandage", get: "bandage", qty: 1, shards: 3, flavor: "織得極密的繃帶,這個時代製造不出這種材料。", effect: "戰鬥道具:回復 20 HP,解除流血。", requiresResourceSeen: "bandage" },
+  { id: "trade-scroll", get: "scroll", qty: 1, shards: 6, flavor: "封印著未知力量的卷軸,邊角有燒灼過的痕跡。", effect: "戰鬥道具(一次性):對場上所有敵人各造成 12 傷害。", requiresResourceSeen: "scroll" },
   // 交易所獨賣品:攤子上一開始看不到——交易熟了,買家才從行囊深處拿出來
-  { id: "trade-salt", get: "salt", qty: 1, shards: 6, flavor: "一小瓶嗆得人流淚的結晶鹽。含上一撮,身上的暈眩、遲緩、混亂會當場醒掉,之後 6 秒內這些東西都碰不了你的腦子——看到敵人蓄力時提前含上,效果最好。", minTrades: 2 },
-  { id: "trade-elixir", get: "elixir", qty: 1, shards: 10, flavor: "小玻璃瓶裡的透明藥劑,瓶身刻著看不懂的小字。", minTrades: 4 },
+  { id: "trade-salt", get: "salt", qty: 1, shards: 6, flavor: "一小瓶嗆得人流淚的結晶鹽——聞一口,骨頭裡的寒意都會被逼出去。", effect: "戰鬥道具:解除暈眩/遲緩/混亂,之後 6 秒內免疫這些效果;亦可於敵方蓄力時預先使用。", minTrades: 2 },
+  { id: "trade-elixir", get: "elixir", qty: 1, shards: 10, flavor: "小玻璃瓶裡的透明藥劑,瓶身刻著看不懂的小字。", effect: "戰鬥道具:回復 15 HP,解除中毒與流血。", minTrades: 4 },
   // 基礎物資(用異晶換大宗):對方對「石頭」的行情好得出奇
   { id: "trade-wood", get: "wood", qty: 120, shards: 2, flavor: "一捆捆切得整整齊齊的木料,斷口平滑得像用什麼燙過。", requiresResourceSeen: "wood" },
   { id: "trade-stone", get: "stone", qty: 80, shards: 2, flavor: "方正得過分的石塊,每一塊的重量幾乎一模一樣。", requiresResourceSeen: "stone" },
@@ -99,6 +101,7 @@ export const TRADES: TradeDef[] = [
     grantModification: "crisis-awareness",
     minExpeditions: 15,
     flavor: "一小瓶綠得發亮的藥劑,瓶塞用蠟封得嚴嚴實實。買家比劃了半天,你只看懂一件事:只有這一瓶。",
+    effect: "永久改造:每場戰鬥開場的第一次充能,全部行動條速度 ×2;放出任一行動後恢復正常。",
   },
 ];
 
