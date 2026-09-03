@@ -248,6 +248,14 @@ export class VillageEngine {
     return Object.keys(def.cost).every((id) => this.seenResources.has(id as ResourceId));
   }
 
+  /** 缺損耐久比例(0~1):修理費按這個比例計 */
+  repairFraction(weaponId: string): number {
+    const max = this.currentMaxDurability(weaponId);
+    const dur = this.weaponDurability[weaponId];
+    if (!max || dur === undefined) return 0;
+    return Math.min(1, Math.max(0, (max - dur) / max));
+  }
+
   /** 這把武器是否受損(遠征帶回的剩餘耐久 < 全滿) */
   isWeaponDamaged(weaponId: string): boolean {
     const weapon = WEAPONS.find((w) => w.id === weaponId);
@@ -296,7 +304,7 @@ export class VillageEngine {
   /** 修理受損武器:成本為打造成本的一半,耐久回滿 */
   repairWeapon(weaponId: string) {
     if (!this.canRepairWeapon(weaponId)) return;
-    const cost = repairCost(weaponId);
+    const cost = repairCost(weaponId, this.repairFraction(weaponId));
     if (!this.canAfford(cost)) return;
 
     for (const [id, amount] of Object.entries(cost)) {

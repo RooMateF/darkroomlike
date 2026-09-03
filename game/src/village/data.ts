@@ -119,13 +119,15 @@ export function isIronTierWeapon(weaponId: string): boolean {
 /** 修理一律吃皮革(2026-09 用戶定案):每次修理的皮革下限——配方本身沒皮革的(木槍/石斧/弓/木盾)也要用上 */
 export const REPAIR_LEATHER_MIN = 10;
 
-/** 修理成本:打造成本的一半(向上取整)+皮革至少 REPAIR_LEATHER_MIN——受損就修,不修的話耐久會一直帶著 */
-export function repairCost(weaponId: string): Partial<Record<import("./types").ResourceId, number>> {
+/** 修理成本(2026-09 用戶定案:按缺損比例計費):打造成本 × 缺損耐久比例(向上取整),
+ * 皮革另有下限 REPAIR_LEATHER_MIN——掉兩成耐久就付兩成的料,快壞了才修就接近重打一把 */
+export function repairCost(weaponId: string, missingFrac = 1): Partial<Record<import("./types").ResourceId, number>> {
   const weapon = WEAPONS.find((w) => w.id === weaponId);
   if (!weapon) return {};
+  const frac = Math.min(1, Math.max(0, missingFrac));
   const cost: Partial<Record<import("./types").ResourceId, number>> = {};
   for (const [id, n] of Object.entries(weapon.cost)) {
-    cost[id as import("./types").ResourceId] = Math.ceil((n ?? 0) / 2);
+    cost[id as import("./types").ResourceId] = Math.ceil((n ?? 0) * frac);
   }
   cost.leather = Math.max(cost.leather ?? 0, REPAIR_LEATHER_MIN);
   return cost;

@@ -1453,7 +1453,8 @@ function startVillage() {
       row.repairBtn.style.display = canRepairHere ? "" : "none";
       row.repairCostEl.style.display = "none";
       if (canRepairHere) {
-        const rc = repairCost(row.weapon.id);
+        const frac = engine.repairFraction(row.weapon.id);
+        const rc = repairCost(row.weapon.id, frac);
         const rcText = Object.entries(rc)
           .map(([id, n]) => `${RESOURCE_LABEL[id as ResourceId]}${n}`)
           .join(" ");
@@ -1461,7 +1462,7 @@ function startVillage() {
         row.repairBtn.textContent = "修理";
         row.repairBtn.disabled = !affordable;
         row.repairBtn.classList.toggle("ready", affordable);
-        row.repairCostEl.textContent = `修理:${rcText}`;
+        row.repairCostEl.textContent = `修理(缺損 ${Math.round(frac * 100)}%):${rcText}`;
         row.repairCostEl.style.display = "";
       }
 
