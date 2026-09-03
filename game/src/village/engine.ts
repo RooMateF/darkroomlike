@@ -1,4 +1,4 @@
-import { BUILDINGS, CONSUMABLES, HUT_CAP_BONUS, JOBS, TRADES, UPGRADES, WEAPONS, repairCost, brokenRepairCost, isIronTierWeapon , PERK_SLOTS , fineMaxDurability, SMITHY_IRON_UPGRADE_COST, BARTER_RATE, BARTER_RAW } from "./data";
+import { BUILDINGS, CONSUMABLES, HUT_CAP_BONUS, JOBS, TRADES, UPGRADES, WEAPONS, repairCost, brokenRepairCost, isIronTierWeapon , PERK_SLOTS , fineMaxDurability, SMITHY_IRON_UPGRADE_COST, BARTER_RATE, BARTER_RAW, POP_CAP_BASE, POP_CAP_PER_MAP } from "./data";
 import { EVENTS, FOLLOWUP_POOLS, type VillageEvent, type PassiveEvent } from "./events-data";
 import { clearedSiteCount } from "../explore/sites";
 import { RESOURCE_LABEL, type ResourceId } from "./types";
@@ -483,10 +483,17 @@ export class VillageEngine {
     return scaled;
   }
 
+  /** 人口天花板(2026-09 用戶定案):中央地圖 100,每開啟一張相鄰地圖 +50 */
+  populationCeiling(): number {
+    const opened = ["N", "E", "S", "W"].filter((id) => localStorage.getItem(`map-opened:${id}`) === "1").length;
+    return POP_CAP_BASE + POP_CAP_PER_MAP * opened;
+  }
+
   canBuild(buildingId: string): boolean {
     const building = BUILDINGS.find((b) => b.id === buildingId);
     if (!building) return false;
     if (!building.repeatable && this.hasBuilding(buildingId)) return false;
+    if (buildingId === "hut" && this.populationCap >= this.populationCeiling()) return false; // 這片土地住不下更多人
     return this.canAfford(this.costOf(buildingId));
   }
 
@@ -720,7 +727,7 @@ export class VillageEngine {
       this.resources[id as ResourceId] -= amount ?? 0;
     }
     this.buildingCounts[buildingId] = (this.buildingCounts[buildingId] ?? 0) + 1;
-    if (buildingId === "hut") this.populationCap += HUT_CAP_BONUS;
+    if (buildingId === "hut") this.populationCap = Math.min(this.populationCeiling(), this.populationCap + HUT_CAP_BONUS);
     this.saveState();
     this.cb.onLog(`建成了「${building.label}」。`);
   }

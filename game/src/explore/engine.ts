@@ -381,6 +381,8 @@ export class ExploreEngine {
 
   constructor(private readonly cb: ExploreCallbacks) {
     this.mapId = currentMapId();
+    // 人口天花板(2026-09 用戶定案):踏進相鄰地圖就算「開啟」,村莊引擎讀這個旗標把上限 +50
+    if (this.mapId !== "A") localStorage.setItem(`map-opened:${this.mapId}`, "1");
     this.carried = loadCarried();
 
     // 地圖是固定的(種子生成);探索進度(迷霧/拾獲狀態)跨遠征保留

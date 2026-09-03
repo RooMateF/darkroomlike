@@ -31,10 +31,10 @@ export const BUILDINGS: BuildingDef[] = [
     cost: { wood: 15, stone: 10 },
     effect: "人口上限 +4",
     repeatable: true,
-    costGrowth: 1.3, // 2026-09 用戶反饋級距太大:1.4→1.3
+    costGrowth: 1.25, // 2026-09 用戶反饋級距太大:1.4→1.3→1.25(人口另有天花板,曲線不必靠陡峭封頂)
     // 每蓋滿 5 棟,成本額外翻倍一次——壓住人口帶動的產能雪球,中後期擴村是實質的投資決策
     tierEvery: 5,
-    tierGrowth: 1.5, // 同上:每滿 5 棟 ×2→×1.5
+    tierGrowth: 1.4, // 同上:每滿 5 棟 ×2→×1.5→×1.4
   },
   // 解鎖新功能的建築要有份量,是需要存一陣子才蓋得起的目標,不是順手就有
   { id: "farm", label: "田", cost: { wood: 120, stone: 60 }, effect: "解鎖「農夫」工作" },
@@ -142,6 +142,9 @@ export function brokenRepairCost(weaponId: string): Partial<Record<import("./typ
 
 /** 每間小木屋提升的人口上限 */
 export const HUT_CAP_BONUS = 4;
+/** 人口天花板(2026-09 用戶定案):中央地圖 100,每開啟一張相鄰地圖 +50——小木屋蓋到頂就停 */
+export const POP_CAP_BASE = 100;
+export const POP_CAP_PER_MAP = 50;
 
 // ---- 武器打造(resources.md § 3.0 武器取得曲線:村莊初版只做位階 0–1) ----
 

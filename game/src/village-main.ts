@@ -1354,7 +1354,14 @@ function startVillage() {
             .join("　");
       row.btn.disabled = !buildable;
       row.btn.classList.toggle("ready", buildable);
-      row.btn.textContent = maxedOut ? "已建成" : "建造";
+      const hutCapped = row.building.id === "hut" && engine.populationCap >= engine.populationCeiling();
+      row.btn.textContent = maxedOut ? "已建成" : hutCapped ? `上限 ${engine.populationCeiling()}` : "建造";
+      if (hutCapped) {
+        // 人口天花板:這片土地住不下更多人,開拓新地圖才能再擴
+        row.btn.disabled = true;
+        row.btn.classList.remove("ready");
+        row.cost.textContent = "人口已達這片土地的上限";
+      }
     }
 
     // 鐵軌配方浮現(鐵匠鋪+礦坑解放)時,代行者提一句鋪軌的構想——
