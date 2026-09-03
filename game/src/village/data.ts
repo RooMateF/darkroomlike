@@ -218,11 +218,11 @@ export const WEAPONS: WeaponDef[] = [
   // 劍類的定位(2026-09 用戶定案):壓制——砍在敵人蓄力過半時,把牠的動作條往回推 25%(大招 15%,巨體減半)。
   // 斧頭是「打倒」、鬼雪是「凍住」,劍是「讓牠一直出不了手」;太早砍沒效果,要盯著敵方的條下刀
   { id: "iron-sword", label: "鐵劍", cost: { ingot: 50, wood: 10, leather: 10 }, category: "melee", baseCost: 1.0, damage: 8, symbol: ">>", durability: 55, packSize: 3, suppress: { push: 0.25, heavyPush: 0.15, threshold: 0.5 } },
-  { id: "iron-spear", label: "鐵槍", cost: { ingot: 40, wood: 15, leather: 10 }, category: "melee", baseCost: 1.2, damage: 10, symbol: ">>>", durability: 60, packSize: 4 },
+  { id: "iron-spear", label: "鐵槍", cost: { ingot: 40, wood: 15, leather: 10 }, category: "melee", baseCost: 0.9, damage: 10, symbol: ">>>", durability: 60, packSize: 4 },
   // 重擊線(石斧的後繼):慢而沉,疊踉蹌——控場向的選擇
   { id: "iron-axe", label: "鐵斧", cost: { ingot: 60, wood: 20, leather: 15 }, category: "melee", baseCost: 1.8, damage: 18, symbol: ">>>>", durability: 55, packSize: 4, stagger: 30 },
   // 舊時代軍用品:軍規的緊湊設計——鐵階最好的刀(觀測台獎勵;之後可仿製)
-  { id: "bayonet", label: "軍用刺刀", cost: { ingot: 40, leather: 5 }, category: "melee", baseCost: 0.4, damage: 5, symbol: ">|", durability: 50, packSize: 2 },
+  { id: "bayonet", label: "軍用刺刀", cost: { ingot: 40, leather: 5 }, category: "melee", baseCost: 0.5, damage: 5, symbol: ">|", durability: 50, packSize: 2 },
   // ---- 鋼階(鐵+煤合煉) ----
   { id: "steel-knife", label: "鋼刀", cost: { steel: 8, leather: 5 }, category: "melee", baseCost: 0.6, damage: 8, symbol: ">|", durability: 60, packSize: 2 },
   { id: "steel-dagger", label: "鋼匕首", cost: { steel: 6, leather: 5 }, category: "melee", baseCost: 0.35, damage: 4, symbol: ">·", durability: 30, packSize: 1, parry: 0.05 },
