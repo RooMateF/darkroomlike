@@ -1072,7 +1072,7 @@ function startVillage() {
     tannery: "她翻著你帶回來的生皮:「這些皮加工之後就能變成堅硬的皮革,做得出很多東西。搭個製革場吧,雖然味道不是很好聞就是了。」她調皮地笑著說道",
     smithy: "她看著你從遺跡帶回的工具,擦了擦上面的鏽:「這些都還能用。搭個工匠鋪,壞掉的東西我能把它修好。」",
     "trading-post": "她掂了掂那顆微溫的晶體:「這種東西……有人會收,而且有時候能交換到一些不可思議的東西。我們蓋個交易的地方讓外面的人可以來交換東西吧。」",
-    railway: "她望著礦坑的方向:「靠人一趟一趟把礦扛回來,實在太慢也太辛苦了。我們鋪一條鐵道,讓火車來負責輸送吧。」",
+    railway: "她望著礦坑的方向:「靠人一趟一趟把礦扛回來,實在太慢也太辛苦了。我們鋪一條鐵道,讓礦車來負責輸送吧。」",
   };
   const announcedBuildings = new Set<string>(JSON.parse(localStorage.getItem("building-hints-shown") ?? "[]") as string[]);
   function announceBuildingUnlock(buildingId: string) {
@@ -1358,7 +1358,7 @@ function startVillage() {
     }
 
     // 鐵軌配方浮現(鐵匠鋪+礦坑解放)時,代行者提一句鋪軌的構想——
-    // 原「鐵道」建築的提示重新掛載於此;她說的火車,在鋼的時代會真的開起來
+    // 原「鐵道」建築的提示重新掛載於此(2026-09:火車建築移除,鐵軌連通礦坑即 ×4)
     if (engine.isConsumableVisible("rail")) announceBuildingUnlock("railway");
 
     // 裝備庫:一眼看清武器數量/狀態(受損顯示剩餘耐久)與出門用的消耗品存量

@@ -298,15 +298,6 @@ function readPerk(id: string): boolean {
   }
 }
 
-/** 火車蓋好了嗎:通車後軌上移動不再消耗水糧(村莊建築,跨頁讀存檔) */
-function hasTrainBuilt(): boolean {
-  try {
-    const v = JSON.parse(localStorage.getItem("village-state") ?? "{}");
-    return ((v.buildingCounts ?? {})["train"] ?? 0) > 0;
-  } catch {
-    return false;
-  }
-}
 
 /** 水量上限:村莊做出「大水袋」升級後放寬(village/data.ts WATERSKIN_CAPACITY) */
 function readWaterCapacity(): number {
@@ -1050,7 +1041,7 @@ export class ExploreEngine {
     // 測試模式(工具列 DEV 鈕):水糧不耗、不遇敵——走遍地圖驗地形用;正式發布前移除
     const devMode = localStorage.getItem("explore-dev") === "1";
     const wasDry = this.water <= 0; // 這一步出發前就已經沒水了
-    // 軌上零消耗(2026-09 用戶定案):鋪了軌就是人開出來的路,水糧都不耗——火車只剩礦車運輸的價值
+    // 軌上零消耗(2026-09 用戶定案):鋪了軌就是人開出來的路,水糧都不耗
     if (devMode || onRail) {
       // 測試模式/軌上:不耗水
     } else {
