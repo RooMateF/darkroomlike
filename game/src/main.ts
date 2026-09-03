@@ -619,6 +619,7 @@ function appendLog(entry: LogEntry) {
     (entry.heal ?? 0) > 0 ? `${entry.target} (+${entry.heal})` : entry.damage > 0 ? `${entry.target} (-${entry.damage})` : entry.target;
   if (entry.blocked) target.textContent += "(盾架住了大半)";
   if (entry.suppressed) target.textContent += "(壓制)";
+  if (entry.riposted) target.textContent += "(盾反!)";
 
   line.append(actor, symbol, target);
   logEl.appendChild(line);

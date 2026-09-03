@@ -12,6 +12,8 @@ export interface LogEntry {
   blocked?: boolean;
   /** 這一擊壓制了對方(劍類:把牠的動作條往回推了) */
   suppressed?: boolean;
+  /** 這一擊抓中了盾反窗(特殊武器:對方那一擊會被架開) */
+  riposted?: boolean;
 }
 
 /** 類別內每個子行動各自累積進度,但共用同一次歸零(見 design-notes.md § 2.3.2) */
@@ -156,6 +158,8 @@ export class EnemyUnit {
   staggerLeft = 0;
   readonly freezeResist: boolean;
   readonly human: boolean;
+  /** 盾反待命秒數(特殊武器抓中窗口):這段時間內牠落地的那一擊視為被完美格擋 */
+  riposteLeft = 0;
 
   constructor(
     public moves: EnemyMove[],
@@ -441,6 +445,7 @@ export class CombatEngine {
         if (u.hp <= 0) continue;
         u.freeze = Math.max(0, u.freeze - dt);
         if (u.staggerLeft <= 0) u.staggerGauge = Math.max(0, u.staggerGauge - dt);
+        if (u.riposteLeft > 0) u.riposteLeft = Math.max(0, u.riposteLeft - dt);
       }
       // 暈眩/換彈中:你的行動條全部凍結,敵方照常進逼
       if (this.stunLeft <= 0 && this.reloadLock <= 0) {
@@ -506,7 +511,15 @@ export class CombatEngine {
       // 之後半格擋(依盾減傷,附帶效果照吃);一面盾一次窗只接一擊(多敵齊上時擋最先到的那擊)
       let blocked: "perfect" | "partial" | null = null;
       let dmg = move.damage;
-      if (this.blockWindowLeft > 0 && this.shield) {
+      let viaRiposte = false;
+      if (unit.riposteLeft > 0) {
+        // 盾反(特殊武器):刀已經迎上去了——這一擊照完美格擋處理(整擊無效,大招踉蹌),不用盾
+        blocked = "perfect";
+        dmg = 0;
+        viaRiposte = true;
+        unit.riposteLeft = 0;
+        this.cb.onLog({ id: this.logId++, actor: "你", target: `盾反!刃口貼著來勢一滑,${unit.label}的這一擊整個落空`, symbol: "◎", damage: 0 });
+      } else if (this.blockWindowLeft > 0 && this.shield) {
         blocked = this.blockWindowLeft >= BLOCK_WINDOW - (BLOCK_PERFECT + this.perfectWindowBonus) ? "perfect" : "partial";
         // 穿盾招(百手壓下):普通格擋的減傷上限只有一半,想無傷只能抓 0.1s 的完全格擋
         const reduce = move.pierceBlock ? Math.min(this.shield.reduce, 0.5) : this.shield.reduce;
@@ -515,7 +528,7 @@ export class CombatEngine {
         this.cb.onBlocked?.(blocked === "perfect");
       }
       if (blocked === "perfect") {
-        this.cb.onLog({ id: this.logId++, actor: "你", target: `完全格擋!那一擊落在盾面正中,力道順著弧面滑開了`, symbol: "◎", damage: 0 });
+        if (!viaRiposte) this.cb.onLog({ id: this.logId++, actor: "你", target: `完全格擋!那一擊落在盾面正中,力道順著弧面滑開了`, symbol: "◎", damage: 0 });
         // 2026-09 定案(方案C):完美格擋「大招」(heavy)→ 對方被反彈的力道掀得踉蹌 3 秒(輸出窗)
         if (move.heavy) {
           unit.staggerGauge = 0;
@@ -629,6 +642,7 @@ export class CombatEngine {
     // 霰彈(2026-09 用戶定案):每擊 pellets 顆彈丸,各自砸向隨機一隻活敵——群戰神器
     let pelletsDone = false;
     let suppressedHit = false; // 壓制(劍類):這一擊有沒有把對方的動作條推回去
+    let ripostedHit = false; // 盾反(特殊武器):這一擊有沒有抓中對方攻擊落地前的窗口
 
     if (tracker.subAction.pellets && dmg > 0) {
       pelletsDone = true;
@@ -721,6 +735,18 @@ export class CombatEngine {
 
     const target = this.targetUnit;
     if (!pelletsDone && dmg > 0 && target) {
+      // 盾反(特殊武器,2026-09 用戶定案):出手瞬間對方的攻擊若在窗口內落地 → 那一擊會被架開(見 resolveEnemyAttack),
+      // 這一刀照常命中並額外 +bonus;匕首的招架輔助延長窗口
+      const rip = tracker.subAction.riposte;
+      if (rip && target.staggerLeft <= 0) {
+        const remain = target.tracker.actualCost - target.tracker.elapsed;
+        const window = rip.window + this.perfectWindowBonus;
+        if (remain >= 0 && remain <= window) {
+          ripostedHit = true;
+          dmg += rip.bonus;
+          target.riposteLeft = window + 0.05; // 留一點餘裕給同一幀的結算
+        }
+      }
       if (target.staggerLeft > 0) dmg = Math.round(dmg * 1.25); // 踉蹌中受創加成
       target.hp = Math.max(0, target.hp - dmg);
       this.cb.onUnitHit?.(target, dmg);
@@ -770,6 +796,7 @@ export class CombatEngine {
       damage: dmg,
       heal,
       suppressed: suppressedHit || undefined,
+      riposted: ripostedHit || undefined,
     });
     // 目標倒下:通知 UI(護贓觸手歸還贓物等),目標自動跳到下一隻活的
     if (!pelletsDone && dmg > 0 && target && target.hp <= 0) {

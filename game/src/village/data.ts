@@ -167,6 +167,8 @@ export interface WeaponDef {
   parry?: number;
   /** 壓制(劍類):砍在敵方動作條 ≥ threshold 時把牠的條往回推 push(大招 heavyPush),巨體減半 */
   suppress?: { push: number; heavyPush: number; threshold: number };
+  /** 盾反(特殊武器):出手瞬間抓 window 秒的完美窗,抓中=完美格擋+照常傷害+bonus 額外傷害 */
+  riposte?: { window: number; bonus: number };
   /** 連發:每擊對單體連打 N 發(damage=單發傷害) */
   burst?: number;
   /** 連發各發傷害(後座力遞減);缺項用 damage 補 */
@@ -232,7 +234,9 @@ export const WEAPONS: WeaponDef[] = [
   // 舊時代自動步槍(2026-09 核可;lootOnly——未來城市地圖的戰利品):彈雨,用彈藥經濟拴著
   { id: "auto-rifle", label: "舊時代自動步槍", cost: { steel: 30, leather: 10 }, category: "ranged", baseCost: 1.0, damage: 6, symbol: "→!!!", durability: 60, ammo: "bullet", ammoPerUse: 3, packSize: 4, magazine: 30, reload: 2.2, noWear: true, lootOnly: true, burst: 3, burstDamages: [6, 5, 5] },
   // 靜默教堂(Lv5)的戰利品:輕得不可思議(呼應敘事)。lootOnly:cost 只作修理費基準
-  { id: "alloy-blade", label: "異質短刃", cost: { steel: 12, leather: 20, scroll: 1 }, category: "melee", baseCost: 0.5, damage: 7, symbol: ">>|", durability: 80, packSize: 2, lootOnly: true },
+  // 盾反(2026-09 用戶定案):出手瞬間抓 0.1s 完美窗——抓中對方攻擊落地的那一刻,整擊無效(大招照完美格擋規則踉蹌 3s),
+  // 這一刀照常命中並額外 +10 傷害;鐵匕首的招架輔助(+0.05s)一樣延長這個窗
+  { id: "alloy-blade", label: "異質短刃", cost: { steel: 12, leather: 20, scroll: 1 }, category: "melee", baseCost: 0.5, damage: 7, symbol: ">>|", durability: 80, packSize: 2, lootOnly: true, riposte: { window: 0.1, bonus: 10 } },
   // ---- 盾牌(格擋鏈,2026-09 用戶定案):啟動 0.5s 防禦窗,前 0.1s 完全格擋(整擊無效);
   // 之後半格擋依盾減傷(附帶效果照吃)。CD 與減傷率由盾決定;半格擋耗 1 耐久,完全格擋免費
   { id: "wood-shield", label: "木盾", cost: { wood: 50, hide: 5 }, category: "shield", baseCost: 0, damage: 0, symbol: "[]", durability: 20, packSize: 3, block: { reduce: 0.5, cd: 5 } },

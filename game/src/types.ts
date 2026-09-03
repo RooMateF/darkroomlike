@@ -35,6 +35,9 @@ export interface SubAction {
   /** 壓制(劍類,2026-09 用戶定案):砍在敵方動作條 ≥ threshold 時,把牠的動作條往回推 push(比例;大招 heavyPush);
    * 巨體減半——不是把牠打倒,而是讓牠一直出不了手 */
   suppress?: { push: number; heavyPush: number; threshold: number };
+  /** 盾反(特殊武器,2026-09 用戶定案):出手瞬間若目標的攻擊在 window 秒內落地 → 視為完美格擋
+   * (整擊無效、大招踉蹌),這一刀照常命中並額外 +bonus 傷害;匕首的招架輔助會延長 window */
+  riposte?: { window: number; bonus: number };
 }
 
 export type CategoryId = "melee" | "ranged" | "magic" | "item";

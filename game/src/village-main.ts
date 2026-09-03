@@ -851,9 +851,11 @@ function startVillage() {
           ? `${weapon.damage}×${weapon.pellets}`
           : weapon.burstDamages
             ? weapon.burstDamages.join("+")
-            : weapon.suppress
-              ? `${weapon.damage} 壓制`
-              : String(weapon.damage);
+            : weapon.riposte
+              ? `${weapon.damage} 盾反+${weapon.riposte.bonus}`
+              : weapon.suppress
+                ? `${weapon.damage} 壓制`
+                : String(weapon.damage);
     const mats = td("mats");
     row.append(name, owned, dur, speed, dmg, mats);
     const ops = td("ops");
