@@ -619,7 +619,7 @@ function appendLog(entry: LogEntry) {
     (entry.heal ?? 0) > 0 ? `${entry.target} (+${entry.heal})` : entry.damage > 0 ? `${entry.target} (-${entry.damage})` : entry.target;
   if (entry.blocked) target.textContent += "(盾架住了大半)";
   if (entry.suppressed) target.textContent += "(壓制)";
-  if (entry.riposted) target.textContent += "(盾反!)";
+  if (entry.riposted) target.textContent += "(招架!)";
 
   line.append(actor, symbol, target);
   logEl.appendChild(line);
@@ -1047,7 +1047,7 @@ if (dungeon?.landmarkId === "scavenger") {
 buildEnemyPanel();
 
 syncShieldToEngine();
-// 招架輔助(匕首):帶在身上就把完美格擋窗延長(取攜帶武器裡最大的 parry 值)
+// 格擋輔助(匕首):帶在身上就把完美格擋窗延長(取攜帶武器裡最大的 parry 值)
 engine.perfectWindowBonus = WEAPONS.reduce((m, w) => ((carried?.weapons[w.id] ?? 0) > 0 ? Math.max(m, w.parry ?? 0) : m), 0);
 // 危機意識(改造藥劑):開戰首擊前全體充能 ×2
 try {

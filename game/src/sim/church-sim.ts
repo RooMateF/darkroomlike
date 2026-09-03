@@ -21,7 +21,7 @@ interface SimConfig {
   noPhase2?: boolean;
   /** 帶鋼大劍(真踉蹌系統) */
   greatsword?: boolean;
-  /** 匕首招架輔助:完美窗 +0.05s */
+  /** 匕首格擋輔助:完美窗 +0.05s */
   dagger?: boolean;
   /** 提案②:舉盾不歸零其他行動條(尚未實裝,模擬層原型) */
   blockKeepsBars?: boolean;

@@ -163,11 +163,11 @@ export interface WeaponDef {
   noWear?: boolean;
   /** 霰彈:每擊彈丸數(damage=單顆傷害,各自打隨機活敵) */
   pellets?: number;
-  /** 招架輔助(匕首):帶在身上,完美格擋窗延長這麼多秒(2026-09 用戶定案「微調格擋時間」) */
+  /** 格擋輔助(匕首):帶在身上,完美格擋窗延長這麼多秒(2026-09 用戶定案「微調格擋時間」) */
   parry?: number;
   /** 壓制(劍類):砍在敵方動作條 ≥ threshold 時把牠的條往回推 push(大招 heavyPush),巨體減半 */
   suppress?: { push: number; heavyPush: number; threshold: number };
-  /** 盾反(特殊武器):出手瞬間抓 window 秒的完美窗,抓中=完美格擋+照常傷害+bonus 額外傷害 */
+  /** 招架(特殊武器):出手瞬間抓 window 秒的完美窗,抓中=完美格擋+照常傷害+bonus 額外傷害 */
   riposte?: { window: number; bonus: number };
   /** 連發:每擊對單體連打 N 發(damage=單發傷害) */
   burst?: number;
@@ -209,8 +209,8 @@ export const WEAPONS: WeaponDef[] = [
   // 2026-09 用戶定案:武器類的鐵需求 ×5(鐵產線的產能就是軍備的天花板);
   // 鐵/鋼階全面補皮革(握柄/劍鞘/槍托)——皮革到後期仍是軍備的固定開銷
   { id: "iron-knife", label: "鐵刀", cost: { ingot: 30, wood: 10, leather: 5 }, category: "melee", baseCost: 0.6, damage: 6, symbol: ">|", durability: 40, packSize: 2 },
-  // 匕首(2026-09 用戶定案):貼身的招架輔助——帶著它,完美格擋窗 0.1s→0.15s;只占 1 格
-  // 匕首鏈(2026-09 用戶定案):招架輔助的代價是脆——鐵 20 耐久、鋼 30;速度同款,鋼傷微增
+  // 匕首(2026-09 用戶定案):貼身的格擋輔助——帶著它,完美格擋窗 0.1s→0.15s;只占 1 格
+  // 匕首鏈(2026-09 用戶定案):格擋輔助的代價是脆——鐵 20 耐久、鋼 30;速度同款,鋼傷微增
   { id: "dagger", label: "鐵匕首", cost: { ingot: 25, leather: 5 }, category: "melee", baseCost: 0.35, damage: 3, symbol: ">·", durability: 20, packSize: 1, parry: 0.05 },
   // 劍類的定位(2026-09 用戶定案):壓制——砍在敵人蓄力過半時,把牠的動作條往回推 25%(大招 15%,巨體減半)。
   // 斧頭是「打倒」、鬼雪是「凍住」,劍是「讓牠一直出不了手」;太早砍沒效果,要盯著敵方的條下刀
@@ -234,8 +234,8 @@ export const WEAPONS: WeaponDef[] = [
   // 舊時代自動步槍(2026-09 核可;lootOnly——未來城市地圖的戰利品):彈雨,用彈藥經濟拴著
   { id: "auto-rifle", label: "舊時代自動步槍", cost: { steel: 30, leather: 10 }, category: "ranged", baseCost: 1.0, damage: 6, symbol: "→!!!", durability: 60, ammo: "bullet", ammoPerUse: 3, packSize: 4, magazine: 30, reload: 2.2, noWear: true, lootOnly: true, burst: 3, burstDamages: [6, 5, 5] },
   // 靜默教堂(Lv5)的戰利品:輕得不可思議(呼應敘事)。lootOnly:cost 只作修理費基準
-  // 盾反(2026-09 用戶定案):出手瞬間抓 0.1s 完美窗——抓中對方攻擊落地的那一刻,整擊無效(大招照完美格擋規則踉蹌 3s),
-  // 這一刀照常命中並額外 +10 傷害;鐵匕首的招架輔助(+0.05s)一樣延長這個窗
+  // 招架(2026-09 用戶定案):出手瞬間抓 0.1s 完美窗——抓中對方攻擊落地的那一刻,整擊無效(大招照完美格擋規則踉蹌 3s),
+  // 這一刀照常命中並額外 +10 傷害;鐵匕首的格擋輔助(+0.05s)一樣延長這個窗
   { id: "alloy-blade", label: "異質短刃", cost: { steel: 12, leather: 20, scroll: 1 }, category: "melee", baseCost: 0.5, damage: 7, symbol: ">>|", durability: 80, packSize: 2, lootOnly: true, riposte: { window: 0.1, bonus: 10 } },
   // ---- 盾牌(格擋鏈,2026-09 用戶定案):啟動 0.5s 防禦窗,前 0.1s 完全格擋(整擊無效);
   // 之後半格擋依盾減傷(附帶效果照吃)。CD 與減傷率由盾決定;半格擋耗 1 耐久,完全格擋免費

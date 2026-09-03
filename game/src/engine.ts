@@ -12,7 +12,7 @@ export interface LogEntry {
   blocked?: boolean;
   /** 這一擊壓制了對方(劍類:把牠的動作條往回推了) */
   suppressed?: boolean;
-  /** 這一擊抓中了盾反窗(特殊武器:對方那一擊會被架開) */
+  /** 這一擊抓中了招架窗(特殊武器:對方那一擊會被架開) */
   riposted?: boolean;
 }
 
@@ -158,7 +158,7 @@ export class EnemyUnit {
   staggerLeft = 0;
   readonly freezeResist: boolean;
   readonly human: boolean;
-  /** 盾反待命秒數(特殊武器抓中窗口):這段時間內牠落地的那一擊視為被完美格擋 */
+  /** 招架待命秒數(特殊武器抓中窗口):這段時間內牠落地的那一擊視為被完美格擋 */
   riposteLeft = 0;
 
   constructor(
@@ -242,7 +242,7 @@ export class CombatEngine {
   shield: { label: string; reduce: number; cd: number } | null = null;
   /** 格擋窗口剩餘秒數(0.5s;前 0.1s 完全格擋) */
   blockWindowLeft = 0;
-  /** 完美格擋窗延長秒數(匕首招架輔助:0.1s → 0.1+bonus) */
+  /** 完美格擋窗延長秒數(匕首格擋輔助:0.1s → 0.1+bonus) */
   perfectWindowBonus = 0;
   /** 格擋冷卻剩餘秒數 */
   blockCooldownLeft = 0;
@@ -513,12 +513,12 @@ export class CombatEngine {
       let dmg = move.damage;
       let viaRiposte = false;
       if (unit.riposteLeft > 0) {
-        // 盾反(特殊武器):刀已經迎上去了——這一擊照完美格擋處理(整擊無效,大招踉蹌),不用盾
+        // 招架(特殊武器):刀已經迎上去了——這一擊照完美格擋處理(整擊無效,大招踉蹌),不用盾
         blocked = "perfect";
         dmg = 0;
         viaRiposte = true;
         unit.riposteLeft = 0;
-        this.cb.onLog({ id: this.logId++, actor: "你", target: `盾反!刃口貼著來勢一滑,${unit.label}的這一擊整個落空`, symbol: "◎", damage: 0 });
+        this.cb.onLog({ id: this.logId++, actor: "你", target: `招架!刃口貼著來勢一滑,${unit.label}的這一擊整個落空`, symbol: "◎", damage: 0 });
       } else if (this.blockWindowLeft > 0 && this.shield) {
         blocked = this.blockWindowLeft >= BLOCK_WINDOW - (BLOCK_PERFECT + this.perfectWindowBonus) ? "perfect" : "partial";
         // 穿盾招(百手壓下):普通格擋的減傷上限只有一半,想無傷只能抓 0.1s 的完全格擋
@@ -642,7 +642,7 @@ export class CombatEngine {
     // 霰彈(2026-09 用戶定案):每擊 pellets 顆彈丸,各自砸向隨機一隻活敵——群戰神器
     let pelletsDone = false;
     let suppressedHit = false; // 壓制(劍類):這一擊有沒有把對方的動作條推回去
-    let ripostedHit = false; // 盾反(特殊武器):這一擊有沒有抓中對方攻擊落地前的窗口
+    let ripostedHit = false; // 招架(特殊武器):這一擊有沒有抓中對方攻擊落地前的窗口
 
     if (tracker.subAction.pellets && dmg > 0) {
       pelletsDone = true;
@@ -735,8 +735,8 @@ export class CombatEngine {
 
     const target = this.targetUnit;
     if (!pelletsDone && dmg > 0 && target) {
-      // 盾反(特殊武器,2026-09 用戶定案):出手瞬間對方的攻擊若在窗口內落地 → 那一擊會被架開(見 resolveEnemyAttack),
-      // 這一刀照常命中並額外 +bonus;匕首的招架輔助延長窗口
+      // 招架(特殊武器,2026-09 用戶定案):出手瞬間對方的攻擊若在窗口內落地 → 那一擊會被架開(見 resolveEnemyAttack),
+      // 這一刀照常命中並額外 +bonus;匕首的格擋輔助延長窗口
       const rip = tracker.subAction.riposte;
       if (rip && target.staggerLeft <= 0) {
         const remain = target.tracker.actualCost - target.tracker.elapsed;

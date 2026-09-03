@@ -852,7 +852,7 @@ function startVillage() {
           : weapon.burstDamages
             ? weapon.burstDamages.join("+")
             : weapon.riposte
-              ? `${weapon.damage} 盾反+${weapon.riposte.bonus}`
+              ? `${weapon.damage} 招架+${weapon.riposte.bonus}`
               : weapon.suppress
                 ? `${weapon.damage} 壓制`
                 : String(weapon.damage);
