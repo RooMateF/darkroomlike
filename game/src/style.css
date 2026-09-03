@@ -1045,22 +1045,27 @@ hr {
 .craft-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 11px; /* 版面窄:整表縮一號 */
 }
 
 .craft-table th {
   text-align: left;
   font-weight: normal;
   color: var(--fg-dim);
-  padding: 2px 6px;
+  padding: 2px 4px;
   border-bottom: 1px solid var(--fg-faint);
   white-space: nowrap;
 }
 
 .craft-table td {
-  padding: 3px 6px;
+  padding: 2px 4px;
   border-bottom: 1px dotted var(--fg-faint);
   vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* 材料/特性:每個項目自己不折行,只在項目之間折(2026-09 用戶反饋:整欄被拆成一字一行) */
+.craft-table .chip {
   white-space: nowrap;
 }
 
@@ -1100,16 +1105,20 @@ hr {
 
 .craft-table .ops {
   text-align: right;
+  white-space: normal;
 }
 
 .craft-table .ops .btn {
-  margin-left: 4px;
+  display: block; /* 修理/打造上下疊,操作欄才窄得下 */
+  margin: 2px 0 2px auto;
+  padding: 1px 6px;
 }
 
 .craft-table .repair-cost {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--fg-dim);
   margin-top: 2px;
+  white-space: normal;
 }
 
 /* 物資列的功能備註(與交易所的系統效果行同款) */

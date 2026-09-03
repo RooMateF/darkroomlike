@@ -818,20 +818,32 @@ function startVillage() {
   weaponTable.style.display = "none";
   const weaponHeadRow = document.createElement("tr");
   // 特性欄(2026-09 用戶反饋):踉蹌/凍結/壓制/招架/格擋輔助這些特殊狀態統一列在這裡,傷害欄只留數字
-  const weaponTraits = (w: (typeof WEAPONS)[number]): string => {
+  // 每個標籤自己不折行(只在標籤之間折),字要短——版面窄(2026-09 用戶反饋:整欄被拆成一字一行)
+  const weaponTraits = (w: (typeof WEAPONS)[number]): string[] => {
     const t: string[] = [];
-    if (w.block) t.push(`擋 ${Math.round(w.block.reduce * 100)}%・CD ${w.block.cd}s`);
-    if (w.stagger) t.push(`踉蹌 +${w.stagger}`);
-    if (w.freeze) t.push(`凍結 +${w.freeze}`);
+    if (w.block) t.push(`擋${Math.round(w.block.reduce * 100)}%`, `CD${w.block.cd}s`);
+    if (w.stagger) t.push(`踉蹌+${w.stagger}`);
+    if (w.freeze) t.push(`凍結+${w.freeze}`);
     if (w.suppress) t.push("壓制");
-    if (w.riposte) t.push(`招架 +${w.riposte.bonus}`);
-    if (w.parry) t.push(`格擋輔助 +${w.parry}s`);
-    if (w.pellets) t.push(`霰彈 ×${w.pellets}`);
-    if (w.burst) t.push(`連發 ×${w.burst}`);
-    if (w.magazine) t.push(`彈匣 ${w.magazine}`);
+    if (w.riposte) t.push(`招架+${w.riposte.bonus}`);
+    if (w.parry) t.push(`格擋+${w.parry}s`);
+    if (w.pellets) t.push(`霰彈×${w.pellets}`);
+    if (w.burst) t.push(`連發×${w.burst}`);
+    if (w.magazine) t.push(`彈匣${w.magazine}`);
     if (w.noWear) t.push("不耗損");
     if (w.unbreakable) t.push("不消失");
-    return t.join("・");
+    return t;
+  };
+  /** 把「不可折行的短項目」塞進一格,項目之間留可折行的空白 */
+  const fillChips = (cell: HTMLElement, items: { text: string; cls?: string }[]) => {
+    cell.innerHTML = "";
+    items.forEach((it, i) => {
+      if (i > 0) cell.appendChild(document.createTextNode(" "));
+      const span = document.createElement("span");
+      span.className = `chip${it.cls ? ` ${it.cls}` : ""}`;
+      span.textContent = it.text;
+      cell.appendChild(span);
+    });
   };
   for (const [h, cls] of [["武器", ""], ["持有", "num"], ["耐久", "num"], ["出手", "num"], ["傷害", "num"], ["特性", "traits"], ["材料", "mats"], ["", "ops"]] as [string, string][]) {
     const th = document.createElement("th");
@@ -869,7 +881,7 @@ function startVillage() {
             ? weapon.burstDamages.join("+")
             : String(weapon.damage);
     const traits = td("traits");
-    traits.textContent = weaponTraits(weapon);
+    fillChips(traits, weaponTraits(weapon).map((text) => ({ text })));
     const mats = td("mats");
     row.append(name, owned, dur, speed, dmg, traits, mats);
     const ops = td("ops");
@@ -1438,15 +1450,15 @@ function startVillage() {
       row.btn.disabled = !craftable;
       row.btn.classList.toggle("ready", craftable);
       // 材料欄:「鐵 30　木材 10　皮革 5」,不夠的那一項標記;lootOnly 的 cost 只是修理基準,不列
-      row.mats.innerHTML = "";
-      if (!row.weapon.lootOnly) {
-        Object.entries(row.weapon.cost).forEach(([id, n], i) => {
-          const span = document.createElement("span");
-          span.textContent = `${i > 0 ? "　" : ""}${RESOURCE_LABEL[id as ResourceId]} ${n}`;
-          if ((engine.resources[id as ResourceId] ?? 0) < (n ?? 0)) span.className = "short";
-          row.mats.appendChild(span);
-        });
-      }
+      fillChips(
+        row.mats,
+        row.weapon.lootOnly
+          ? []
+          : Object.entries(row.weapon.cost).map(([id, n]) => ({
+              text: `${RESOURCE_LABEL[id as ResourceId]}${n}`,
+              cls: (engine.resources[id as ResourceId] ?? 0) < (n ?? 0) ? "short" : undefined,
+            })),
+      );
 
       // 修理鈕:工匠鋪/鐵匠鋪 + 受損 + 位階修得動才出現;修理費放按鈕下的小字
       const canRepairHere = engine.canRepairWeapon(row.weapon.id) && count > 0;
@@ -1462,7 +1474,7 @@ function startVillage() {
         row.repairBtn.textContent = "修理";
         row.repairBtn.disabled = !affordable;
         row.repairBtn.classList.toggle("ready", affordable);
-        row.repairCostEl.textContent = `修理(缺損 ${Math.round(frac * 100)}%):${rcText}`;
+        row.repairCostEl.textContent = `缺${Math.round(frac * 100)}% ${rcText}`;
         row.repairCostEl.style.display = "";
       }
 
