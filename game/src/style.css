@@ -708,8 +708,7 @@ hr {
   text-wrap: pretty; /* 長敘事行的收尾不出現孤字 */
 }
 
-/* 置頂更新(2026-09 用戶試行):最新一行在最上面,高亮跟著搬家 */
-.log-line:first-child {
+.log-line:last-child {
   color: var(--fg);
 }
 

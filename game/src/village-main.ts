@@ -193,45 +193,29 @@ function startVillage() {
 
   // 紀錄落地保存(2026-09 用戶定案):跳頁/重載不再洗掉,滾動保留最近 100 筆
   const VILLAGE_LOG_KEY = "village-log-v2"; // v2:存「畫面由上而下」順序;v1 是時間序,直接棄用
+  // 2026-09 用戶定案:置頂實驗收掉,回到由上而下的時間順序(最新在底部,自動捲到底)
   function renderLogLine(text: string) {
-    // 還原專用:存檔存的就是「畫面由上而下」的順序,照序 append 即可(組內順序原樣保留)
     const line = document.createElement("div");
     line.className = "log-line";
     line.textContent = text;
     logEl.appendChild(line);
-    while (logEl.childElementCount > 100) logEl.removeChild(logEl.lastChild!);
+    // 保留最近 100 筆供捲動回顧
+    while (logEl.childElementCount > 100) logEl.removeChild(logEl.firstChild!);
   }
-  // 同一瞬間的成組訊息(2026-09 用戶回報「文本反了」):同一個 JS 任務裡連續寫入的行算一組——
-  // 整組置頂,組內維持由上而下的時間順序,成對的「事件→她的反應」才不會果因倒置
-  let burstAnchor: HTMLDivElement | null = null;
-  let burstResetQueued = false;
   function appendLog(text: string) {
-    const line = document.createElement("div");
-    line.className = "log-line";
-    line.textContent = text;
-    if (burstAnchor?.isConnected) burstAnchor.after(line);
-    else logEl.prepend(line);
-    burstAnchor = line;
-    if (!burstResetQueued) {
-      burstResetQueued = true;
-      setTimeout(() => {
-        burstAnchor = null;
-        burstResetQueued = false;
-      }, 0);
-    }
-    while (logEl.childElementCount > 100) logEl.removeChild(logEl.lastChild!);
-    logEl.scrollTop = 0;
+    renderLogLine(text);
+    logEl.scrollTop = logEl.scrollHeight;
     try {
-      // 直接保存畫面的由上而下順序(含成組排序),還原時照序重排就不會顛倒
+      // 直接保存畫面的由上而下順序,還原時照序重排
       localStorage.setItem(VILLAGE_LOG_KEY, JSON.stringify([...logEl.children].map((c) => c.textContent ?? "")));
     } catch {
       /* 壞資料不擋遊戲 */
     }
   }
-  // 開頁還原歷史紀錄(存檔=畫面由上而下的順序,照序排回)
+  // 開頁還原歷史紀錄(存檔=畫面由上而下的順序,照序排回,捲到底部的最新處)
   try {
     for (const t of JSON.parse(localStorage.getItem(VILLAGE_LOG_KEY) ?? "[]") as string[]) renderLogLine(t);
-    logEl.scrollTop = 0;
+    logEl.scrollTop = logEl.scrollHeight;
   } catch {
     /* 同上 */
   }

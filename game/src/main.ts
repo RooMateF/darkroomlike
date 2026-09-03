@@ -620,7 +620,8 @@ function appendLog(entry: LogEntry) {
   if (entry.blocked) target.textContent += "(盾架住了大半)";
 
   line.append(actor, symbol, target);
-  placeLogLine(line);
+  logEl.appendChild(line);
+  trimBattleLog();
 }
 
 /** 系統訊息(武器損壞等),沒有攻擊符號動畫 */
@@ -628,32 +629,15 @@ function appendSystemLog(text: string) {
   const line = document.createElement("div");
   line.className = "log-line";
   line.textContent = text;
-  placeLogLine(line);
-}
-
-// 同一瞬間的成組訊息(2026-09):同一個 JS 任務裡連續寫入的行算一組——
-// 整組置頂,組內照時間順序由上而下(連發逐彈、蛻變多行敘述才不會讀起來顛倒)
-let burstAnchor: HTMLDivElement | null = null;
-let burstResetQueued = false;
-function placeLogLine(line: HTMLDivElement) {
-  if (burstAnchor?.isConnected) burstAnchor.after(line);
-  else logEl.prepend(line);
-  burstAnchor = line;
-  if (!burstResetQueued) {
-    burstResetQueued = true;
-    setTimeout(() => {
-      burstAnchor = null;
-      burstResetQueued = false;
-    }, 0);
-  }
+  logEl.appendChild(line);
   trimBattleLog();
 }
 
 // 單場戰鬥的完整紀錄保留可捲動回看;每場戰鬥都是新頁面,結束離開時自然清空
-// 置頂更新(2026-09 用戶試行):最新訊息在最上面,舊的往下沉——修剪從底部剪
+// (2026-09:置頂實驗收掉,回到由上而下、自動捲到底)
 function trimBattleLog() {
-  while (logEl.childElementCount > 300) logEl.removeChild(logEl.lastChild!);
-  logEl.scrollTop = 0;
+  while (logEl.childElementCount > 300) logEl.removeChild(logEl.firstChild!);
+  logEl.scrollTop = logEl.scrollHeight;
 }
 
 // 【祝禱】(教徒的禱詞):敵方攻擊附帶的中毒/流血累積減半
