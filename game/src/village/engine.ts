@@ -1,4 +1,4 @@
-import { BUILDINGS, CONSUMABLES, HUT_CAP_BONUS, JOBS, TRADES, UPGRADES, WEAPONS, repairCost, isIronTierWeapon , PERK_SLOTS , fineMaxDurability, SMITHY_IRON_UPGRADE_COST } from "./data";
+import { BUILDINGS, CONSUMABLES, HUT_CAP_BONUS, JOBS, TRADES, UPGRADES, WEAPONS, repairCost, isIronTierWeapon , PERK_SLOTS , fineMaxDurability, SMITHY_IRON_UPGRADE_COST, BARTER_RATE, BARTER_RAW } from "./data";
 import { EVENTS, FOLLOWUP_POOLS, type VillageEvent, type PassiveEvent } from "./events-data";
 import { clearedSiteCount } from "../explore/sites";
 import { RESOURCE_LABEL, type ResourceId } from "./types";
@@ -404,6 +404,24 @@ export class VillageEngine {
     this.syncSeenResources();
     this.saveState();
     this.cb.onLog(`用 ${def.shards} 顆異晶換得了「${RESOURCE_LABEL[def.get!]}」${(def.qty ?? 1) > 1 ? ` ×${def.qty}` : ""}。`);
+    return true;
+  }
+
+  /** 以物易物(2026-09 用戶定案):原物料之間 20 換 1;不計入交易次數(熟客門檻要花異晶才算) */
+  canBarter(give: ResourceId, get: ResourceId, times = 1): boolean {
+    if (!this.hasBuilding("trading-post") || give === get || times <= 0) return false;
+    if (!BARTER_RAW.includes(give) || !BARTER_RAW.includes(get)) return false;
+    if (!this.seenResources.has(give) || !this.seenResources.has(get)) return false;
+    return (this.resources[give] ?? 0) >= BARTER_RATE * times;
+  }
+
+  barter(give: ResourceId, get: ResourceId, times = 1): boolean {
+    if (!this.canBarter(give, get, times)) return false;
+    this.resources[give] -= BARTER_RATE * times;
+    this.resources[get] = (this.resources[get] ?? 0) + times;
+    this.syncSeenResources();
+    this.saveState();
+    this.cb.onLog(`用 ${RESOURCE_LABEL[give]} ${BARTER_RATE * times} 換得了「${RESOURCE_LABEL[get]}」${times > 1 ? ` ×${times}` : ""}。`);
     return true;
   }
 

@@ -90,9 +90,10 @@ export const TRADES: TradeDef[] = [
   // 基礎物資(用異晶換大宗):對方對「石頭」的行情好得出奇
   { id: "trade-wood", get: "wood", qty: 120, shards: 2, flavor: "一捆捆切得整整齊齊的木料,斷口平滑得像用什麼燙過。", requiresResourceSeen: "wood" },
   { id: "trade-stone", get: "stone", qty: 80, shards: 2, flavor: "方正得過分的石塊,每一塊的重量幾乎一模一樣。", requiresResourceSeen: "stone" },
-  { id: "trade-meat", get: "meat", qty: 40, shards: 2, flavor: "用油紙包好的肉,新鮮得不像跋涉過荒野。", requiresResourceSeen: "meat" },
-  { id: "trade-hide", get: "hide", qty: 30, shards: 2, flavor: "疊得厚厚的獸皮,每張都取得乾乾淨淨——獵人看了會沉默的那種。", requiresResourceSeen: "hide" },
-  { id: "trade-iron", get: "iron", qty: 15, shards: 3, flavor: "沉甸甸的礦石,挑得極純——對方似乎很清楚哪些石頭有用。", requiresResourceSeen: "iron" },
+  // 加工品(2026-09 用戶定案):木石以外的大宗直接賣加工過的——生肉/生皮/鐵礦原料改走以物易物
+  { id: "trade-ingot", get: "ingot", qty: 10, shards: 3, flavor: "打得方正的鐵條,一根根疊得整齊,邊角連毛刺都沒有。", requiresResourceSeen: "ingot" },
+  { id: "trade-leather", get: "leather", qty: 10, shards: 2, flavor: "鞣得極軟的皮革,對摺再對摺也不見一道裂紋。", requiresResourceSeen: "leather" },
+  { id: "trade-jerky", get: "jerky", qty: 10, shards: 2, flavor: "燻得透的肉乾,油紙一打開就是一股火塘的味道。", requiresResourceSeen: "jerky" },
   // 改造藥劑(2026-09 用戶定案):一次性的身體改造,喝了就是永久——只有一瓶,買走就沒了
   {
     id: "trade-crisis-awareness",
@@ -104,6 +105,10 @@ export const TRADES: TradeDef[] = [
     effect: "永久改造:每場戰鬥開場的第一次充能,全部行動條速度 ×2;放出任一行動後恢復正常。",
   },
 ];
+
+// ---- 以物易物(2026-09 用戶定案):原物料之間 20 換 1,見過的原料才能上桌 ----
+export const BARTER_RATE = 20;
+export const BARTER_RAW: import("./types").ResourceId[] = ["wood", "stone", "meat", "hide", "grain", "iron", "coal"];
 
 /** 這把武器是否屬於鐵製以上(配方吃鐵/鋼)——修理它需要升格後的鐵匠鋪 */
 export function isIronTierWeapon(weaponId: string): boolean {

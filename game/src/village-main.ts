@@ -1,6 +1,6 @@
 import "./style.css";
 import { VillageEngine, TICK_MS, GATHERABLE } from "./village/engine";
-import { JOBS, BUILDINGS, WEAPONS, CONSUMABLES, UPGRADES, TRADES, repairCost, PERK_SLOTS, SMITHY_IRON_UPGRADE_COST } from "./village/data";
+import { JOBS, BUILDINGS, WEAPONS, CONSUMABLES, UPGRADES, TRADES, repairCost, PERK_SLOTS, SMITHY_IRON_UPGRADE_COST, BARTER_RAW } from "./village/data";
 import { PERK_LABEL } from "./village/events-data";
 import { clearedSiteCount, specialSites, siteProgress } from "./explore/sites";
 import { generateMap } from "./explore/map-gen";
@@ -110,6 +110,18 @@ function startVillage() {
           <div class="section-title">交易所</div>
           <div class="hint-line" id="market-shards" style="margin-bottom:6px;"></div>
           <div id="trades" class="card-grid"></div>
+          <div id="barter-block" style="display:none;">
+            <div class="section-title" style="margin-top:12px;">以物易物</div>
+            <div class="hint-line" style="margin-bottom:6px;">原物料互換,20 換 1。</div>
+            <div class="barter-row">
+              <select id="barter-give"></select>
+              <span>×20 →</span>
+              <select id="barter-get"></select>
+              <span>×1</span>
+              <button class="btn" id="barter-btn-1">交換</button>
+              <button class="btn" id="barter-btn-10">交換 ×10</button>
+            </div>
+          </div>
         </div>
 
         <div class="section" id="prep-section" style="display:none;"></div>
@@ -931,6 +943,50 @@ function startVillage() {
     return { def, row, btn };
   });
 
+  // 以物易物(2026-09 用戶定案):原物料 20 換 1——見過的原料才會出現在選單裡
+  const barterBlockEl = document.querySelector<HTMLDivElement>("#barter-block")!;
+  const barterGive = document.querySelector<HTMLSelectElement>("#barter-give")!;
+  const barterGet = document.querySelector<HTMLSelectElement>("#barter-get")!;
+  const barterBtn1 = document.querySelector<HTMLButtonElement>("#barter-btn-1")!;
+  const barterBtn10 = document.querySelector<HTMLButtonElement>("#barter-btn-10")!;
+  function renderBarter(tradeOpen: boolean) {
+    const raws = BARTER_RAW.filter((id) => engine.seenResources.has(id));
+    barterBlockEl.style.display = tradeOpen && raws.length >= 2 ? "" : "none";
+    if (raws.length < 2) return;
+    const signature = raws.join("|");
+    for (const sel of [barterGive, barterGet]) {
+      if (sel.dataset.filled === signature) continue;
+      const prev = sel.value;
+      sel.innerHTML = "";
+      for (const id of raws) {
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = RESOURCE_LABEL[id];
+        sel.appendChild(opt);
+      }
+      sel.dataset.filled = signature;
+      if (raws.includes(prev as ResourceId)) sel.value = prev;
+    }
+    if (barterGet.value === barterGive.value) barterGet.value = raws.find((id) => id !== barterGive.value)!;
+    const give = barterGive.value as ResourceId;
+    const get = barterGet.value as ResourceId;
+    for (const [btn, n] of [[barterBtn1, 1], [barterBtn10, 10]] as [HTMLButtonElement, number][]) {
+      const ok = engine.canBarter(give, get, n);
+      btn.disabled = !ok;
+      btn.classList.toggle("ready", ok);
+    }
+  }
+  barterGive.addEventListener("change", () => render());
+  barterGet.addEventListener("change", () => render());
+  barterBtn1.addEventListener("click", () => {
+    engine.barter(barterGive.value as ResourceId, barterGet.value as ResourceId, 1);
+    render();
+  });
+  barterBtn10.addEventListener("click", () => {
+    engine.barter(barterGive.value as ResourceId, barterGet.value as ResourceId, 10);
+    render();
+  });
+
   // 條件解鎖的建築第一次浮現時,代行者用她的口吻點一句——不是系統教學框,是同伴的建議
   const ADVISOR_BUILDING_HINTS: Record<string, string> = {
     tannery: "她翻著你帶回來的生皮:「這些皮加工之後就能變成堅硬的皮革,做得出很多東西。搭個製革場吧,雖然味道不是很好聞就是了。」她調皮地笑著說道",
@@ -1377,6 +1433,7 @@ function startVillage() {
     }
     // 交易所兌換(獨立主分頁):見過的才上架;獨賣品交易熟了才亮出來
     const tradeOpen = engine.hasBuilding("trading-post");
+    renderBarter(tradeOpen);
     for (const row of tradeRows) {
       const visible = tradeOpen && engine.isTradeVisible(row.def.id);
       row.row.style.display = visible ? "" : "none";

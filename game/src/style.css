@@ -712,6 +712,22 @@ hr {
   color: var(--fg);
 }
 
+/* 交易所:以物易物列(原物料 20 換 1) */
+.barter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.barter-row select {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--fg-faint);
+  padding: 3px 6px;
+  font: inherit;
+}
+
 /* 交易所:冰冷的系統效果行(與 flavor 的主觀描述分開) */
 .trade-effect {
   font-size: 12px;
