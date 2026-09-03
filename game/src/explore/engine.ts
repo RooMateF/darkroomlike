@@ -375,6 +375,8 @@ export class ExploreEngine {
   private depotGrantsUsed = new Set<string>();
   /** 這趟遠征已在哪些據點休整過(同上,防止進出刷血) */
   private depotHealUsed = new Set<string>();
+  /** 這趟遠征已路過拿過「順手撿」的高階地點(打通的礦坑給礦、Lv3+ 有機會給加工品;每趟每點一次) */
+  private passLootUsed = new Set<string>();
   /** 腳邊還沒做決定的拾獲物(手動拾取模式):走開就留在身後 */
   pendingPickup: Record<string, number> | null = null;
   /** 這份地圖狀態屬於第幾趟遠征(據點儲備的重置依據) */
@@ -407,6 +409,7 @@ export class ExploreEngine {
       this.collectedSinceCheckpoint = restored.collectedSinceCheckpoint;
       this.depotGrantsUsed = restored.depotGrantsUsed;
       this.depotHealUsed = restored.depotHealUsed;
+      this.passLootUsed = restored.passLootUsed;
       this.pendingPickup = restored.pendingPickup;
       this.stateSerial = restored.serial;
       this.railSteps = restored.railSteps;
@@ -464,6 +467,7 @@ export class ExploreEngine {
     if (this.stateSerial !== serial) {
       this.stateSerial = serial;
       this.depotGrantsUsed.clear();
+      this.passLootUsed.clear();
       this.depotHealUsed.clear();
     }
 
@@ -479,7 +483,8 @@ export class ExploreEngine {
       this.checkpoint = { x: start.x, y: start.y, water: this.maxWater };
       this.revealedSinceCheckpoint.clear();
       this.collectedSinceCheckpoint = [];
-      this.depotGrantsUsed.clear(); // 新遠征:各據點的乾糧儲備重新補上
+      this.depotGrantsUsed.clear();
+      this.passLootUsed.clear(); // 新遠征:各據點的乾糧儲備重新補上
       this.depotHealUsed.clear();
       this.reveal(start.x, start.y);
 
@@ -637,6 +642,7 @@ export class ExploreEngine {
         collectedSince: this.collectedSinceCheckpoint,
         depotGrantsUsed: [...this.depotGrantsUsed],
         depotHealUsed: [...this.depotHealUsed],
+        passLootUsed: [...this.passLootUsed],
         pendingPickup: this.pendingPickup,
         railSteps: this.railSteps,
         litRows,
@@ -672,6 +678,7 @@ export class ExploreEngine {
         collectedSinceCheckpoint: (s.collectedSince ?? []) as CollectedItem[],
         depotGrantsUsed: new Set<string>(s.depotGrantsUsed ?? []),
         depotHealUsed: new Set<string>(s.depotHealUsed ?? []),
+        passLootUsed: new Set<string>(s.passLootUsed ?? []),
         pendingPickup: (s.pendingPickup ?? null) as Record<string, number> | null,
         serial: (s.serial ?? -1) as number,
         railSteps: (s.railSteps ?? 0) as number,
@@ -970,6 +977,9 @@ export class ExploreEngine {
         this.cb.onLog("『接下來的旅途這裡會很適合當中繼點。』");
       }
       this.refillHere();
+      // 打通後升格成補給點的 Lv3 遺跡:路過也有機會順手撿到加工品
+      const passSite = siteAt(nx, ny, this.mapId);
+      if (passSite && passSite.level >= 3 && siteProgress(passSite.key).cleared) this.grantPassLoot(passSite, passSite.landmarkId);
     } else if (target.type === "resource" || target.type === "event") {
       this.collectedSinceCheckpoint.push({ x: nx, y: ny, type: target.type });
       // 選擇式小劇情(2026-09 核可):事件點有機率開出「停下來抉擇」的一幕——
@@ -1016,6 +1026,7 @@ export class ExploreEngine {
           // 沒有這一層,礦坑/觀測台這種離補給網 20+ 步的地方就是回不來的單程票。
           // 第一次進攻仍然是「不打贏就回不了家」的豪賭(Lv4 到場警語說的正是這件事)
           if (lm) this.refillHere();
+          this.grantPassLoot(site, lm?.id);
         } else {
           if (lm) this.cb.onLog(`【${lm.label}】${lm.introText}`);
           this.cb.onLog(SITE_ARRIVAL_TEXT[site.level]);
@@ -1278,6 +1289,21 @@ export class ExploreEngine {
    *   拿過的據點這趟再回來只剩水,防止在據點旁反覆進出刷糧
    * - 記錄檢查點
    */
+  /** 路過已打通的高階地點(2026-09 用戶定案):礦坑給鐵礦、煤礦坑給煤,其他 Lv3+ 地點一半機率給鐵或皮革;
+   * 每趟遠征每個點一次(沒抽中也算看過);走揹負空間,背包滿了照拾獲規則處理 */
+  private grantPassLoot(site: { key: string; level: number }, landmarkId?: string) {
+    if (!this.carried || this.passLootUsed.has(site.key)) return;
+    const roll = (lo: number, hi: number) => lo + Math.floor(Math.random() * (hi - lo + 1));
+    let gains: Record<string, number> | null = null;
+    if (landmarkId === "mine") gains = { iron: roll(3, 6) };
+    else if (landmarkId === "coalmine") gains = { coal: roll(3, 6) };
+    else if (site.level >= 3 && Math.random() < 0.5) gains = Math.random() < 0.5 ? { ingot: roll(2, 4) } : { leather: roll(2, 4) };
+    this.passLootUsed.add(site.key);
+    if (!gains) return;
+    this.cb.onLog(landmarkId === "mine" || landmarkId === "coalmine" ? "坑口還堆著上回沒扛完的礦,你順手裝了一些。" : "角落還留著上一批人沒帶走的東西。");
+    this.cb.onLog(this.applyPickup(gains));
+  }
+
   private refillHere() {
     // 家門口什麼都不給(連水都不補):要補給就正式回村再整備出發——
     // 那一趟同時把行囊入庫、清出背包,才是完整的回村循環;站在村口的主角只有「返回村莊」

@@ -817,7 +817,23 @@ function startVillage() {
   weaponTable.className = "craft-table";
   weaponTable.style.display = "none";
   const weaponHeadRow = document.createElement("tr");
-  for (const [h, cls] of [["武器", ""], ["持有", "num"], ["耐久", "num"], ["出手", "num"], ["傷害", "num"], ["材料", "mats"], ["", "ops"]] as [string, string][]) {
+  // 特性欄(2026-09 用戶反饋):踉蹌/凍結/壓制/招架/格擋輔助這些特殊狀態統一列在這裡,傷害欄只留數字
+  const weaponTraits = (w: (typeof WEAPONS)[number]): string => {
+    const t: string[] = [];
+    if (w.block) t.push(`擋 ${Math.round(w.block.reduce * 100)}%・CD ${w.block.cd}s`);
+    if (w.stagger) t.push(`踉蹌 +${w.stagger}`);
+    if (w.freeze) t.push(`凍結 +${w.freeze}`);
+    if (w.suppress) t.push("壓制");
+    if (w.riposte) t.push(`招架 +${w.riposte.bonus}`);
+    if (w.parry) t.push(`格擋輔助 +${w.parry}s`);
+    if (w.pellets) t.push(`霰彈 ×${w.pellets}`);
+    if (w.burst) t.push(`連發 ×${w.burst}`);
+    if (w.magazine) t.push(`彈匣 ${w.magazine}`);
+    if (w.noWear) t.push("不耗損");
+    if (w.unbreakable) t.push("不消失");
+    return t.join("・");
+  };
+  for (const [h, cls] of [["武器", ""], ["持有", "num"], ["耐久", "num"], ["出手", "num"], ["傷害", "num"], ["特性", "traits"], ["材料", "mats"], ["", "ops"]] as [string, string][]) {
     const th = document.createElement("th");
     th.textContent = h;
     if (cls) th.className = cls;
@@ -845,19 +861,17 @@ function startVillage() {
     speed.textContent = weapon.category === "shield" ? "—" : `${weapon.baseCost}s`;
     const dmg = td("num");
     dmg.textContent =
-      weapon.category === "shield" && weapon.block
-        ? `擋 ${Math.round(weapon.block.reduce * 100)}%`
+      weapon.category === "shield"
+        ? "—"
         : weapon.pellets
           ? `${weapon.damage}×${weapon.pellets}`
           : weapon.burstDamages
             ? weapon.burstDamages.join("+")
-            : weapon.riposte
-              ? `${weapon.damage} 招架+${weapon.riposte.bonus}`
-              : weapon.suppress
-                ? `${weapon.damage} 壓制`
-                : String(weapon.damage);
+            : String(weapon.damage);
+    const traits = td("traits");
+    traits.textContent = weaponTraits(weapon);
     const mats = td("mats");
-    row.append(name, owned, dur, speed, dmg, mats);
+    row.append(name, owned, dur, speed, dmg, traits, mats);
     const ops = td("ops");
     const btn = document.createElement("button");
     btn.className = "btn";

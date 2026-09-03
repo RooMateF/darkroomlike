@@ -1082,6 +1082,11 @@ hr {
   white-space: normal; /* 材料串太長時允許折行,表格不撐寬 */
 }
 
+.craft-table td.traits {
+  color: var(--fg-dim);
+  white-space: normal; /* 特性標籤可折行 */
+}
+
 .craft-table .short {
   color: var(--fg);
   text-decoration: underline dotted; /* 這一項材料不夠 */
