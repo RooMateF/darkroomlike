@@ -845,7 +845,7 @@ function startVillage() {
       cell.appendChild(span);
     });
   };
-  for (const [h, cls] of [["武器", ""], ["持有", "num"], ["耐久", "num"], ["出手", "num"], ["傷害", "num"], ["特性", "traits"], ["材料", "mats"], ["", "ops"]] as [string, string][]) {
+  for (const [h, cls] of [["武器", ""], ["持有", "num"], ["耐久", "num"], ["CD", "num"], ["傷害", "num"], ["特性", "traits"], ["材料", "mats"], ["", "ops"]] as [string, string][]) {
     const th = document.createElement("th");
     th.textContent = h;
     if (cls) th.className = cls;
