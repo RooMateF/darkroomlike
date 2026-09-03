@@ -81,6 +81,7 @@ function startVillage() {
           <div id="resource-empty" class="hint-line">火堆旁還沒有任何存料。</div>
           <div id="manual" class="button-row" style="margin-top:6px;"></div>
           <div id="gather-slot"></div>
+          <div id="craft-slot"></div>
         </div>
       </div>
 
@@ -744,9 +745,14 @@ function startVillage() {
   craftStopBtn.addEventListener("click", stopCraftGame);
   const craftResultEl = document.createElement("span");
   craftResultEl.className = "gather-result";
+  // 節奏條搬到左邊固定欄(2026-09 用戶反饋:清單一長,按了打造還得捲回頂端才按得到「停」);
+  // 離開了那一列,所以條上要標明正在打什麼
+  const craftLabelEl = document.createElement("div");
+  craftLabelEl.className = "hint-line craft-label";
+  craftLabelEl.style.visibility = "hidden";
   craftBarEl.append(craftRow, craftStopBtn, craftResultEl);
   craftBarEl.style.visibility = "hidden";
-  weaponsEl.parentElement!.insertBefore(craftBarEl, weaponsEl);
+  document.querySelector<HTMLDivElement>("#craft-slot")!.append(craftLabelEl, craftBarEl);
 
   function startCraftGame(kind: "weapon" | "consumable", id: string) {
     if (craftState) return;
@@ -755,6 +761,9 @@ function startVillage() {
     craftResultEl.className = "gather-result";
     craftRow.className = "gather-row";
     craftStopBtn.style.display = "";
+    const targetLabel = kind === "weapon" ? WEAPONS.find((w) => w.id === id)?.label : CONSUMABLES.find((c) => c.id === id)?.label;
+    craftLabelEl.textContent = `打造:${targetLabel ?? id}`;
+    craftLabelEl.style.visibility = "visible";
     craftBarEl.style.visibility = "visible";
     craftState = { kind, id, pos: 0, dir: 1, timer: 0 };
     craftState.timer = window.setInterval(() => {
@@ -791,6 +800,7 @@ function startVillage() {
 
     craftResultTimer = window.setTimeout(() => {
       craftBarEl.style.visibility = "hidden";
+      craftLabelEl.style.visibility = "hidden";
     }, 1400);
 
     render();
@@ -1518,6 +1528,8 @@ function startVillage() {
     manualEl.style.display = onExpedition ? "none" : "";
     const gatherSlotHost = document.querySelector<HTMLDivElement>("#gather-slot");
     if (gatherSlotHost) gatherSlotHost.style.display = onExpedition ? "none" : "";
+    const craftSlotHost = document.querySelector<HTMLDivElement>("#craft-slot");
+    if (craftSlotHost) craftSlotHost.style.display = onExpedition ? "none" : "";
     mainSplitEl.style.display = isExp ? "none" : "";
     expeditionSectionEl.style.display = isExp ? "" : "none";
     logDockEl.style.display = isExp ? "none" : ""; // 遠征有自己的紀錄,村莊的先收起來
