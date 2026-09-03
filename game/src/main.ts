@@ -1636,7 +1636,8 @@ function render() {
   for (const cat of engine.playerCategories) {
     for (const t of cat.trackers) {
       const row = rows.find((r) => r.categoryId === cat.def.id && r.subActionId === t.subAction.id)!;
-      const pct = Math.round(t.progress * 100);
+      // 沒真的跑滿就別顯示 100%(用戶回報:四捨五入成 100% 但「使用」是灰的,看起來像壞掉)
+      const pct = t.ready ? 100 : Math.min(99, Math.round(t.progress * 100));
       const filledCount = Math.round((pct / 100) * BAR_WIDTH);
       row.barFilled.textContent = "█".repeat(filledCount);
       row.barEmpty.textContent = "░".repeat(BAR_WIDTH - filledCount);
