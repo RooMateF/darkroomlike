@@ -106,8 +106,8 @@ export const TRADES: TradeDef[] = [
   },
 ];
 
-// ---- 以物易物(2026-09 用戶定案):原物料之間 20 換 1,見過的原料才能上桌 ----
-export const BARTER_RATE = 20;
+// ---- 以物易物(2026-09 用戶定案):原物料之間 100 換 1(原 20 太強),見過的原料才能上桌 ----
+export const BARTER_RATE = 100;
 export const BARTER_RAW: import("./types").ResourceId[] = ["wood", "stone", "meat", "hide", "grain", "iron", "coal"];
 
 /** 這把武器是否屬於鐵製以上(配方吃鐵/鋼)——修理它需要升格後的鐵匠鋪 */

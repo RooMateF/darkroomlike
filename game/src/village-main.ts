@@ -1,6 +1,6 @@
 import "./style.css";
 import { VillageEngine, TICK_MS, GATHERABLE } from "./village/engine";
-import { JOBS, BUILDINGS, WEAPONS, CONSUMABLES, UPGRADES, TRADES, repairCost, PERK_SLOTS, SMITHY_IRON_UPGRADE_COST, BARTER_RAW } from "./village/data";
+import { JOBS, BUILDINGS, WEAPONS, CONSUMABLES, UPGRADES, TRADES, repairCost, PERK_SLOTS, SMITHY_IRON_UPGRADE_COST, BARTER_RAW, BARTER_RATE } from "./village/data";
 import { PERK_LABEL } from "./village/events-data";
 import { clearedSiteCount, specialSites, siteProgress } from "./explore/sites";
 import { generateMap } from "./explore/map-gen";
@@ -112,10 +112,10 @@ function startVillage() {
           <div id="trades" class="card-grid"></div>
           <div id="barter-block" style="display:none;">
             <div class="section-title" style="margin-top:12px;">以物易物</div>
-            <div class="hint-line" style="margin-bottom:6px;">原物料互換,20 換 1。</div>
+            <div class="hint-line" style="margin-bottom:6px;">原物料互換,${BARTER_RATE} 換 1。</div>
             <div class="barter-row">
               <select id="barter-give"></select>
-              <span>×20 →</span>
+              <span>×${BARTER_RATE} →</span>
               <select id="barter-get"></select>
               <span>×1</span>
               <button class="btn" id="barter-btn-1">交換</button>
