@@ -49,8 +49,8 @@ export const BUILDINGS: BuildingDef[] = [
   // 交易所:撿過異晶(知道「有人收這種東西」)才浮現;開張後用異晶兌換稀有物資(TRADES)
   { id: "trading-post", label: "交易所", cost: { wood: 1500, stone: 800 }, effect: "用異晶兌換稀有的物資", requiresExplore: true, requiresResourceSeen: "shard" },
   // 火車:本章基建的頂點——沿著鋪好的鐵軌行駛的鋼鐵巨獸;不論放在哪個時期都是巨額工程。
-  // 通車後:軌上移動不再消耗水糧;鐵軌通礦坑的礦車運輸再翻倍(×4)
-  { id: "train", label: "火車", cost: { wood: 3000, stone: 1500, ingot: 120, steel: 40, coal: 60 }, effect: "沿鐵軌行駛的鋼鐵巨獸:軌上移動不再消耗水與糧;鐵軌通礦坑後,運輸產能再翻倍", requiresLandmark: "coalmine" },
+  // 通車後:鐵軌通礦坑的礦車運輸再翻倍(×4)。(2026-09:軌上零消耗改為鋪軌即生效,不再綁火車)
+  { id: "train", label: "火車", cost: { wood: 3000, stone: 1500, ingot: 120, steel: 40, coal: 60 }, effect: "沿鐵軌行駛的鋼鐵巨獸:鐵軌通礦坑後,礦車運輸產能再翻倍", requiresLandmark: "coalmine" },
 ];
 
 // 工匠鋪→鐵匠鋪升格費(2026-09 用戶定案:礦坑解放後不再免費自動升格):

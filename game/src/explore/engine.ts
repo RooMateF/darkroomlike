@@ -1050,16 +1050,14 @@ export class ExploreEngine {
     // 測試模式(工具列 DEV 鈕):水糧不耗、不遇敵——走遍地圖驗地形用;正式發布前移除
     const devMode = localStorage.getItem("explore-dev") === "1";
     const wasDry = this.water <= 0; // 這一步出發前就已經沒水了
-    const trainRunning = onRail && hasTrainBuilt(); // 火車通車:車廂代步,軌上零消耗
-    if (devMode) {
-      // 測試模式不耗水
-    } else if (onRail) {
-      if (!trainRunning && this.railSteps % 4 === 0) this.water = Math.max(0, this.water - 1);
+    // 軌上零消耗(2026-09 用戶定案):鋪了軌就是人開出來的路,水糧都不耗——火車只剩礦車運輸的價值
+    if (devMode || onRail) {
+      // 測試模式/軌上:不耗水
     } else {
       this.water = Math.max(0, this.water - MOVE_WATER_COST);
     }
     let ateThisStep = false;
-    const foodDue = !devMode && (onRail ? !trainRunning && this.railSteps % 8 === 0 : this.stepCount % FOOD_EVERY_STEPS === 0);
+    const foodDue = !devMode && !onRail && this.stepCount % FOOD_EVERY_STEPS === 0;
     if (this.carried && foodDue) {
       if (this.carried.rations > 0) {
         this.carried.rations--;
