@@ -620,7 +620,7 @@ function appendLog(entry: LogEntry) {
   if (entry.blocked) target.textContent += "(盾架住了大半)";
 
   line.append(actor, symbol, target);
-  logEl.appendChild(line);
+  logEl.prepend(line);
   trimBattleLog();
 }
 
@@ -629,14 +629,15 @@ function appendSystemLog(text: string) {
   const line = document.createElement("div");
   line.className = "log-line";
   line.textContent = text;
-  logEl.appendChild(line);
+  logEl.prepend(line);
   trimBattleLog();
 }
 
 // 單場戰鬥的完整紀錄保留可捲動回看;每場戰鬥都是新頁面,結束離開時自然清空
+// 置頂更新(2026-09 用戶試行):最新訊息在最上面,舊的往下沉——修剪從底部剪
 function trimBattleLog() {
-  while (logEl.childElementCount > 300) logEl.removeChild(logEl.firstChild!);
-  logEl.scrollTop = logEl.scrollHeight;
+  while (logEl.childElementCount > 300) logEl.removeChild(logEl.lastChild!);
+  logEl.scrollTop = 0;
 }
 
 // 【祝禱】(教徒的禱詞):敵方攻擊附帶的中毒/流血累積減半

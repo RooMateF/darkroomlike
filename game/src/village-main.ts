@@ -197,13 +197,13 @@ function startVillage() {
     const line = document.createElement("div");
     line.className = "log-line";
     line.textContent = text;
-    logEl.appendChild(line);
-    // 保留最近 100 筆供捲動回顧,新訊息自動捲到底
-    while (logEl.childElementCount > 100) logEl.removeChild(logEl.firstChild!);
+    // 置頂更新(2026-09 用戶試行):最新訊息在最上面,舊的往下沉;保留最近 100 筆供捲動回顧
+    logEl.prepend(line);
+    while (logEl.childElementCount > 100) logEl.removeChild(logEl.lastChild!);
   }
   function appendLog(text: string) {
     renderLogLine(text);
-    logEl.scrollTop = logEl.scrollHeight;
+    logEl.scrollTop = 0;
     try {
       const arr = JSON.parse(localStorage.getItem(VILLAGE_LOG_KEY) ?? "[]") as string[];
       arr.push(text);
@@ -213,10 +213,10 @@ function startVillage() {
       /* 壞資料不擋遊戲 */
     }
   }
-  // 開頁還原歷史紀錄
+  // 開頁還原歷史紀錄(存檔照時間順序、逐筆 prepend → 最新的自然浮在最上面)
   try {
     for (const t of JSON.parse(localStorage.getItem(VILLAGE_LOG_KEY) ?? "[]") as string[]) renderLogLine(t);
-    logEl.scrollTop = logEl.scrollHeight;
+    logEl.scrollTop = 0;
   } catch {
     /* 同上 */
   }
