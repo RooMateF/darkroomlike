@@ -134,7 +134,7 @@ function fitsAfterAdd(mutate: () => void, revert: () => void): boolean {
 let capPackValue: HTMLElement;
 {
   const statsEl = app.querySelector<HTMLDivElement>("#stats-list")!;
-  const waterCap = upgrades["steel-flask"] ? 50 : upgrades["iron-flask"] ? 40 : upgrades.waterskin ? 32 : 20;
+  const waterCap = upgrades["steel-flask"] ? 50 : upgrades["iron-flask"] ? 45 : upgrades.waterskin ? 32 : 20;
   const flaskTag = upgrades["steel-flask"] ? "(鋼水壺)" : upgrades["iron-flask"] ? "(鐵水壺)" : upgrades.waterskin ? "(大水袋)" : "";
   const stats: [string, string, string?][] = [
     ["HP", `${playerMaxHp()}/${playerMaxHp()}${upgrades["steel-armor"] ? "(鋼甲)" : upgrades["iron-armor"] ? "(鐵甲)" : upgrades["leather-armor"] ? "(皮甲)" : ""}`],
