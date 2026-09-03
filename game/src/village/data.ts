@@ -283,7 +283,7 @@ export const CONSUMABLES: ConsumableDef[] = [
   { id: "bullet", label: "子彈", cost: { steel: 30, coal: 30 }, yield: 1, requiresWeaponAny: ["revolver", "shotgun"], note: "槍械彈藥" },
   // 鐵軌:鋪在遠征地圖上的永久建設——從村莊一格一格連出去;軌上水 1/4 步、糧 1/8 步、不遇敵。
   // 鋪到礦坑旁,礦車自動運輸(鐵礦工產出 ×2)。2 根占 1 格,揹得動多少是推車/小貨車的事
-  { id: "rail", label: "鐵軌", cost: { ingot: 20, wood: 500, stone: 200 }, yield: 1, requiresBuilding: "smithy", requiresLandmark: "mine", note: "鋪上鐵軌後，在上面行走不會消耗水跟糧食" }, // 2026-09 用戶定案:枕木與道碴也是真實開銷
+  { id: "rail", label: "鐵軌", cost: { ingot: 20, wood: 500, stone: 200 }, yield: 1, requiresBuilding: "smithy", requiresLandmark: "mine", note: "鋪上鐵軌後，在上面行走不會消耗水跟糧食；鐵軌連通礦坑後，礦車自動運輸，鐵礦工的產量翻倍（火車通車後再翻倍）" }, // 2026-09 用戶定案:枕木與道碴也是真實開銷
 ];
 
 // ---- 一次性裝備升級(改變探索/戰鬥的基礎參數) ----
