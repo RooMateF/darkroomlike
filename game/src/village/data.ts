@@ -55,7 +55,7 @@ export const BUILDINGS: BuildingDef[] = [
 
 // 工匠鋪→鐵匠鋪升格費(2026-09 用戶定案:礦坑解放後不再免費自動升格):
 // 爐膛與鐵砧要換成吃得動鐵的規格——鐵礦正是剛解放的礦坑產出,升格本身就是第一張鐵礦訂單
-export const SMITHY_IRON_UPGRADE_COST: Partial<Record<import("./types").ResourceId, number>> = { wood: 400, stone: 300, iron: 80 };
+export const SMITHY_IRON_UPGRADE_COST: Partial<Record<import("./types").ResourceId, number>> = { wood: 4000, stone: 3000, iron: 80 }; // 2026-09 用戶定案:木石×10
 
 // ---- 交易所兌換清單(異晶 → 稀有物資) ----
 
