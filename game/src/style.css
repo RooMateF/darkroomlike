@@ -577,9 +577,19 @@ h1 {
 .gather-bar {
   margin-top: 8px;
   display: flex;
+  flex-wrap: wrap; /* 結算文字自己一行(2026-09 用戶反饋:擠在條旁邊被左欄裁掉看不到) */
   align-items: center;
-  gap: 10px;
+  gap: 6px 10px;
   min-height: 26px;
+}
+
+/* 連擊常駐徽章:資源面板標題列右側 */
+.section-title .streak-badge {
+  float: right;
+  color: var(--fg-bright);
+  font-weight: bold;
+  font-size: 12px;
+  letter-spacing: 1px;
 }
 
 .gather-row {
@@ -641,7 +651,8 @@ h1 {
 
 .gather-result {
   font-size: 12px;
-  white-space: nowrap;
+  white-space: normal;
+  flex-basis: 100%; /* 佔滿一整行,長文字折行而不是被裁掉 */
 }
 
 .gather-result.grade-perfect {

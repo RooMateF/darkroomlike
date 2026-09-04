@@ -76,7 +76,7 @@ function startVillage() {
     <div class="main-split" id="main-split">
       <div class="col-fixed">
         <div class="section" id="affairs-resources">
-          <div class="section-title">資源</div>
+          <div class="section-title">資源<span id="gather-streak-badge" class="streak-badge" style="display:none;"></span></div>
           <div id="resource-grid" class="resource-grid"></div>
           <div id="resource-empty" class="hint-line">火堆旁還沒有任何存料。</div>
           <div id="manual" class="button-row" style="margin-top:6px;"></div>
@@ -395,11 +395,8 @@ function startVillage() {
     manualEl.appendChild(btn);
     return { id, btn };
   });
-  // 連擊常駐顯示(2026-09 用戶反饋:連擊的提示要放回來,這是滿足感的來源)——不只結算那一瞬間閃一下
-  const gatherStreakEl = document.createElement("div");
-  gatherStreakEl.className = "hint-line gather-streak";
-  gatherStreakEl.style.display = "none";
-  manualEl.insertAdjacentElement("afterend", gatherStreakEl);
+  // 連擊常駐顯示(2026-09 用戶反饋:要一直看得到)——掛在資源面板標題列右側,亮色粗體
+  const gatherStreakEl = document.querySelector<HTMLSpanElement>("#gather-streak-badge")!;
 
   function startGather(resourceId: ResourceId) {
     if (gatherState || !engine.canGather) return;
@@ -443,7 +440,7 @@ function startVillage() {
 
     resultTimer = window.setTimeout(() => {
       gatherBarEl.style.visibility = "hidden";
-    }, 1400);
+    }, 2400); // 2026-09 用戶反饋:結算字看不到——多停一秒
 
     render();
   }
@@ -1275,12 +1272,13 @@ function startVillage() {
     }
     // 連擊常駐:有層數就一直掛著,提醒玩家「下一下也要完美」
     const streak = engine.gatherStreak;
-    gatherStreakEl.style.display = streak > 0 && !onExpedition ? "" : "none";
+    // 注意:onExpedition 在 render 更後面才宣告(TDZ),這裡直接讀行囊——2026-09 曾因此整個 render 炸掉
+    gatherStreakEl.style.display = streak > 0 && loadCarried() === null ? "" : "none";
     if (streak > 0) {
       const pct = Math.round((gatherStreakMult(streak) - 1) * 100);
       // 10 層以內每層都在漲;之後每滿 10 層跳一級,把「還差幾次」寫出來當胡蘿蔔
       const toNext = streak < 10 ? 0 : 10 - ((streak - 10) % 10);
-      gatherStreakEl.textContent = `連擊 ×${streak}(收穫 +${pct}%${toNext > 0 ? `,再 ${toNext} 次 +10%` : ""})`;
+      gatherStreakEl.textContent = `連擊 ×${streak}　+${pct}%${toNext > 0 ? `(再 ${toNext} 次升級)` : ""}`;
     }
 
     let anyResourceSeen = false;
