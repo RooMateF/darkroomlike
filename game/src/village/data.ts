@@ -281,7 +281,7 @@ export const CONSUMABLES: ConsumableDef[] = [
   // 弓矢:遠程輸出的彈藥錢——有感但不至於奢侈(2026-08 定案 30/20)
   { id: "arrow", label: "弓矢", cost: { wood: 30, stone: 20 }, yield: 3, requiresWeapon: "hunting-bow", note: "弓箭使用的箭矢" },
   // 燈油:燻製棚熬獸脂——一罐點亮一座燈柱(壓低周圍遭遇率);罐子笨重,揹著占 3 格
-  { id: "oil", label: "燈油", cost: { meat: 6, wood: 15 }, yield: 1, requiresBuilding: "smokehouse", note: "降地原野的遇敵率" },
+  { id: "oil", label: "燈油", cost: { meat: 6, wood: 15 }, yield: 1, requiresBuilding: "smokehouse", note: "降低原野的遇敵率" },
   // 子彈:鋼階彈藥(火藥吃煤)——左輪/散彈通用
   // 2026-09 用戶定案:一顆子彈=鋼30+煤30——槍械威力不動,用彈藥經濟拴死(每一發都是財政決定)
   { id: "bullet", label: "子彈", cost: { steel: 30, coal: 30 }, yield: 1, requiresWeaponAny: ["revolver", "shotgun"], note: "槍械彈藥" },
