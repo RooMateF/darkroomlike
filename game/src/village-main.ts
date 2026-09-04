@@ -1,5 +1,5 @@
 import "./style.css";
-import { VillageEngine, TICK_MS, GATHERABLE } from "./village/engine";
+import { VillageEngine, TICK_MS, GATHERABLE, gatherStreakMult } from "./village/engine";
 import { JOBS, BUILDINGS, WEAPONS, CONSUMABLES, UPGRADES, TRADES, repairCost, brokenRepairCost, PERK_SLOTS, SMITHY_IRON_UPGRADE_COST, BARTER_RAW, BARTER_RATE } from "./village/data";
 import { PERK_LABEL } from "./village/events-data";
 import { clearedSiteCount, specialSites, siteProgress } from "./explore/sites";
@@ -383,17 +383,23 @@ function startVillage() {
   gatherBarEl.append(gatherRow, stopBtn, resultEl);
   gatherBarEl.style.visibility = "hidden";
 
-  // 木/石隨時可採;獵弓入手後開放狩獵(生肉/生皮)——按鈕在 render 時依 availableGathers 顯示
-  const ALL_GATHERS: ResourceId[] = [...GATHERABLE, "meat", "hide"];
-  const gatherButtons = ALL_GATHERS.map((id) => {
+  // 所有原物料都有採集小遊戲(2026-09 用戶定案)——按鈕在 render 時依 availableGathers 顯示
+  const gatherVerb = (id: ResourceId): string =>
+    id === "meat" || id === "hide" ? "狩獵" : id === "grain" ? "收割" : id === "iron" || id === "coal" ? "挖掘" : "採集";
+  const gatherButtons = GATHERABLE.map((id) => {
     const btn = document.createElement("button");
     btn.className = "btn ready";
-    btn.textContent = id === "meat" || id === "hide" ? `狩獵${RESOURCE_LABEL[id]}` : `採集${RESOURCE_LABEL[id]}`;
+    btn.textContent = `${gatherVerb(id)}${RESOURCE_LABEL[id]}`;
     btn.style.display = "none";
     btn.addEventListener("click", () => startGather(id));
     manualEl.appendChild(btn);
     return { id, btn };
   });
+  // 連擊常駐顯示(2026-09 用戶反饋:連擊的提示要放回來,這是滿足感的來源)——不只結算那一瞬間閃一下
+  const gatherStreakEl = document.createElement("div");
+  gatherStreakEl.className = "hint-line gather-streak";
+  gatherStreakEl.style.display = "none";
+  manualEl.insertAdjacentElement("afterend", gatherStreakEl);
 
   function startGather(resourceId: ResourceId) {
     if (gatherState || !engine.canGather) return;
@@ -1263,10 +1269,18 @@ function startVillage() {
       const usable = engine.canGather && !gatherState;
       g.btn.disabled = !usable;
       g.btn.classList.toggle("ready", usable);
-      const verb = g.id === "meat" || g.id === "hide" ? "狩獵" : "採集";
       g.btn.textContent = cdLeft > 0
         ? `${RESOURCE_LABEL[g.id]} ${Math.ceil(cdLeft / 1000)}s`
-        : `${verb}${RESOURCE_LABEL[g.id]}`;
+        : `${gatherVerb(g.id)}${RESOURCE_LABEL[g.id]}`;
+    }
+    // 連擊常駐:有層數就一直掛著,提醒玩家「下一下也要完美」
+    const streak = engine.gatherStreak;
+    gatherStreakEl.style.display = streak > 0 && !onExpedition ? "" : "none";
+    if (streak > 0) {
+      const pct = Math.round((gatherStreakMult(streak) - 1) * 100);
+      // 10 層以內每層都在漲;之後每滿 10 層跳一級,把「還差幾次」寫出來當胡蘿蔔
+      const toNext = streak < 10 ? 0 : 10 - ((streak - 10) % 10);
+      gatherStreakEl.textContent = `連擊 ×${streak}(收穫 +${pct}%${toNext > 0 ? `,再 ${toNext} 次 +10%` : ""})`;
     }
 
     let anyResourceSeen = false;

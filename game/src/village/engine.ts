@@ -13,8 +13,31 @@ const GROWTH_SPEED = 1.3;
 const EVENT_CHANCE_PER_TICK = 0.15;
 /** 兩個事件之間至少隔幾個生產週期(12 × 10 秒 = 2 分鐘)——事件是節奏的標點,不是連環轟炸 */
 const EVENT_COOLDOWN_TICKS = 12;
-/** 手動採集可取得的資源種類(實際收穫量由採集小遊戲的準度決定,見 gatherResult) */
-export const GATHERABLE: ResourceId[] = ["wood", "stone"];
+/** 手動採集可取得的資源種類(2026-09 用戶定案:所有原物料都有小遊戲;實際收穫量由準度決定,見 gatherResult)
+ * 開放條件見 availableGathers:木石隨時、生肉生皮要獵弓、穀物要田、鐵礦要礦坑解放、煤礦要煤礦坑解放 */
+export const GATHERABLE: ResourceId[] = ["wood", "stone", "meat", "hide", "grain", "iron", "coal"];
+/** 各原物料的基礎收穫(完美/不錯/普通/勉強)。2026-09 用戶定案:一般原料可以多一點,礦石要少——
+ * 礦石是要再冶煉的上游料,量收著給 */
+const GATHER_BASE: Partial<Record<ResourceId, [number, number, number, number]>> = {
+  wood: [6, 4, 2, 1],
+  stone: [6, 4, 2, 1],
+  meat: [4, 2, 1, 1],
+  hide: [4, 2, 1, 1],
+  grain: [5, 3, 2, 1],
+  iron: [1, 1, 1, 0],
+  coal: [1, 1, 1, 0],
+};
+/** 小木屋加成曲線(2026-09 用戶定案:不再線性 ×(1+屋數)):一般原料 1+2√屋數、礦石 1+0.5√屋數——
+ * 前期陡、後期趨緩;25 棟(人口封頂)時一般原料 ×11、礦石 ×3.5 */
+function gatherHutMult(resourceId: ResourceId, huts: number): number {
+  const ore = resourceId === "iron" || resourceId === "coal";
+  return 1 + (ore ? 0.5 : 2) * Math.sqrt(Math.max(0, huts));
+}
+/** 連擊倍率(2026-09 用戶定案:無上限、所有採集共用一條):前 10 層每層 +15%,之後每滿 10 層再 +10% 慢慢爬 */
+export function gatherStreakMult(streak: number): number {
+  const s = Math.max(0, streak);
+  return 1 + 0.15 * Math.min(10, s) + 0.1 * Math.floor(Math.max(0, s - 10) / 10);
+}
 
 export interface VillageCallbacks {
   onLog: (text: string) => void;
@@ -510,11 +533,24 @@ export class VillageEngine {
   /** 連續「完美」採集的連擊數(手感獎勵:認真玩節奏條的人效率明顯高於隨手按) */
   gatherStreak = 0;
 
-  /** 目前可手動採集的資源:木石隨時可採;打造出獵弓後開放狩獵(生肉/生皮) */
+  /** 目前可手動採集的資源:木石隨時可採;獵弓開放狩獵(生肉/生皮);田開放收割穀物;礦坑/煤礦坑解放開放挖礦 */
   availableGathers(): ResourceId[] {
     const list: ResourceId[] = ["wood", "stone"];
     if (this.weaponCount("hunting-bow") > 0) list.push("meat", "hide");
+    if (this.hasBuilding("farm")) list.push("grain");
+    if (this.isMineCleared()) list.push("iron");
+    if (this.isLandmarkCleared("coalmine")) list.push("coal");
     return list;
+  }
+
+  /** 某座地標是否已解放(跨頁讀遠征存檔的 landmarks-cleared) */
+  isLandmarkCleared(id: string): boolean {
+    try {
+      const cleared = JSON.parse(localStorage.getItem("landmarks-cleared") ?? "[]") as string[];
+      return cleared.includes(id);
+    } catch {
+      return false;
+    }
   }
 
   get gatherCooldownLeft(): number {
@@ -537,29 +573,29 @@ export class VillageEngine {
   gatherResult(resourceId: ResourceId, accuracy: number): { amount: number; grade: string; streak: number } {
     if (!this.canGather) return { amount: 0, grade: "", streak: this.gatherStreak };
 
-    const isHunt = resourceId === "meat" || resourceId === "hide";
+    const table = GATHER_BASE[resourceId] ?? [5, 3, 2, 1];
     let base: number;
     let grade: string;
     if (accuracy >= 0.9) {
-      base = isHunt ? 3 : 5;
+      base = table[0];
       grade = "完美";
     } else if (accuracy >= 0.65) {
-      base = isHunt ? 2 : 3;
+      base = table[1];
       grade = "不錯";
     } else if (accuracy >= 0.35) {
-      base = isHunt ? 1 : 2;
+      base = table[2];
       grade = "普通";
     } else {
-      base = 1;
+      base = table[3];
       grade = "勉強";
     }
     // 連擊:本次完美「先疊層、再算倍率」——畫面寫連擊×N,這一下就真的吃 ×(1+0.15N);
     // 「不錯」不中斷連擊(只是不成長),普通/勉強才歸零——手滑一格不至於前功盡棄
-    if (accuracy >= 0.9) this.gatherStreak = Math.min(5, this.gatherStreak + 1);
+    if (accuracy >= 0.9) this.gatherStreak += 1; // 2026-09:不再封頂在 5,見 gatherStreakMult 的級距
     else if (accuracy < 0.65) this.gatherStreak = 0;
-    const streakMult = 1 + 0.15 * this.gatherStreak;
+    const streakMult = gatherStreakMult(this.gatherStreak);
     const perkMult = this.equippedPerks.includes("machinist") ? 1.25 : 1; // 【機巧】:鐵皮旅人改造過的工具
-    const amount = Math.round(base * (1 + (this.buildingCounts["hut"] ?? 0)) * streakMult * perkMult);
+    const amount = Math.round(base * gatherHutMult(resourceId, this.buildingCounts["hut"] ?? 0) * streakMult * perkMult);
 
     this.resources[resourceId] += amount;
     this.syncSeenResources();
