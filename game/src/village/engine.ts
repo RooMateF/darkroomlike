@@ -625,6 +625,7 @@ export class VillageEngine {
     populationDelta?: number,
     effectPct?: Partial<Record<ResourceId, number>>,
     populationPct?: number,
+    allowOverCap = false,
   ): string {
     const parts: string[] = [];
     for (const [id, amount] of Object.entries(effect)) {
@@ -644,7 +645,9 @@ export class VillageEngine {
     }
     if (populationDelta) {
       const before = this.population;
-      this.population = Math.max(0, Math.min(this.populationCap, this.population + populationDelta));
+      // 收治型事件(overCap)可以把人塞進超過上限的村子——多出來的人先擠一擠,上限不會被撐大
+      const cap = allowOverCap && populationDelta > 0 ? Infinity : this.populationCap;
+      this.population = Math.max(0, Math.min(cap, this.population + populationDelta));
       const actual = this.population - before;
       if (actual !== 0) parts.push(`人口 ${actual > 0 ? "+" : ""}${actual}`);
       if (actual < 0) this.clampAssignments();
@@ -723,7 +726,7 @@ export class VillageEngine {
       resultText = picked.resultText;
     }
 
-    const summary = this.applyEventEffect(effect, populationDelta, effectPct, populationPct);
+    const summary = this.applyEventEffect(effect, populationDelta, effectPct, populationPct, option.overCap === true);
     if (option.grantPerk) {
       this.perks[option.grantPerk] = true;
       // 有空格就直接裝上——玩家不用為第一個被動學一套 UI

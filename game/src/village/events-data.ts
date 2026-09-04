@@ -53,6 +53,8 @@ export interface ChoiceEvent extends EventBase {
     label: string;
     effect: Partial<Record<ResourceId, number>>;
     populationDelta?: number;
+    /** 允許超出目前人口上限(2026-09 用戶定案:收治受傷獵人這種「多一個人」的事件不受屋數限制) */
+    overCap?: boolean;
     resultText: string;
     /**
      * 這個選項的負值效果是「承受損失」而非「支付成本」(如鴉群的「隨牠們去」)——
@@ -301,9 +303,9 @@ export const EVENTS: VillageEvent[] = [
     text: "一名外地獵人拖著受傷的腿來求助。",
     minTick: 12,
     // 兩個選項都要花東西:至少付得起其中一個,事件才會出現(否則玩家會被鎖在遮罩裡)
-    condition: (ctx) => ctx.population < ctx.populationCap && ((ctx.resources.bandage ?? 0) >= 1 || (ctx.resources.ration ?? 0) >= 1),
+    condition: (ctx) => (ctx.resources.bandage ?? 0) >= 1 || (ctx.resources.ration ?? 0) >= 1, // 2026-09:不再要求有空房,收治可超出上限
     options: [
-      { label: "收治他(繃帶 -1)", effect: { bandage: -1 }, populationDelta: 1, resultText: "傷好之後,他決定留下來——村裡多了一位好獵手。" },
+      { label: "收治他(繃帶 -1)", effect: { bandage: -1 }, populationDelta: 1, overCap: true, resultText: "傷好之後,他決定留下來——村裡多了一位好獵手。" },
       { label: "給點吃的請他離開", effect: { ration: -1 }, resultText: "他道了謝,一瘸一拐地消失在路的盡頭。" },
     ],
   },
