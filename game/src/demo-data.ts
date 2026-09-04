@@ -39,6 +39,10 @@ export function buildPlayerCategories(carried: Carried | null): CategoryDef[] {
     // 繃帶:第一章只能機率拾取的稀有品,回復量大並止血(強力:拖慢下一輪)
     items.push({ id: "bandage", label: "繃帶", baseCost: 1.0, symbol: "+", damage: 0, heal: 20, slowReuse: 1.2 });
   }
+  if ((carried?.coarseBandages ?? 0) > 0) {
+    // 粗布繃帶(2026-09 用戶定案):效果同繃帶,轉盤 1.2s、用後下一輪 1.4s——各慢 0.2 秒
+    items.push({ id: "coarse-bandage", label: "粗布繃帶", baseCost: 1.2, symbol: "+", damage: 0, heal: 20, slowReuse: 1.4 });
+  }
   if ((carried?.jerky ?? 0) > 0) {
     // 肉乾:重但滋養——戰鬥中唯一能吃的食物(乾糧輕便卻不頂餓,回不了血);統一回 10
     items.push({ id: "jerky", label: "肉乾", baseCost: 1.0, symbol: "+", damage: 0, heal: 10 });

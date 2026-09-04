@@ -275,6 +275,9 @@ export interface ConsumableDef {
 export const CONSUMABLES: ConsumableDef[] = [
   // 乾糧同步走高價路線(與弓矢一致的量級):遠征的糧錢是實質開銷,不是零頭
   { id: "ration", label: "乾糧", cost: { grain: 30, wood: 10 }, yield: 2, note: "遠征口糧。" },
+  // 粗布繃帶(2026-09 用戶定案):繃帶是遠征不可或缺的物資,鐵階段後開放自製——製革場的皮革撕成布條、穀物釀酒消毒;
+  // 效果同舊時代繃帶(回 20 並止血),只是戰鬥中慢 0.2 秒(轉盤 1.2s、用後下一輪 1.4s)
+  { id: "coarsebandage", label: "粗布繃帶", cost: { leather: 10, grain: 20 }, yield: 1, requiresBuilding: "tannery", requiresLandmark: "mine", note: "戰鬥中回復 20 HP 並止血;比舊時代的繃帶慢 0.2 秒" },
   // 弓矢:遠程輸出的彈藥錢——有感但不至於奢侈(2026-08 定案 30/20)
   { id: "arrow", label: "弓矢", cost: { wood: 30, stone: 20 }, yield: 3, requiresWeapon: "hunting-bow", note: "弓箭使用的箭矢" },
   // 燈油:燻製棚熬獸脂——一罐點亮一座燈柱(壓低周圍遭遇率);罐子笨重,揹著占 3 格

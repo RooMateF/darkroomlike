@@ -400,6 +400,7 @@ function canUse(subActionId: string): boolean {
     return true;
   }
   if (subActionId === "bandage") return carried.bandages > 0;
+  if (subActionId === "coarse-bandage") return (carried.coarseBandages ?? 0) > 0;
   if (subActionId === "jerky") return (carried.jerky ?? 0) > 0;
   if (subActionId === "fire-scroll") return (carried.scrolls ?? 0) > 0;
   if (subActionId === "elixir") return (carried.elixirs ?? 0) > 0;
@@ -453,6 +454,9 @@ function afterUse(subActionId: string) {
   } else if (subActionId === "bandage") {
     carried.bandages = Math.max(0, carried.bandages - 1);
     engine.clearStatus("bleed"); // 繃帶止血:解除流血異常
+  } else if (subActionId === "coarse-bandage") {
+    carried.coarseBandages = Math.max(0, (carried.coarseBandages ?? 0) - 1);
+    engine.clearStatus("bleed"); // 粗布繃帶一樣止血
   } else if (subActionId === "jerky") {
     carried.jerky = Math.max(0, (carried.jerky ?? 0) - 1);
   } else if (subActionId === "fire-scroll") {
@@ -482,6 +486,7 @@ function subActionLabel(subActionId: string, baseLabel: string): string {
     return `${baseLabel}${spare}${parts ? `(${parts})` : ""}`;
   }
   if (subActionId === "bandage") return `${baseLabel} ×${carried.bandages}`;
+  if (subActionId === "coarse-bandage") return `${baseLabel} ×${carried.coarseBandages ?? 0}`;
   if (subActionId === "jerky") return `${baseLabel} ×${carried.jerky ?? 0}`;
   if (subActionId === "fire-scroll") return `${baseLabel} ×${carried.scrolls ?? 0}`;
   if (subActionId === "elixir") return `${baseLabel} ×${carried.elixirs ?? 0}`;
@@ -1139,6 +1144,7 @@ function performSteal() {
       { kind: "elixir", key: "elixirs", label: "舊時代藥劑" },
       { kind: "jerky", key: "jerky", label: "肉乾" },
       { kind: "bandage", key: "bandages", label: "繃帶" },
+      { kind: "coarse", key: "coarseBandages", label: "粗布繃帶" },
     ];
     for (const so of supplyOrder) {
       if (kinds.includes(so.kind)) continue;
@@ -1191,6 +1197,7 @@ function returnStolenAt(idx: number): boolean {
       elixir: ["elixirs", "舊時代藥劑"],
       jerky: ["jerky", "肉乾"],
       bandage: ["bandages", "繃帶"],
+      coarse: ["coarseBandages", "粗布繃帶"],
     };
     const [key, label] = keyMap[item.kind] ?? ["bandages", item.kind];
     bag[key] = (bag[key] ?? 0) + 1;
@@ -1374,6 +1381,7 @@ function showLootPanel(message: string, gains: Record<string, number>, href: str
       ["rations", "ration"],
       ["jerky", "jerky"],
       ["bandages", "bandage"],
+      ["coarseBandages", "coarsebandage"],
       ["arrows", "arrow"],
       ["bullets", "bullet"],
       ["rails", "rail"],
@@ -1385,6 +1393,7 @@ function showLootPanel(message: string, gains: Record<string, number>, href: str
     const usable: Record<string, { heal: number; text: string }> = {
       jerky: { heal: 10, text: "你嚼了一條肉乾。" },
       bandages: { heal: 20, text: "你停下來,把傷口重新包紮好。" },
+      coarseBandages: { heal: 20, text: "你停下來,用粗布繃帶把傷口纏緊。" },
       elixirs: { heal: 15, text: "你仰頭灌下一小口藥劑。" },
     };
     for (const [key, rid] of sup) {

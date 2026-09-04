@@ -1235,7 +1235,7 @@ export class ExploreEngine {
   }
 
   /** 旅途中從背包使用恢復品(肉乾 +10/繃帶 +20/藥劑 +15)——不必等據點 */
-  useHealingItem(kind: "jerky" | "bandage" | "elixir"): boolean {
+  useHealingItem(kind: "jerky" | "bandage" | "coarse" | "elixir"): boolean {
     if (!this.carried) return false;
     const cap = playerMaxHp();
     const before = this.carried.hp ?? cap;
@@ -1245,6 +1245,12 @@ export class ExploreEngine {
       this.carried.jerky = (this.carried.jerky ?? 0) - 1;
       this.carried.hp = Math.min(cap, before + 10);
       this.cb.onLog(`你邊走邊嚼了一條肉乾。(HP +${this.carried.hp - before})`);
+    } else if (kind === "coarse") {
+      // 粗布繃帶(2026-09 用戶定案):路上效果同繃帶
+      if ((this.carried.coarseBandages ?? 0) <= 0) return false;
+      this.carried.coarseBandages = (this.carried.coarseBandages ?? 0) - 1;
+      this.carried.hp = Math.min(cap, before + 20);
+      this.cb.onLog(`你停下腳步,用粗布繃帶把傷口纏緊。(HP +${this.carried.hp - before})`);
     } else if (kind === "bandage") {
       if (this.carried.bandages <= 0) return false;
       this.carried.bandages -= 1;

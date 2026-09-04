@@ -422,11 +422,12 @@ function renderPack() {
   }
 
   // 補給品(乾糧 2 併 1 格、弓矢 3 併 1 格,其餘 1 格 1 件)
-  type SupplyKey = "rations" | "jerky" | "bandages" | "arrows" | "bullets" | "rails" | "scrolls" | "oil" | "elixirs";
+  type SupplyKey = "rations" | "jerky" | "bandages" | "coarseBandages" | "arrows" | "bullets" | "rails" | "scrolls" | "oil" | "elixirs";
   const supplies: { key: SupplyKey; id: ResourceId; perSlot: number }[] = [
     { key: "rations", id: "ration", perSlot: RATIONS_PER_SLOT },
     { key: "jerky", id: "jerky", perSlot: 1 },
     { key: "bandages", id: "bandage", perSlot: 1 },
+    { key: "coarseBandages", id: "coarsebandage", perSlot: 1 },
     { key: "arrows", id: "arrow", perSlot: ARROWS_PER_SLOT },
     { key: "bullets", id: "bullet", perSlot: BULLETS_PER_SLOT },
     { key: "rails", id: "rail", perSlot: RAILS_PER_SLOT },
@@ -435,7 +436,7 @@ function renderPack() {
     { key: "elixirs", id: "elixir", perSlot: 1 },
   ];
   // 恢復類物資在路上就能用(肉乾 +10/繃帶 +20/藥劑 +15),不必等據點
-  const usableKind: Partial<Record<SupplyKey, "jerky" | "bandage" | "elixir">> = { jerky: "jerky", bandages: "bandage", elixirs: "elixir" };
+  const usableKind: Partial<Record<SupplyKey, "jerky" | "bandage" | "coarse" | "elixir">> = { jerky: "jerky", bandages: "bandage", coarseBandages: "coarse", elixirs: "elixir" };
   for (const def of supplies) {
     const n = (c[def.key] as number | undefined) ?? 0;
     if (n <= 0) continue;
@@ -719,9 +720,10 @@ function render() {
 
   // 恢復品快速使用(隨時隨地,沒滿血就顯示):繃帶/肉乾/藥劑——不必翻背包(用戶反饋:藏太深)
   if (engine.carried && (engine.carried.hp ?? playerMaxHp()) < playerMaxHp()) {
-    const heals: { kind: "jerky" | "bandage" | "elixir"; label: string; n: number }[] = [
+    const heals: { kind: "jerky" | "bandage" | "coarse" | "elixir"; label: string; n: number }[] = [
       { kind: "jerky", label: `吃肉乾 +10(剩 ${engine.carried.jerky ?? 0})`, n: engine.carried.jerky ?? 0 },
       { kind: "bandage", label: `用繃帶 +20(剩 ${engine.carried.bandages})`, n: engine.carried.bandages },
+      { kind: "coarse", label: `用粗布繃帶 +20(剩 ${engine.carried.coarseBandages ?? 0})`, n: engine.carried.coarseBandages ?? 0 },
       { kind: "elixir", label: `喝藥劑 +15(剩 ${engine.carried.elixirs ?? 0})`, n: engine.carried.elixirs ?? 0 },
     ];
     for (const h of heals) {

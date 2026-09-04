@@ -57,6 +57,7 @@ export class VillageEngine {
     ration: 0,
     jerky: 0,
     bandage: 0,
+    coarsebandage: 0,
     arrow: 0,
     iron: 0,
     ingot: 0,

@@ -61,6 +61,7 @@ const pick = {
   rations: 0,
   jerky: 0,
   bandages: 0,
+  coarseBandages: 0,
   arrows: 0,
   bullets: 0,
   rails: 0,
@@ -113,7 +114,7 @@ function packPicked(): number {
     const def = WEAPONS.find((w) => w.id === id);
     used += (def?.packSize ?? 3) * n;
   }
-  used += pick.jerky + pick.bandages + pick.scrolls + pick.elixirs + pick.salts;
+  used += pick.jerky + pick.bandages + pick.coarseBandages + pick.scrolls + pick.elixirs + pick.salts;
   used += pick.oil * OIL_SLOTS;
   used += Math.ceil(pick.rations / RATIONS_PER_SLOT);
   used += Math.ceil(pick.arrows / ARROWS_PER_SLOT);
@@ -310,6 +311,7 @@ const supplyDefs = [
   { id: "ration", label: RESOURCE_LABEL.ration, extra: `${RATIONS_PER_SLOT} 份占 1 格・行路口糧,每 2 步吃 1 份(不回血)`, get: () => pick.rations, set: (n: number) => (pick.rations = n) },
   { id: "jerky", label: RESOURCE_LABEL.jerky, extra: "占 1 格・咬一口 +10 HP;乾糧見底時拿來充飢", get: () => pick.jerky, set: (n: number) => (pick.jerky = n) },
   { id: "bandage", label: RESOURCE_LABEL.bandage, extra: "占 1 格・稀有,大量回復並止血", get: () => pick.bandages, set: (n: number) => (pick.bandages = n) },
+  { id: "coarsebandage", label: RESOURCE_LABEL.coarsebandage, extra: "占 1 格・自製,回 20 並止血(比繃帶慢 0.2 秒)", get: () => pick.coarseBandages, set: (n: number) => (pick.coarseBandages = n) },
   { id: "arrow", label: RESOURCE_LABEL.arrow, extra: `${ARROWS_PER_SLOT} 支占 1 格・獵弓的彈藥`, get: () => pick.arrows, set: (n: number) => (pick.arrows = n) },
   { id: "bullet", label: RESOURCE_LABEL.bullet, extra: `${BULLETS_PER_SLOT} 發占 1 格・左輪/散彈通用`, get: () => pick.bullets, set: (n: number) => (pick.bullets = n) },
   { id: "rail", label: RESOURCE_LABEL.rail, extra: `${RAILS_PER_SLOT} 根占 1 格・鋪在地圖上的永久建設`, get: () => pick.rails, set: (n: number) => (pick.rails = n) },
@@ -369,6 +371,7 @@ try {
     pick.rations = Math.min(Math.floor(village.resources.ration ?? 0), last.rations ?? 0);
     pick.jerky = Math.min(Math.floor(village.resources.jerky ?? 0), last.jerky ?? 0);
     pick.bandages = Math.min(Math.floor(village.resources.bandage ?? 0), last.bandages ?? 0);
+    pick.coarseBandages = Math.min(Math.floor(village.resources.coarsebandage ?? 0), last.coarseBandages ?? 0);
     pick.arrows = Math.min(Math.floor(village.resources.arrow ?? 0), last.arrows ?? 0);
     pick.bullets = Math.min(Math.floor(village.resources.bullet ?? 0), last.bullets ?? 0);
     pick.rails = Math.min(Math.floor(village.resources.rail ?? 0), last.rails ?? 0);
@@ -377,7 +380,7 @@ try {
     pick.oil = Math.min(Math.floor(village.resources.oil ?? 0), last.oil ?? 0);
     pick.elixirs = Math.min(Math.floor(village.resources.elixir ?? 0), last.elixirs ?? 0);
     // 夾回揹負空間(可能上次是有背包時的配置):先減補給,再減武器
-    const order: ("rails" | "salts" | "oil" | "elixirs" | "scrolls" | "bullets" | "arrows" | "bandages" | "jerky" | "rations")[] = ["rails", "salts", "oil", "elixirs", "scrolls", "bullets", "arrows", "bandages", "jerky", "rations"];
+    const order: ("rails" | "salts" | "oil" | "elixirs" | "scrolls" | "bullets" | "arrows" | "bandages" | "coarseBandages" | "jerky" | "rations")[] = ["rails", "salts", "oil", "elixirs", "scrolls", "bullets", "arrows", "bandages", "coarseBandages", "jerky", "rations"];
     let oi = 0;
     while (packPicked() > capacity && oi < order.length) {
       if (pick[order[oi]] > 0) pick[order[oi]]--;
@@ -413,6 +416,7 @@ departBtn.addEventListener("click", () => {
   village.resources.ration = (village.resources.ration ?? 0) - pick.rations;
   village.resources.jerky = (village.resources.jerky ?? 0) - pick.jerky;
   village.resources.bandage = (village.resources.bandage ?? 0) - pick.bandages;
+  village.resources.coarsebandage = (village.resources.coarsebandage ?? 0) - pick.coarseBandages;
   village.resources.arrow = (village.resources.arrow ?? 0) - pick.arrows;
   village.resources.bullet = (village.resources.bullet ?? 0) - pick.bullets;
   village.resources.rail = (village.resources.rail ?? 0) - pick.rails;
@@ -433,6 +437,7 @@ departBtn.addEventListener("click", () => {
     maxRations: pick.rations,
     jerky: pick.jerky,
     bandages: pick.bandages,
+    coarseBandages: pick.coarseBandages,
     arrows: pick.arrows,
     bullets: pick.bullets,
     rails: pick.rails,

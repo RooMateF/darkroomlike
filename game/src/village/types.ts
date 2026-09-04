@@ -11,6 +11,7 @@ export type ResourceId =
   | "ration"
   | "jerky"
   | "bandage"
+  | "coarsebandage"
   | "arrow"
   | "iron"
   | "ingot"
@@ -36,6 +37,8 @@ export const RESOURCE_LABEL: Record<ResourceId, string> = {
   ration: "乾糧",
   jerky: "肉乾",
   bandage: "繃帶",
+  // 粗布繃帶(2026-09 用戶定案):村子自製的版本——皮革撕條+穀物釀酒消毒;效果同繃帶,只是慢 0.2 秒
+  coarsebandage: "粗布繃帶",
   arrow: "弓矢",
   iron: "鐵礦",
   // 冶金三階:鐵礦(礦坑產)→ 鐵(冶煉,吃木石)→ 鋼鐵(鐵+煤合煉)

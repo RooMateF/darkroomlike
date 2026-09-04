@@ -32,6 +32,8 @@ export interface Carried {
   /** 肉乾:重(1 份 1 格)但能回血——乾糧見底時的救命糧,也可在戰鬥中食用 */
   jerky?: number;
   bandages: number;
+  /** 粗布繃帶(自製):效果同繃帶,戰鬥中慢 0.2 秒 */
+  coarseBandages?: number;
   arrows: number;
   /** 槍械通用子彈(左輪 1 發/擊、散彈 2 發/擊) */
   bullets?: number;
@@ -85,7 +87,7 @@ export function packUsed(carried: Carried): number {
   // 乾糧輕便 2 份併 1 格;肉乾重,1 份 1 格
   const rationsTotal = (carried.rations ?? 0) + (carried.loot?.ration ?? 0);
   used += Math.ceil(rationsTotal / RATIONS_PER_SLOT);
-  used += (carried.jerky ?? 0) + (carried.bandages ?? 0) + (carried.scrolls ?? 0) + (carried.elixirs ?? 0) + (carried.salts ?? 0);
+  used += (carried.jerky ?? 0) + (carried.bandages ?? 0) + (carried.coarseBandages ?? 0) + (carried.scrolls ?? 0) + (carried.elixirs ?? 0) + (carried.salts ?? 0);
   used += (carried.oil ?? 0) * OIL_SLOTS;
   for (const [id, n] of Object.entries(carried.loot ?? {})) {
     if (id === "arrow" || id === "ration" || id === "bullet" || id === "rail") continue; // 已併入各自的格
@@ -102,6 +104,7 @@ export function packUsed(carried: Carried): number {
 /** 撿到就能用:這些拾獲直接併入補給欄——壓在戰利品堆裡的東西路上動不了(繃帶不能包、弓矢不能射) */
 const SUPPLY_FIELD = {
   bandage: "bandages",
+  coarsebandage: "coarseBandages",
   jerky: "jerky",
   elixir: "elixirs",
   salt: "salts",
@@ -223,6 +226,7 @@ export function returnCarriedToVillage() {
   village.resources.ration = (village.resources.ration ?? 0) + leftover.rations;
   village.resources.jerky = (village.resources.jerky ?? 0) + (leftover.jerky ?? 0);
   village.resources.bandage = (village.resources.bandage ?? 0) + leftover.bandages;
+  village.resources.coarsebandage = (village.resources.coarsebandage ?? 0) + (leftover.coarseBandages ?? 0);
   village.resources.arrow = (village.resources.arrow ?? 0) + leftover.arrows;
   village.resources.bullet = (village.resources.bullet ?? 0) + (leftover.bullets ?? 0);
   village.resources.rail = (village.resources.rail ?? 0) + (leftover.rails ?? 0);
