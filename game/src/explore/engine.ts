@@ -1106,6 +1106,8 @@ export class ExploreEngine {
     const stealthMult = readPerk("stealth") ? 0.8 : 1;
     if (onRail) {
       // 軌道是人開出來的路:牠們不靠近鐵軌——完全不遇敵(滿狀態抵達 Boss 的戰略通道)
+    } else if (this.mapId === "A" && isMazeInterior(nx, ny)) {
+      // 迷宮裡不隨機遇敵(2026-09 用戶定案):牆內只有依深度伏擊的觸手與 Boss,野獸不進這座牆
     } else if (ENCOUNTER_FREE_TILES.includes(target.type)) {
       // 站上特殊地點的這一步免疫隨機遭遇(喘息步數保留,不在這裡消耗)
     } else if (this.encounterGrace > 0) {

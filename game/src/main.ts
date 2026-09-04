@@ -1134,6 +1134,10 @@ function performSteal() {
         delete carried.durability[w.id]; // 使用中那把被偷走:備用頂上(全新)
       }
       appendSystemLog(`一條過長的手臂從黑暗裡閃出——等你回過神,${w.label}已經不在手上了！`);
+      if (w.category === "shield") {
+        shieldId = bestShieldId();
+        syncShieldToEngine();
+      }
       break;
     }
   }
@@ -1189,6 +1193,10 @@ function returnStolenAt(idx: number): boolean {
       carried.durability[item.id] = item.durability; // 耐久不重置:被偷時是多少,回來就是多少
     }
     const def = WEAPONS.find((w) => w.id === item.id);
+    if (def?.category === "shield" && !shieldId) {
+      shieldId = bestShieldId();
+      syncShieldToEngine();
+    }
     appendSystemLog(`一樣東西從牠的收藏裡震落——${def?.label ?? item.id}回到了你手上。`);
   } else {
     const bag = carried as unknown as Record<string, number | undefined>;
