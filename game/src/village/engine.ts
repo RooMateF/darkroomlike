@@ -24,8 +24,8 @@ const GATHER_BASE: Partial<Record<ResourceId, [number, number, number, number]>>
   meat: [4, 2, 1, 1],
   hide: [4, 2, 1, 1],
   grain: [5, 3, 2, 1],
-  iron: [1, 1, 1, 0],
-  coal: [1, 1, 1, 0],
+  iron: [2, 1, 1, 0],
+  coal: [2, 1, 1, 0],
 };
 /** 小木屋加成曲線(2026-09 用戶定案:不再線性 ×(1+屋數)):一般原料 1+2√屋數、礦石 1+0.5√屋數——
  * 前期陡、後期趨緩;25 棟(人口封頂)時一般原料 ×11、礦石 ×3.5 */
