@@ -1276,9 +1276,7 @@ function startVillage() {
     gatherStreakEl.style.display = streak > 0 && loadCarried() === null ? "" : "none";
     if (streak > 0) {
       const pct = Math.round((gatherStreakMult(streak) - 1) * 100);
-      // 10 層以內每層都在漲;之後每滿 10 層跳一級,把「還差幾次」寫出來當胡蘿蔔
-      const toNext = streak < 10 ? 0 : 10 - ((streak - 10) % 10);
-      gatherStreakEl.textContent = `連擊 ×${streak}　+${pct}%${toNext > 0 ? `(再 ${toNext} 次升級)` : ""}`;
+      gatherStreakEl.textContent = `連擊 ×${streak}　+${pct}%`; // 2026-09 用戶定案:不寫「再幾次升級」
     }
 
     let anyResourceSeen = false;
