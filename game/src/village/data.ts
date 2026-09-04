@@ -10,7 +10,7 @@ export const JOBS: JobDef[] = [
   { id: "tanner", label: "製革工", produces: { hide: -10, leather: 1 }, requiresBuilding: "tannery" },
   // 燻肉師:生肉+木材燒製成肉乾(肉乾不開放手動打造,只能靠這個職業持續產出)
   // 2026-08 調價:肉乾是奢侈補品不是必需品——生肉 30+木材 30 → 肉乾 2,要吃就得養出像樣的獵肉與柴火產線
-  { id: "smoker", label: "燻肉師", produces: { meat: -15, wood: -15, jerky: 1 }, requiresBuilding: "smokehouse" },
+  { id: "smoker", label: "燻肉師", produces: { meat: -5, wood: -5, jerky: 1 }, requiresBuilding: "smokehouse" }, // 2026-09 用戶定案:15/15→5/5
   // 探索發現解鎖(design-notes.md § 5.1.1):要先在地圖上打贏礦坑守衛、解放鐵礦坑
   // 重勞動吃肉乾(resources.md § 9.1 的醃肉邏輯):沒肉乾就不下坑
   { id: "miner", label: "鐵礦工", produces: { jerky: -1, iron: 1 }, requiresLandmark: "mine" },
