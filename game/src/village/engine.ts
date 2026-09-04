@@ -845,6 +845,19 @@ export class VillageEngine {
     }
   }
 
+  /** 拆屋(2026-09 用戶定案):事件摧毀小木屋——屋數依比例減少,上限依剩下的屋數重算(夾進天花板),
+   * 人口超過新上限就再砍;回傳拆了幾棟。成本曲線隨屋數回落,重建付的是「第 n 棟」的價 */
+  destroyHuts(ratio: number): number {
+    const have = this.buildingCounts.hut ?? 0;
+    if (have <= 0) return 0;
+    const lost = Math.min(have, Math.max(1, Math.round(have * ratio)));
+    this.buildingCounts.hut = have - lost;
+    this.populationCap = Math.min(this.populationCeiling(), 2 + HUT_CAP_BONUS * (have - lost));
+    this.population = Math.min(this.population, this.populationCap);
+    this.clampAssignments();
+    return lost;
+  }
+
   /** 套用一則被動事件(隨機池與 DEV 指定觸發共用):含紅月計數與災厄 */
   private firePassiveEvent(event: PassiveEvent) {
     const summary = this.applyEventEffect(event.effect, event.populationDelta, event.effectPct);
@@ -855,14 +868,16 @@ export class VillageEngine {
       const n = Number(localStorage.getItem("redmoon-count") ?? "0") + 1;
       localStorage.setItem("redmoon-count", String(n));
       if (n >= 5) {
-        const loss = Math.max(1, Math.floor(this.populationCap * (0.3 + Math.random() * 0.2)));
+        const ratio = 0.3 + Math.random() * 0.2;
+        const loss = Math.max(1, Math.floor(this.populationCap * ratio));
         const before = this.population;
         this.population = Math.max(0, this.population - loss);
         this.clampAssignments();
+        const wrecked = this.destroyHuts(ratio); // 2026-09 用戶定案:棚屋真的被撕開——同比例拆屋,上限跟著掉
         const lossSummary = this.applyEventEffect({}, undefined, { grain: 0.25, ration: 0.25, meat: 0.25 });
         localStorage.setItem("redmoon-count", "0"); // 災厄過後循環重來(窪地由探索頁撤掉)
         this.cb.onLog(
-          `入夜後,窪地的方向傳來低沉的、像大地翻身一樣的聲音。那東西進村了。棚屋像紙一樣被撕開,哭喊聲持續了整夜——天亮清點,村子失去了 ${before - this.population} 個人。` +
+          `入夜後,窪地的方向傳來低沉的、像大地翻身一樣的聲音。那東西進村了。棚屋像紙一樣被撕開,哭喊聲持續了整夜——天亮清點,村子失去了 ${before - this.population} 個人,${wrecked} 棟木屋只剩焦黑的樑柱。` +
             (lossSummary ? `(${lossSummary})` : ""),
         );
         this.saveState();

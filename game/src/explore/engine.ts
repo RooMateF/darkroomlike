@@ -1189,7 +1189,7 @@ export class ExploreEngine {
       const adj = Math.abs(this.playerX - mine.x) + Math.abs(this.playerY - mine.y) <= 1;
       if (adj) {
         localStorage.setItem("rail-to-mine", "1");
-        this.cb.onLog("鐵軌接上了礦坑的舊軌道。第一台礦車被推上鐵軌時,整條路都在輕輕震——從今天起,礦石自己會回村了。(鐵礦工產出 ×2)");
+        this.cb.onLog("鐵軌接上了礦坑的舊軌道。第一台礦車被推上鐵軌時,整條路都在輕輕震——從今天起,礦石自己會回村了。(鐵礦工產出 ×4)");
       }
     }
     this.saveState();
