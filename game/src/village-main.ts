@@ -1409,7 +1409,7 @@ function startVillage() {
       if (normalN > 0) addArmoryLine(`${w.label}${dmg}`, `×${normalN}`);
     }
     // 出門用的消耗品(弓矢/乾糧/肉乾/繃帶/卷軸/燈油/藥劑)也一併列出
-    for (const id of ["arrow", "ration", "jerky", "bandage", "scroll", "oil", "elixir", "salt", "rail"] as ResourceId[]) {
+    for (const id of ["arrow", "bullet", "ration", "jerky", "bandage", "coarsebandage", "scroll", "oil", "elixir", "salt", "rail"] as ResourceId[]) {
       const n = Math.floor(engine.resources[id] ?? 0);
       if (n > 0) addArmoryLine(RESOURCE_LABEL[id], `×${n}`);
     }
