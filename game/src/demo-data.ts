@@ -49,7 +49,7 @@ export function buildPlayerCategories(carried: Carried | null): CategoryDef[] {
   }
   if ((carried?.elixirs ?? 0) > 0) {
     // 舊時代藥劑(交易所兌換):大量回復並解除所有異常——打硬仗的底牌(強力:拖慢下一輪)
-    items.push({ id: "elixir", label: "舊時代藥劑", baseCost: 1.0, symbol: "+!", damage: 0, heal: 15, slowReuse: 1.2 });
+    items.push({ id: "elixir", label: "舊時代藥劑", baseCost: 1.0, symbol: "+!", damage: 0, heal: 30, slowReuse: 1.2 });
   }
   if ((carried?.salts ?? 0) > 0) {
     // 醒神鹽:解除暈眩/遲緩並免疫 6 秒——看著敵方大招條升起時,提前含上一撮

@@ -1367,7 +1367,7 @@ function showLootPanel(message: string, gains: Record<string, number>, href: str
     if (!carried) return;
     packBox.innerHTML = "";
     const bag = carried as unknown as Record<string, number | undefined>;
-    // 吃/用得掉的補給:肉乾 +10、繃帶 +20、藥劑 +15(與路上使用同一套數值)
+    // 吃/用得掉的補給:肉乾 +10、繃帶 +20、藥劑 +30(與路上使用同一套數值)
     const useHeal = (key: string, heal: number, text: string) => () => {
       if (!carried) return;
       if ((bag[key] ?? 0) <= 0) return;
@@ -1402,7 +1402,7 @@ function showLootPanel(message: string, gains: Record<string, number>, href: str
       jerky: { heal: 10, text: "你嚼了一條肉乾。" },
       bandages: { heal: 20, text: "你停下來,把傷口重新包紮好。" },
       coarseBandages: { heal: 20, text: "你停下來,用粗布繃帶把傷口纏緊。" },
-      elixirs: { heal: 15, text: "你仰頭灌下一小口藥劑。" },
+      elixirs: { heal: 30, text: "你仰頭灌下一小口藥劑。" },
     };
     for (const [key, rid] of sup) {
       const n = bag[key] ?? 0;

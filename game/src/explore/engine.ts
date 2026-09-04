@@ -1261,7 +1261,7 @@ export class ExploreEngine {
     } else {
       if ((this.carried.elixirs ?? 0) <= 0) return false;
       this.carried.elixirs = (this.carried.elixirs ?? 0) - 1;
-      this.carried.hp = Math.min(cap, before + 15);
+      this.carried.hp = Math.min(cap, before + 30);
       this.cb.onLog(`你仰頭灌下一小口藥劑。(HP +${this.carried.hp - before})`);
     }
     saveCarried(this.carried);

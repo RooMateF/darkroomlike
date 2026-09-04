@@ -724,7 +724,7 @@ function render() {
       { kind: "jerky", label: `吃肉乾 +10(剩 ${engine.carried.jerky ?? 0})`, n: engine.carried.jerky ?? 0 },
       { kind: "bandage", label: `用繃帶 +20(剩 ${engine.carried.bandages})`, n: engine.carried.bandages },
       { kind: "coarse", label: `用粗布繃帶 +20(剩 ${engine.carried.coarseBandages ?? 0})`, n: engine.carried.coarseBandages ?? 0 },
-      { kind: "elixir", label: `喝藥劑 +15(剩 ${engine.carried.elixirs ?? 0})`, n: engine.carried.elixirs ?? 0 },
+      { kind: "elixir", label: `喝藥劑 +30(剩 ${engine.carried.elixirs ?? 0})`, n: engine.carried.elixirs ?? 0 },
     ];
     for (const h of heals) {
       if (h.n <= 0) continue;

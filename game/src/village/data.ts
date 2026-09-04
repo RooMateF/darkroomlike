@@ -84,7 +84,7 @@ export const TRADES: TradeDef[] = [
   { id: "trade-scroll", get: "scroll", qty: 1, shards: 6, flavor: "封印著未知力量的卷軸,邊角有燒灼過的痕跡。", effect: "戰鬥道具(一次性):對場上所有敵人各造成 12 傷害。", requiresResourceSeen: "scroll" },
   // 交易所獨賣品:攤子上一開始看不到——交易熟了,買家才從行囊深處拿出來
   { id: "trade-salt", get: "salt", qty: 1, shards: 6, flavor: "一小瓶嗆得人流淚的結晶鹽——聞一口,骨頭裡的寒意都會被逼出去。", effect: "戰鬥道具:解除暈眩/遲緩/混亂,之後 6 秒內免疫這些效果;亦可於敵方蓄力時預先使用。", minTrades: 2 },
-  { id: "trade-elixir", get: "elixir", qty: 1, shards: 10, flavor: "小玻璃瓶裡的透明藥劑,瓶身刻著看不懂的小字。", effect: "戰鬥道具:回復 15 HP,解除中毒與流血。", minTrades: 4 },
+  { id: "trade-elixir", get: "elixir", qty: 1, shards: 5, flavor: "小玻璃瓶裡的透明藥劑,瓶身刻著看不懂的小字。", effect: "戰鬥道具:回復 30 HP,解除中毒與流血。", minTrades: 4 },
   // 基礎物資(用異晶換大宗):對方對「石頭」的行情好得出奇
   { id: "trade-wood", get: "wood", qty: 120, shards: 2, flavor: "一捆捆切得整整齊齊的木料,斷口平滑得像用什麼燙過。", requiresResourceSeen: "wood" },
   { id: "trade-stone", get: "stone", qty: 80, shards: 2, flavor: "方正得過分的石塊,每一塊的重量幾乎一模一樣。", requiresResourceSeen: "stone" },
