@@ -1,6 +1,7 @@
 import { BUILDINGS, CONSUMABLES, HUT_CAP_BONUS, JOBS, TRADES, UPGRADES, WEAPONS, repairCost, brokenRepairCost, isIronTierWeapon , PERK_SLOTS , fineMaxDurability, SMITHY_IRON_UPGRADE_COST, BARTER_RATE, BARTER_RAW, POP_CAP_BASE, POP_CAP_PER_MAP } from "./data";
 import { EVENTS, FOLLOWUP_POOLS, type VillageEvent, type PassiveEvent } from "./events-data";
 import { clearedSiteCount } from "../explore/sites";
+import { loadCarried } from "../carried";
 import { RESOURCE_LABEL, type ResourceId } from "./types";
 
 export const TICK_MS = 10000; // 每個生產週期的真實時間長度
@@ -536,7 +537,9 @@ export class VillageEngine {
   /** 目前可手動採集的資源:木石隨時可採;獵弓開放狩獵(生肉/生皮);田開放收割穀物;礦坑/煤礦坑解放開放挖礦 */
   availableGathers(): ResourceId[] {
     const list: ResourceId[] = ["wood", "stone"];
-    if (this.weaponCount("hunting-bow") > 0) list.push("meat", "hide");
+    // 獵弓在倉庫或遠征背包任一處都算「有弓」(2026-09 用戶回報:打包進背包後狩獵鈕消失)
+    const bowPacked = (loadCarried()?.weapons["hunting-bow"] ?? 0) > 0;
+    if (this.weaponCount("hunting-bow") > 0 || bowPacked) list.push("meat", "hide");
     if (this.hasBuilding("farm")) list.push("grain");
     if (this.isMineCleared()) list.push("iron");
     if (this.isLandmarkCleared("coalmine")) list.push("coal");
