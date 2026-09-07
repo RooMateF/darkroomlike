@@ -66,6 +66,7 @@ function startVillage() {
       <span>
         <button id="speed-btn" title="測試用:村莊時間十倍速" style="display:none">⏩×1</button>
         <button id="dev-btn" title="測試用:快速取得各種資源" style="display:none">DEV</button>
+        <button id="sandbox-link-btn" title="滿裝測試場:不讀不寫存檔,頁內左欄可換對手與配置">模擬戰</button>
         <button id="theme-toggle">切換底色</button>
       </span>
     </div>
@@ -292,6 +293,10 @@ function startVillage() {
     b.addEventListener("click", () => {
       window.location.href = `index.html?sandbox=${b.dataset.sandbox}`;
     });
+  });
+  // 頂欄「模擬戰」(2026-09 用戶要求):一鍵進滿裝測試場;對手與配置在頁內左欄切換
+  document.querySelector<HTMLButtonElement>("#sandbox-link-btn")?.addEventListener("click", () => {
+    window.location.href = "index.html?sandbox=lv3";
   });
   document.querySelector<HTMLButtonElement>("#export-btn")!.addEventListener("click", () => {
     const blob = new Blob([JSON.stringify(gameSaveData(), null, 2)], { type: "application/json" });

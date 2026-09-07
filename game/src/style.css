@@ -241,6 +241,7 @@ h1 {
 }
 
 #theme-toggle,
+#sandbox-link-btn,
 #dev-btn {
   font-family: inherit;
   font-size: 12px;
@@ -253,6 +254,7 @@ h1 {
 }
 
 #theme-toggle:hover,
+#sandbox-link-btn:hover,
 #dev-btn:hover {
   color: var(--fg);
   border-color: var(--fg);
