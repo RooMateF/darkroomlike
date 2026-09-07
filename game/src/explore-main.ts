@@ -600,9 +600,12 @@ function render() {
         if (isGround) symbol = zoneGround(x, y);
         else if (tile.type === "event") symbol = "?";
       }
-      // 鐵軌:一般地形上畫 =(據點/地標等重要符號優先)
+      // 鐵軌:一般地形上依走向畫 |(直)/=(橫)/+(轉角、交會)——2026-09 用戶要求直向;據點/地標等重要符號優先
       if (tile.revealed && tile.rail && isGround) {
-        symbol = "=";
+        const railAt = (xx: number, yy: number) => !!engine.grid[yy]?.[xx]?.rail;
+        const vert = railAt(x, y - 1) || railAt(x, y + 1);
+        const horiz = railAt(x - 1, y) || railAt(x + 1, y);
+        symbol = vert && horiz ? "+" : horiz ? "=" : "|";
         cell.classList.add("rail"); // 鐵軌亮色:一眼認得出路線
       }
       // 補給點符號只表達據點本質:S 有儲備 / s 這趟已拿空——

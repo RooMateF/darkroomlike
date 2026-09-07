@@ -6,7 +6,7 @@ import type { Carried } from "./carried";
  * 依隨身行囊(整備頁打包的 carried)組出玩家的戰鬥類別。
  * - 冷兵器:攜帶中的近戰武器;一把都沒有時只剩「徒手」
  * - 熱武器:攜帶中的遠程武器(弓需要弓矢,授權判斷在 main.ts);沒有就整個類別不出現
- * - 法術:初期未解鎖,不出現(worldbuilding.md § 6:由建造者後續引導揭露)
+ * - 法術:整類共用 0.5s 轉盤+各自的詠唱時間(2026-09 用戶定案);目前只有火焰卷軸,帶著卷軸才出現
  * - 道具:繃帶/肉乾/藥劑/卷軸,都是消耗品,用完就不能再按(乾糧是行軍糧,不進戰鬥道具欄也不回血)
  */
 export function buildPlayerCategories(carried: Carried | null): CategoryDef[] {
@@ -55,12 +55,19 @@ export function buildPlayerCategories(carried: Carried | null): CategoryDef[] {
     // 醒神鹽:解除暈眩/遲緩並免疫 6 秒——看著敵方大招條升起時,提前含上一撮
     items.push({ id: "salt", label: "醒神鹽", baseCost: 1.0, symbol: "+=", damage: 0 });
   }
-  if ((carried?.scrolls ?? 0) > 0) {
-    // 火焰卷軸:一次性的高傷害——法術系統解鎖前,玩家第一次碰到「不屬於這個時代常識」的力量(強力:拖慢下一輪)
-    items.push({ id: "fire-scroll", label: "火焰卷軸", baseCost: 1.0, symbol: "*~*", damage: 12, slowReuse: 1.2, aoe: true }); // 標準全體:全場每隻 12
-  }
   if (items.length > 0) {
     categories.push({ id: "item", label: "道具", subActions: items });
+  }
+
+  // 法術單一轉盤(2026-09 用戶定案):整類共用 0.5s 回轉,各法術另有詠唱時間——
+  // 選定後先念完效果才落地,念完法術盤才重新起充(火焰卷軸 0.5s+0.5s=整體 1 秒)
+  const spells = [];
+  if ((carried?.scrolls ?? 0) > 0) {
+    // 火焰卷軸:法術系統解鎖前,玩家第一次碰到「不屬於這個時代常識」的力量;標準全體:全場每隻 12
+    spells.push({ id: "fire-scroll", label: "火焰卷軸", baseCost: 0.5, symbol: "*~*", damage: 12, aoe: true, castTime: 0.5 });
+  }
+  if (spells.length > 0) {
+    categories.push({ id: "magic", label: "法術", subActions: spells });
   }
   return categories;
 }

@@ -32,6 +32,8 @@ export interface SubAction {
   reloadCost?: number;
   /** 道具類:強力道具用完後,下一輪道具回轉拖長為這個秒數(預設 1s;2026-09 用戶定案) */
   slowReuse?: number;
+  /** 詠唱時間(法術,2026-09 用戶定案):選定後先念這麼多秒,效果才落地;念完法術盤才從 0 起充(火焰卷軸 0.5s) */
+  castTime?: number;
   /** 壓制(劍類,2026-09 用戶定案):砍在敵方動作條 ≥ threshold 時,把牠的動作條往回推 push(比例;大招 heavyPush);
    * 巨體減半——不是把牠打倒,而是讓牠一直出不了手 */
   suppress?: { push: number; heavyPush: number; threshold: number };

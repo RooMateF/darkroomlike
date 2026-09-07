@@ -224,7 +224,7 @@ app.innerHTML = `
       </div>
 
       <!-- 控制列固定在行動區頂端(2026-09 用戶要求):不隨武器變多往下漂,位置顯眼 -->
-      <div class="combat-controls"><span id="status-text"></span><span class="combat-controls-spacer"></span><button class="btn" id="skip-btn" disabled>暫不使用</button> <button class="btn" id="retreat-btn" disabled>撤退</button></div>
+      <div class="combat-controls"><span id="status-text"></span><span class="combat-controls-spacer"></span><button class="btn" id="skip-btn" disabled>暫不使用 [0]</button> <button class="btn" id="retreat-btn" disabled>撤退</button></div>
       <div class="section" id="categories"></div>
 
       <div class="section" style="margin-top:8px;">
@@ -494,11 +494,140 @@ function subActionLabel(subActionId: string, baseLabel: string): string {
   return baseLabel;
 }
 
+/** 道具/法術(2026-09 用戶定案):整類一個按鍵+一條轉盤,轉滿後點開選單挑要用哪一個 */
+interface GroupRow {
+  categoryId: CategoryId;
+  line: HTMLDivElement;
+  name: HTMLSpanElement;
+  bar: HTMLSpanElement;
+  barFilled: HTMLSpanElement;
+  barEmpty: HTMLSpanElement;
+  pct: HTMLSpanElement;
+  useLink: HTMLButtonElement;
+  menu: HTMLDivElement;
+  entries: { subActionId: string; btn: HTMLButtonElement }[];
+}
+const GROUP_HOTKEY: Partial<Record<CategoryId, string>> = { item: "G", magic: "F" };
+const groupRows: GroupRow[] = [];
+let openMenu: GroupRow | null = null;
+
+function closeMenu() {
+  if (!openMenu) return;
+  openMenu.menu.style.display = "none";
+  openMenu.useLink.textContent = "選擇";
+  openMenu = null;
+}
+
+function refreshMenu(g: GroupRow) {
+  const cat = engine.playerCategories.find((c) => c.def.id === g.categoryId);
+  g.entries.forEach((en, i) => {
+    const t = cat?.trackers.find((x) => x.subAction.id === en.subActionId);
+    const ok = !!t && t.ready && canUse(en.subActionId);
+    en.btn.textContent = `${i + 1}. ${subActionLabel(en.subActionId, t?.subAction.label ?? en.subActionId)}`;
+    en.btn.disabled = !ok;
+    en.btn.classList.toggle("ready", ok);
+  });
+}
+
+function toggleMenu(g: GroupRow) {
+  if (openMenu === g) {
+    closeMenu();
+    return;
+  }
+  closeMenu();
+  if (g.useLink.disabled) return; // 沒轉滿/沒東西可用:點了也不開
+  refreshMenu(g);
+  g.menu.style.display = "";
+  g.useLink.textContent = "收起";
+  openMenu = g;
+}
+
+function pickFromMenu(g: GroupRow, subActionId: string) {
+  if (bossDialogActive || !canUse(subActionId)) return;
+  if (engine.useSubAction(g.categoryId, subActionId)) afterUse(subActionId);
+  closeMenu();
+}
+
+/** 道具/法術整類一條轉盤:所有子行動同步,拿第一個的進度畫;詠唱中改畫念誦進度 */
+function renderGroupRow(g: GroupRow, cat: CombatEngine["playerCategories"][number]) {
+  const casting = engine.casting && engine.casting.cat === cat ? engine.casting : null;
+  const lead = cat.trackers[0];
+  const anyUsable = cat.trackers.some((t) => t.ready && canUse(t.subAction.id));
+  let pct: number;
+  let tag: string;
+  if (casting) {
+    pct = Math.round((1 - casting.left / casting.total) * 100);
+    tag = "詠唱中";
+  } else {
+    pct = lead.ready ? 100 : Math.min(99, Math.round(lead.progress * 100));
+    tag = `${pct}%`;
+  }
+  const filledCount = Math.round((pct / 100) * BAR_WIDTH);
+  g.barFilled.textContent = "█".repeat(filledCount);
+  g.barEmpty.textContent = "░".repeat(BAR_WIDTH - filledCount);
+  g.pct.textContent = tag;
+  const open = anyUsable && !casting;
+  g.bar.classList.toggle("ready", open);
+  g.useLink.disabled = !open;
+  g.useLink.classList.toggle("ready", open);
+  if (openMenu === g) {
+    if (!open) closeMenu();
+    else refreshMenu(g);
+  }
+}
+
+function makeBar() {
+  const barWrap = document.createElement("span");
+  barWrap.className = "row-controls";
+  const bar = document.createElement("span");
+  bar.className = "bar";
+  const barFilled = document.createElement("span");
+  barFilled.className = "filled";
+  const barEmpty = document.createElement("span");
+  bar.append(barFilled, barEmpty);
+  const pct = document.createElement("span");
+  pct.className = "row-count";
+  barWrap.append(bar, pct);
+  return { barWrap, bar, barFilled, barEmpty, pct };
+}
+
 for (const cat of PLAYER_CATEGORIES) {
   const label = document.createElement("div");
   label.className = "section-title";
   label.textContent = cat.label;
   categoriesEl.appendChild(label);
+
+  const groupKey = GROUP_HOTKEY[cat.id];
+  if (groupKey) {
+    // 道具 [G] / 法術 [F]:一列轉盤+「選擇」展開選單(數字鍵或點選挑一個)
+    const line = document.createElement("div");
+    line.className = "row-grid";
+    const name = document.createElement("span");
+    name.className = "row-name";
+    name.textContent = `${cat.label} [${groupKey}]`;
+    const { barWrap, bar, barFilled, barEmpty, pct } = makeBar();
+    const useLink = document.createElement("button");
+    useLink.className = "use-link";
+    useLink.textContent = "選擇";
+    useLink.disabled = true;
+    line.append(name, barWrap, useLink);
+    const menu = document.createElement("div");
+    menu.className = "pick-menu";
+    menu.style.display = "none";
+    const entries = cat.subActions.map((sa) => {
+      const btn = document.createElement("button");
+      btn.className = "pick-entry";
+      btn.textContent = sa.label;
+      menu.appendChild(btn);
+      return { subActionId: sa.id, btn };
+    });
+    categoriesEl.append(line, menu);
+    const g: GroupRow = { categoryId: cat.id, line, name, bar, barFilled, barEmpty, pct, useLink, menu, entries };
+    useLink.addEventListener("click", () => toggleMenu(g));
+    for (const en of entries) en.btn.addEventListener("click", () => pickFromMenu(g, en.subActionId));
+    groupRows.push(g);
+    continue;
+  }
 
   for (const sa of cat.subActions) {
     const line = document.createElement("div");
@@ -510,17 +639,7 @@ for (const cat of PLAYER_CATEGORIES) {
     const hotkey = rows.length + 1;
     name.textContent = hotkey <= 9 ? `${hotkey}. ${sa.label}` : sa.label;
 
-    const barWrap = document.createElement("span");
-    barWrap.className = "row-controls";
-    const bar = document.createElement("span");
-    bar.className = "bar";
-    const barFilled = document.createElement("span");
-    barFilled.className = "filled";
-    const barEmpty = document.createElement("span");
-    bar.append(barFilled, barEmpty);
-    const pct = document.createElement("span");
-    pct.className = "row-count";
-    barWrap.append(bar, pct);
+    const { barWrap, bar, barFilled, barEmpty, pct } = makeBar();
 
     const useLink = document.createElement("button");
     useLink.className = "use-link";
@@ -537,7 +656,7 @@ for (const cat of PLAYER_CATEGORIES) {
   }
 }
 
-// ---- 格擋(盾牌):獨立於類別列的即時動作——0 鍵或按鈕,窗口/冷卻畫在同一條 bar ----
+// ---- 格擋(盾牌):獨立於類別列的即時動作——空白鍵或按鈕(2026-09 改鍵),窗口/冷卻畫在同一條 bar ----
 // 帶多面盾時用最好的那面(WEAPONS 順序即位階);半格擋耗 1 耐久,壞了自動換下一面
 function bestShieldId(): string | null {
   if (!carried) return null;
@@ -707,13 +826,18 @@ bossDialogNext.addEventListener("click", () => {
   done?.();
 });
 
-// 鍵盤快捷鍵(戰鬥的出手頻率高,全滑鼠會累死):數字 1~9 = 使用對應列;空白鍵 = 暫不使用;R = 撤退
+// 鍵盤快捷鍵(2026-09 用戶定案):數字 1~9 = 近戰/遠程對應列(選單開著時=選單項目);G = 道具選單;F = 法術選單;
+// 空白鍵 = 格擋;0 = 暫不使用;Tab = 切換目標;R = 撤退;Esc = 收起選單
 window.addEventListener("keydown", (e) => {
   if (e.repeat) return;
   if (bossDialogActive) return; // 儀式對話框開著:先讀完
   if (lootPanelActive) return; // 掉落面板開著:按鍵交給面板
   if (e.key === " ") {
     e.preventDefault();
+    engine.useBlock();
+    return;
+  }
+  if (e.key === "0") {
     if (!skipBtn.disabled) engine.skip();
     return;
   }
@@ -721,8 +845,14 @@ window.addEventListener("keydown", (e) => {
     if (!retreatBtn.disabled) retreatBtn.click();
     return;
   }
-  if (e.key === "0") {
-    engine.useBlock();
+  if (e.key === "g" || e.key === "G" || e.key === "f" || e.key === "F") {
+    const catId: CategoryId = e.key.toLowerCase() === "g" ? "item" : "magic";
+    const g = groupRows.find((x) => x.categoryId === catId);
+    if (g) toggleMenu(g);
+    return;
+  }
+  if (e.key === "Escape") {
+    closeMenu();
     return;
   }
   if (e.key === "Tab") {
@@ -736,6 +866,12 @@ window.addEventListener("keydown", (e) => {
     return;
   }
   const idx = Number(e.key);
+  if (openMenu) {
+    // 選單開著:數字鍵挑選單裡的項目
+    const en = openMenu.entries[idx - 1];
+    if (en && !en.btn.disabled) en.btn.click();
+    return;
+  }
   if (idx >= 1 && idx <= rows.length) {
     const row = rows[idx - 1];
     if (!row.useLink.disabled) row.useLink.click();
@@ -1586,7 +1722,7 @@ function render() {
   if (engine.shield && carried && shieldId) {
     const sdef = WEAPONS.find((w) => w.id === shieldId)!;
     const sdur = carried.durability[shieldId] ?? carriedMaxDurability(carried, shieldId);
-    blockRowEls.name.textContent = `0. 格擋(${sdef.label}・耐久 ${sdur})`;
+    blockRowEls.name.textContent = `格擋 [空白](${sdef.label}・耐久 ${sdur})`;
     let frac: number;
     let tag: string;
     if (engine.blockWindowLeft > 0) {
@@ -1653,6 +1789,11 @@ function render() {
   });
 
   for (const cat of engine.playerCategories) {
+    const g = groupRows.find((x) => x.categoryId === cat.def.id);
+    if (g) {
+      renderGroupRow(g, cat);
+      continue;
+    }
     for (const t of cat.trackers) {
       const row = rows.find((r) => r.categoryId === cat.def.id && r.subActionId === t.subAction.id)!;
       // 沒真的跑滿就別顯示 100%(用戶回報:四捨五入成 100% 但「使用」是灰的,看起來像壞掉)

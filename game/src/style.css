@@ -1283,3 +1283,29 @@ hr {
   line-height: 1.9;
   text-wrap: balance;
 }
+
+/* ---------- 道具/法術選單(2026-09):轉滿後展開,挑一個就收起 ---------- */
+.pick-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 4px 0 6px 4.5em;
+  border-bottom: 1px dotted var(--fg-faint);
+}
+
+.pick-entry {
+  font-family: inherit;
+  font-size: inherit;
+  background: none;
+  border: 1px solid var(--fg-faint);
+  padding: 1px 8px;
+  color: var(--fg-faint);
+  cursor: default;
+  white-space: nowrap;
+}
+
+.pick-entry.ready {
+  color: var(--fg-bright);
+  border-color: var(--fg);
+  cursor: pointer;
+}

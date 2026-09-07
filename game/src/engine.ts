@@ -228,6 +228,8 @@ export class CombatEngine {
   reloadLock = 0;
   /** 剛剛那次 useSubAction 是換彈(UI 據此跳過彈藥/耐久消耗) */
   justReloaded = false;
+  /** 詠唱中(法術,2026-09 用戶定案):選定法術後先念 castTime 秒,效果落地才起算法術盤;期間你的行動條全部凍結、舉不起盾 */
+  casting: { cat: CategoryTracker; tracker: SubActionTracker; left: number; total: number } | null = null;
   /** 暈眩剩餘秒數:你的所有行動條凍結(敵方照常行動——被壓制的恐懼感) */
   stunLeft = 0;
   /** 遲緩剩餘秒數:行動條充能減半 */
@@ -368,6 +370,7 @@ export class CombatEngine {
     if (!this.shield || this.blockCooldownLeft > 0 || this.blockWindowLeft > 0) return false;
     if (this.stunLeft > 0) return false; // 暈眩中舉不起盾
     if (this.reloadLock > 0) return false; // 換彈中雙手占著,舉不起盾
+    if (this.casting) return false; // 詠唱中:手上捏著卷軸,舉不起盾
     this.blockWindowLeft = BLOCK_WINDOW;
     this.blockCooldownLeft = this.shield.cd;
     // 格擋自成一類(2026-09 用戶定案):對其他類別而言就是「別類的招」——舉盾讓所有行動條重頭跑;
@@ -447,8 +450,23 @@ export class CombatEngine {
         if (u.staggerLeft <= 0) u.staggerGauge = Math.max(0, u.staggerGauge - dt);
         if (u.riposteLeft > 0) u.riposteLeft = Math.max(0, u.riposteLeft - dt);
       }
-      // 暈眩/換彈中:你的行動條全部凍結,敵方照常進逼
-      if (this.stunLeft <= 0 && this.reloadLock <= 0) {
+      // 詠唱倒數(暈眩中不走):念完效果落地,法術盤這才從 0 起充
+      if (this.casting && this.stunLeft <= 0) {
+        this.casting.left = Math.max(0, this.casting.left - dt);
+        if (this.casting.left <= 0) {
+          const { cat, tracker } = this.casting;
+          this.casting = null;
+          this.applyEffect(cat, tracker);
+          for (const t of cat.trackers) {
+            t.elapsed = 0;
+            t.costMult = 1;
+            this.acknowledged.delete(this.key(cat.def.id, t.subAction.id));
+          }
+          if (this.playerHp <= 0 || this.enemyHp <= 0) return;
+        }
+      }
+      // 暈眩/換彈/詠唱中:你的行動條全部凍結,敵方照常進逼
+      if (this.stunLeft <= 0 && this.reloadLock <= 0 && !this.casting) {
         for (const cat of this.playerCategories) cat.tick(dt);
       }
       // 每一隻活著的敵人各自進逼(多目標:同時進攻)
@@ -486,7 +504,7 @@ export class CombatEngine {
       // 道具類例外(2026-09 用戶反饋:每次出招道具歸零重充、一就緒又暫停,被迫狂點「暫不使用」)——
       // 道具就緒只是「隨時可用」,不打斷節奏;要用就在任何暫停時或即時點下去
       const hasNewlyReady = this.playerCategories.some(
-        (c) => c.def.id !== "item" && c.trackers.some((t) => t.ready && !this.acknowledged.has(this.key(c.def.id, t.subAction.id))),
+        (c) => c.def.id !== "item" && c.def.id !== "magic" && c.trackers.some((t) => t.ready && !this.acknowledged.has(this.key(c.def.id, t.subAction.id))),
       );
       if (hasNewlyReady) {
         // 就緒寬限:差不到 PAUSE_SNAP_SECONDS 的行動條一併補滿,暫停畫面上不會出現「99% 但按不下去」
@@ -614,6 +632,7 @@ export class CombatEngine {
     const tracker = cat.trackers.find((t) => t.subAction.id === subActionId);
     if (!tracker || !tracker.ready) return false;
     if (this.reloadLock > 0) return false; // 換彈中:雙手都占著
+    if (this.casting) return false; // 詠唱中:念完才能做別的
 
     // 換彈(2026-09 用戶定案):點選=所有行動清空,凍結 reload 秒後各 CD 才重新起跑
     if (tracker.needsReload) {
@@ -632,6 +651,27 @@ export class CombatEngine {
     }
     this.justReloaded = false;
 
+    // 詠唱(法術,2026-09 用戶定案):選定=出招——所有行動條重頭跑,先念 castTime 秒效果才落地;法術盤在念完後才起充
+    const castTime = tracker.subAction.castTime ?? 0;
+    if (castTime > 0) {
+      this.casting = { cat, tracker, left: castTime, total: castTime };
+      this.firstStrikeBoost = false;
+      for (const c of this.playerCategories) {
+        c.resetAll();
+        this.applyItemField(c);
+        for (const t of c.trackers) this.acknowledged.delete(this.key(c.def.id, t.subAction.id));
+      }
+      this.cb.onLog({ id: this.logId++, actor: "你", target: `攤開${tracker.subAction.label},低聲念誦起來`, symbol: "~", damage: 0 });
+      this.resume();
+      return true;
+    }
+    this.applyEffect(cat, tracker);
+    this.settleAfterUse(cat, tracker);
+    return true;
+  }
+
+  /** 效果落地:傷害/回復/壓制/招架/凍結……(即時行動直接呼叫;法術在詠唱結束時呼叫) */
+  private applyEffect(cat: CategoryTracker, tracker: SubActionTracker) {
     let dmg = tracker.subAction.damage;
     if (dmg > 0 && this.playerEmpowerNext) {
       dmg = Math.round(dmg * 1.5); // 凍結獎勵:下一擊 ×1.5
@@ -804,7 +844,10 @@ export class CombatEngine {
       this.cb.onUnitsChanged?.();
     }
     this.cb.onHpChange();
+  }
 
+  /** 出招後的行動條結算(§2.3.2):同類補償/道具整盤重轉/跨類別歸零 */
+  private settleAfterUse(cat: CategoryTracker, tracker: SubActionTracker) {
     this.firstStrikeBoost = false; // 危機意識:第一個行動放出去之後恢復正常充能
 
     // §2.3.2 定案(2026-09 用戶規格):
@@ -839,7 +882,6 @@ export class CombatEngine {
     }
 
     this.resume();
-    return true;
   }
 
   /**
