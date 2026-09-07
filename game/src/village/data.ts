@@ -318,9 +318,9 @@ export const UPGRADES: UpgradeDef[] = [
   { id: "iron-armor", label: "鐵甲", cost: { ingot: 250, leather: 500 }, effect: "生命上限 50 → 70", requiresBuilding: "smithy", requiresUpgrade: "leather-armor" },
   { id: "iron-cart", label: "推車", cost: { ingot: 200, wood: 300, leather: 150 }, effect: "揹負空間 45 → 70", requiresBuilding: "smithy", requiresUpgrade: "backpack" },
   // ---- 鋼階升級(需煤礦解放後的鋼產線) ----
-  { id: "steel-flask", label: "鋼水壺", cost: { steel: 12, leather: 250 }, effect: "水量上限 45 → 50", requiresBuilding: "smithy", requiresUpgrade: "iron-flask" },
-  { id: "steel-armor", label: "鋼甲", cost: { steel: 20, leather: 600 }, effect: "生命上限 70 → 90", requiresBuilding: "smithy", requiresUpgrade: "iron-armor" },
-  { id: "steel-cart", label: "小貨車", cost: { steel: 15, ingot: 100, wood: 300 }, effect: "揹負空間 70 → 100", requiresBuilding: "smithy", requiresUpgrade: "iron-cart" },
+  { id: "steel-flask", label: "鋼水壺", cost: { steel: 150, leather: 300 }, effect: "水量上限 45 → 60", requiresBuilding: "smithy", requiresUpgrade: "iron-flask" },
+  { id: "steel-armor", label: "鋼甲", cost: { steel: 250, leather: 600 }, effect: "生命上限 70 → 90", requiresBuilding: "smithy", requiresUpgrade: "iron-armor" },
+  { id: "steel-cart", label: "小貨車", cost: { steel: 200, ingot: 100, wood: 400, leather: 200 }, effect: "揹負空間 70 → 100", requiresBuilding: "smithy", requiresUpgrade: "iron-cart" },
 ];
 
 /** 生命上限:基礎 30,皮甲 +10 */

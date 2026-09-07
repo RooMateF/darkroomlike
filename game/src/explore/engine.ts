@@ -351,7 +351,7 @@ function readWaterCapacity(): number {
   try {
     const v = JSON.parse(localStorage.getItem("village-state") ?? "{}");
     const u = v.upgrades ?? {};
-    if (u["steel-flask"]) return 50;
+    if (u["steel-flask"]) return 60;
     if (u["iron-flask"]) return 45;
     if (u.waterskin) return 32;
     return 20;
