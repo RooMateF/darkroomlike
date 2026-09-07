@@ -1,6 +1,6 @@
 import "./style.css";
 import { CombatEngine, type LogEntry } from "./engine";
-import { tutorialEnemy, TUTORIAL_HINT, TUTORIAL_TEXT, TUTORIAL_TITLE } from "./tutorial";
+import { tutorialEnemy, TUTORIAL_HINT, TUTORIAL_TEXT, TUTORIAL_TITLE, type TutorialTourTarget } from "./tutorial";
 import { buildPlayerCategories } from "./demo-data";
 import { WEAPONS, fineMaxDurability, WEAPON_CARRY_LIMITS } from "./village/data";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
@@ -849,6 +849,11 @@ window.addEventListener("keydown", (e) => {
   if (e.repeat) return;
   if (bossDialogActive) return; // 儀式對話框開著:先讀完
   if (lootPanelActive) return; // 掉落面板開著:按鍵交給面板
+  if (tutTourNext && (e.key === "Enter" || e.key === " ")) {
+    e.preventDefault(); // 教學導覽中:Enter/空白鍵 = 下一格
+    tutTourNext();
+    return;
+  }
   if (e.key === " ") {
     e.preventDefault();
     engine.useBlock(true); // 即時格擋:靠反應,只算普通格擋
@@ -1240,7 +1245,7 @@ if (enemyDef.intro2) appendSystemLog(enemyDef.intro2);
 if (enemyDef.boss) {
   showBossDialog(enemyDef.intro2 ? [enemyDef.intro, enemyDef.intro2] : [enemyDef.intro], enemyDef.label);
 }
-if (TUTORIAL) tutSay(TUTORIAL_TEXT.start, categoriesEl, TUTORIAL_HINT.start);
+if (TUTORIAL) tutSay(TUTORIAL_TEXT.start, null, undefined, tutorialStartTour); // 她開口 → 導覽面板 → 再開打
 if (dungeon?.landmarkId === "scavenger" && stolenSnapshot.length > 0) {
   appendSystemLog("幾條蒼白的觸手從牆縫裡垂下,各自纏著你被搶走的東西。");
 } else if (unitDefs.length > 1) {
@@ -1707,12 +1712,21 @@ tutHintEl.style.display = "none";
 document.body.appendChild(tutHintEl);
 let tutHintTarget: HTMLElement | null = null;
 
-function showTutHint(target: HTMLElement | null | undefined, text: string) {
+function showTutHint(target: HTMLElement | null | undefined, text: string, next?: () => void) {
   hideTutHint();
   if (!target) return;
   tutHintTarget = target;
   target.classList.add("tut-focus");
   tutHintEl.textContent = text;
+  tutHintEl.classList.toggle("has-next", !!next);
+  if (next) {
+    // 導覽格:帶「繼續」鍵(Enter/空白鍵也可以)
+    const b = document.createElement("button");
+    b.className = "tut-next";
+    b.textContent = "繼續 ▸";
+    b.addEventListener("click", next);
+    tutHintEl.appendChild(b);
+  }
   tutHintEl.style.display = "";
   positionTutHint();
 }
@@ -1749,6 +1763,35 @@ function tutSay(lines: string[], hintTarget?: HTMLElement | null, hintText?: str
     if (hintTarget && hintText) showTutHint(hintTarget, hintText);
     after?.();
   });
+}
+
+/** 開場導覽(用戶定案 2026-09):面板與按鍵 → CD → 近戰 → 遠程 → 道具 → 盾,一格一格指過去;導覽期間時鐘停住 */
+let tutTourNext: (() => void) | null = null;
+function tutorialStartTour() {
+  engine.stop(); // 對話框收掉會把時鐘開回來——導覽還沒完,先停住
+  const targets: Record<TutorialTourTarget, HTMLElement | null | undefined> = {
+    hp: document.querySelector<HTMLElement>("#player-hp-row"),
+    enemy: unitEls[0]?.root,
+    controls: document.querySelector<HTMLElement>(".combat-controls"),
+    categories: categoriesEl,
+    melee: rows.find((r) => r.categoryId === "melee")?.name.parentElement,
+    ranged: rows.find((r) => r.categoryId === "ranged")?.name.parentElement,
+    item: groupRows.find((g) => g.categoryId === "item")?.line,
+    block: blockRowEls.line,
+  };
+  let i = 0;
+  const step = () => {
+    if (i >= TUTORIAL_HINT.tour.length) {
+      tutTourNext = null;
+      hideTutHint();
+      tutSay(TUTORIAL_TEXT.afterTour); // 她說完「開始吧」,對話框收掉時鐘就走了
+      return;
+    }
+    const cur = TUTORIAL_HINT.tour[i++];
+    tutTourNext = step;
+    showTutHint(targets[cur.target], cur.text, step);
+  };
+  step();
 }
 
 function tutorialOnPause() {

@@ -1346,3 +1346,19 @@ hr {
   outline: 1px solid var(--fg-bright);
   outline-offset: 2px;
 }
+
+.tut-hint.has-next {
+  pointer-events: auto;
+}
+
+.tut-next {
+  display: block;
+  margin: 6px 0 0 auto;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 1px 10px;
+  background: none;
+  border: 1px solid var(--fg-bright);
+  color: var(--fg-bright);
+  cursor: pointer;
+}
