@@ -140,6 +140,7 @@ function startVillage() {
           <div class="section-title" style="margin-top:14px;">模擬戰(滿裝測試場)</div>
           <div class="hint-line">鋼階滿裝+危機意識,不影響存檔;打完自動重開,「撤退」=離開。</div>
           <div style="display:flex; flex-wrap:wrap; gap:6px;" id="sandbox-btns">
+            <button class="btn" data-sandbox="tutorial">戰鬥教學</button>
             <button class="btn" data-sandbox="church">教堂</button>
             <button class="btn" data-sandbox="coalmine">煤礦坑</button>
             <button class="btn" data-sandbox="mine">鐵礦坑</button>

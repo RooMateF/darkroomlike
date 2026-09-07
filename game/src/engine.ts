@@ -232,6 +232,8 @@ export class CombatEngine {
   casting: { cat: CategoryTracker; tracker: SubActionTracker; left: number; total: number } | null = null;
   /** 盾的冷卻剛轉好(2026-09 用戶定案):就緒的那一刻停一次等指示;之後只是「隨時可舉」,不再為它停 */
   private blockNewlyReady = false;
+  /** 這次舉盾能不能完全格擋(2026-09 用戶定案):指令格擋(決策暫停中下令=靠配速)可以;即時空白鍵只算普通格擋 */
+  private blockPerfectAllowed = false;
   /** 暈眩剩餘秒數:你的所有行動條凍結(敵方照常行動——被壓制的恐懼感) */
   stunLeft = 0;
   /** 遲緩剩餘秒數:行動條充能減半 */
@@ -367,13 +369,17 @@ export class CombatEngine {
     return this.targetUnit?.chilled ?? false;
   }
 
-  /** 舉盾格擋(§用戶規格 2026-09):開 0.5s 防禦窗,前 0.1s 完全格擋;冷卻由盾決定 */
-  useBlock(): boolean {
+  /** 舉盾格擋(§用戶規格 2026-09):開 0.5s 防禦窗;冷卻由盾決定。
+   * instant=即時格擋(空白鍵):隨時可按,但只算普通格擋——靠反應不算本事;
+   * 指令格擋(B/行動列):只能在決策暫停中下令——時間停住那一刻靠配速抓到對方快落地,前 0.1s 才是完全格擋 */
+  useBlock(instant = false): boolean {
     if (!this.shield || this.blockCooldownLeft > 0 || this.blockWindowLeft > 0) return false;
+    if (!instant && !this.paused) return false; // 指令格擋:時間停下來的那一刻才下得了令
     if (this.stunLeft > 0) return false; // 暈眩中舉不起盾
     if (this.reloadLock > 0) return false; // 換彈中雙手占著,舉不起盾
     if (this.casting) return false; // 詠唱中:手上捏著卷軸,舉不起盾
     this.blockWindowLeft = BLOCK_WINDOW;
+    this.blockPerfectAllowed = !instant;
     this.blockCooldownLeft = this.shield.cd;
     this.blockNewlyReady = false;
     // 格擋自成一類(2026-09 用戶定案):對其他類別而言就是「別類的招」——舉盾讓所有行動條重頭跑;
@@ -545,7 +551,7 @@ export class CombatEngine {
         unit.riposteLeft = 0;
         this.cb.onLog({ id: this.logId++, actor: "你", target: `招架!刃口彈開了攻擊,${unit.label}的這一擊落空！`, symbol: "◎", damage: 0 });
       } else if (this.blockWindowLeft > 0 && this.shield) {
-        blocked = this.blockWindowLeft >= BLOCK_WINDOW - (BLOCK_PERFECT + this.perfectWindowBonus) ? "perfect" : "partial";
+        blocked = this.blockPerfectAllowed && this.blockWindowLeft >= BLOCK_WINDOW - (BLOCK_PERFECT + this.perfectWindowBonus) ? "perfect" : "partial";
         // 穿盾招(百手壓下):普通格擋的減傷上限只有一半,想無傷只能抓 0.1s 的完全格擋
         const reduce = move.pierceBlock ? Math.min(this.shield.reduce, 0.5) : this.shield.reduce;
         dmg = blocked === "perfect" ? 0 : Math.max(0, Math.ceil(dmg * (1 - reduce)));

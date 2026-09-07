@@ -1,5 +1,6 @@
 import "./style.css";
 import { CombatEngine, type LogEntry } from "./engine";
+import { tutorialEnemy, TUTORIAL_TEXT, TUTORIAL_TITLE } from "./tutorial";
 import { buildPlayerCategories } from "./demo-data";
 import { WEAPONS, fineMaxDurability, WEAPON_CARRY_LIMITS } from "./village/data";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
@@ -23,12 +24,15 @@ import type { CategoryId } from "./types";
 // 模擬戰(?sandbox=<bossId>,2026-09 用戶要求):滿裝測試場——不讀不寫存檔,勝敗自動重開,撤退=離開
 const SANDBOX = new URLSearchParams(window.location.search).get("sandbox");
 if (SANDBOX) (globalThis as unknown as { __sandboxNoSave?: boolean }).__sandboxNoSave = true;
+/** 戰鬥教學(2026-09 用戶要求):與她對練——初學者配置(石斧+木槍+獵弓+木盾、繃帶 2)、HP 30、沒有危機意識 */
+const TUTORIAL = SANDBOX === "tutorial";
 
 // 預設配置遵守攜帶上限(近戰3/槍械2/盾1):大劍+鬼雪+匕首、左輪+自動步槍、鋼盾
 const SANDBOX_DEFAULT_WEAPONS: Record<string, number> = { "steel-greatsword": 1, oniyuki: 1, dagger: 1, "steel-shield": 1, revolver: 1, "auto-rifle": 1 };
 
 /** 模擬戰武器配置(裝備調整面板改這份;sandbox 專用鍵,不是遊戲存檔) */
 function sandboxLoadout(): Record<string, number> {
+  if (TUTORIAL) return { "stone-axe": 1, "wood-spear": 1, "hunting-bow": 1, "wood-shield": 1 };
   try {
     const raw = localStorage.getItem("sandbox-loadout");
     if (raw) return JSON.parse(raw) as Record<string, number>;
@@ -61,6 +65,7 @@ function sandboxCarried() {
     rations: 4,
     hp: 90,
     loot: {},
+    ...(TUTORIAL ? { bullets: 0, arrows: 5, bandages: 2, elixirs: 0, salts: 0, jerky: 0, scrolls: 0, rations: 0, hp: 30 } : {}),
   } as unknown as NonNullable<ReturnType<typeof loadCarried>>;
 }
 
@@ -122,7 +127,18 @@ const isRedmoonFight = SANDBOX === "redmoon" || (!eventBossId && !dungeon && loc
 if (!SANDBOX && localStorage.getItem("pending-redmoon")) localStorage.removeItem("pending-redmoon");
 
 // 相鄰地圖(中央地圖以外)的野外更兇:一半機率抽中期梯隊
-const pickedDef = eventBossId
+/** 教學用的第一記劈下:石斧→木槍→一箭用完,木槍再滿(那一次決策暫停)的 0.06 秒後她的棍子落下——
+ * 石斧 H 滿 → 木槍留一半(H+S/2)→ 弓從頭跑(+B)→ 木槍從頭跑(+S);同類補償 0.5 見 engine CARRYOVER_RATIO */
+function tutorialFirstHeavyCost(): number {
+  const cost = (id: string) => WEAPONS.find((w) => w.id === id)?.baseCost ?? 1;
+  const H = cost("stone-axe");
+  const S = cost("wood-spear");
+  const B = cost("hunting-bow");
+  return H + S / 2 + B + S + 0.06;
+}
+const pickedDef = TUTORIAL
+  ? tutorialEnemy(tutorialFirstHeavyCost())
+  : eventBossId
   ? (EVENT_BOSSES[eventBossId] ?? pickRandomEnemy())
   : dungeon
     ? pickDungeonEnemy(dungeon)
@@ -410,6 +426,7 @@ function canUse(subActionId: string): boolean {
 
 /** 使用後結算:武器扣耐久(壞了換備用)、弓扣箭、消耗品扣數量 */
 function afterUse(subActionId: string) {
+  tutorialOnUse(subActionId);
   if (!carried) return;
   if (engine.justReloaded) return; // 換彈不是射擊:不耗彈藥也不耗任何東西
   const weapon = WEAPONS.find((w) => w.id === subActionId);
@@ -827,14 +844,18 @@ bossDialogNext.addEventListener("click", () => {
 });
 
 // 鍵盤快捷鍵(2026-09 用戶定案):數字 1~9 = 近戰/遠程對應列(選單開著時=選單項目);G = 道具選單;F = 法術選單;
-// 空白鍵 = 格擋;0 = 暫不使用;Tab = 切換目標;R = 撤退;Esc = 收起選單
+// 空白鍵 = 即時格擋(只算普通格擋);B = 指令格擋(只在決策暫停中成立,可完全格擋);0 = 暫不使用;Tab = 切換目標;R = 撤退;Esc = 收起選單
 window.addEventListener("keydown", (e) => {
   if (e.repeat) return;
   if (bossDialogActive) return; // 儀式對話框開著:先讀完
   if (lootPanelActive) return; // 掉落面板開著:按鍵交給面板
   if (e.key === " ") {
     e.preventDefault();
-    engine.useBlock();
+    engine.useBlock(true); // 即時格擋:靠反應,只算普通格擋
+    return;
+  }
+  if (e.key === "b" || e.key === "B") {
+    engine.useBlock(); // 指令格擋:只在決策暫停中成立(配速換完全格擋)
     return;
   }
   if (e.key === "0") {
@@ -879,9 +900,18 @@ window.addEventListener("keydown", (e) => {
 });
 
 const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
-  onLog: appendLog,
-  onTell: appendSystemLog,
-  onBlocked: (perfect) => onShieldBlocked(perfect),
+  onLog: (entry) => {
+    appendLog(entry);
+    tutorialOnLog(entry);
+  },
+  onTell: (text) => {
+    appendSystemLog(text);
+    tutorialOnTell();
+  },
+  onBlocked: (perfect) => {
+    onShieldBlocked(perfect);
+    tutorialOnBlocked(perfect);
+  },
   onSteal: () => performSteal(),
   onUnitsChanged: () => buildEnemyPanel(),
   onUnitHit: (unit, dmg) => {
@@ -894,6 +924,7 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
     if (host) spawnDamagePop(host, `-${dmg}`);
   },
   onEnemyAct: (unit, move) => {
+    tutorialOnEnemyAct(move);
     // 教堂半血(2026-09 用戶定案):第五招「孕育」必定釋放——零傷害的空窗,結算時鑽出兩隻
     if (move.id !== "priest-spawn" || unit.hp <= 0) return;
     appendSystemLog("孳生失敗體從不再祈禱的神父的身體裡鑽出");
@@ -937,6 +968,7 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
   },
   onPauseChange: (paused) => {
     if (lootPanelActive) return; // 勝利訊息別被收尾的 resume 洗掉
+    if (paused) queueMicrotask(tutorialOnPause); // 教學:等這一幀的狀態畫完再開口
     statusEl.textContent = paused ? "▍等待你的指示…" : "";
     skipBtn.disabled = !paused;
     skipBtn.classList.toggle("ready", paused);
@@ -1083,10 +1115,16 @@ if (carried) {
   engine.playerHp = engine.playerMaxHp;
 }
 if (SANDBOX) {
-  engine.playerMaxHp = 90; // 模擬戰:鋼甲滿裝
-  engine.playerHp = 90;
-  engine.firstStrikeBoost = true; // 危機意識也算滿配
-  appendSystemLog("〔模擬戰〕滿裝測試場:勝敗不影響存檔,打完自動重開;「撤退」=離開回村。");
+  if (TUTORIAL) {
+    engine.playerMaxHp = 30; // 對練:初學者的身體,沒有危機意識
+    engine.playerHp = 30;
+    appendSystemLog("〔模擬戰・教學〕與她對練:不影響存檔;「撤退」=離開回村。");
+  } else {
+    engine.playerMaxHp = 90; // 模擬戰:鋼甲滿裝
+    engine.playerHp = 90;
+    engine.firstStrikeBoost = true; // 危機意識也算滿配
+    appendSystemLog("〔模擬戰〕滿裝測試場:勝敗不影響存檔,打完自動重開;「撤退」=離開回村。");
+  }
   // 模擬戰選單(2026-09 用戶要求):對手清單與裝備調整收進左側欄,不擠行動區
   const split = document.querySelector<HTMLDivElement>(".combat-split")!;
   const menu = document.createElement("div");
@@ -1107,7 +1145,7 @@ if (SANDBOX) {
   };
   addTitle("模擬戰・對手");
   const fights: [string, string][] = [
-    ["church", "教堂"], ["coalmine", "煤礦坑"], ["mine", "鐵礦坑"], ["observatory", "觀測台"],
+    ["tutorial", "戰鬥教學"], ["church", "教堂"], ["coalmine", "煤礦坑"], ["mine", "鐵礦坑"], ["observatory", "觀測台"],
     ["shrine", "祭壇"], ["scavenger", "拾荒的長手"], ["counter", "數數的東西"], ["lv3", "Lv3看守"],
     ["redmoon", "紅月三連戰"], ["siren", "哼歌的東西"], ["tentacle", "收藏的觸手"],
     ["group", "外圍組隊"], ["spawnpack", "孳生體群"], ["chain", "遺跡連鎖戰"],
@@ -1202,6 +1240,7 @@ if (enemyDef.intro2) appendSystemLog(enemyDef.intro2);
 if (enemyDef.boss) {
   showBossDialog(enemyDef.intro2 ? [enemyDef.intro, enemyDef.intro2] : [enemyDef.intro], enemyDef.label);
 }
+if (TUTORIAL) showBossDialog(TUTORIAL_TEXT.start, TUTORIAL_TITLE);
 if (dungeon?.landmarkId === "scavenger" && stolenSnapshot.length > 0) {
   appendSystemLog("幾條蒼白的觸手從牆縫裡垂下,各自纏著你被搶走的東西。");
 } else if (unitDefs.length > 1) {
@@ -1656,6 +1695,87 @@ function showLootPanel(message: string, gains: Record<string, number>, href: str
   document.querySelector<HTMLDivElement>("#combat-main")?.appendChild(panel);
 }
 
+// ---- 戰鬥教學(2026-09 用戶要求):與她對練;流程與文本見 tutorial.ts ----
+// step: 0 等石斧滿 → 1 石斧已用,等木槍 → 2 木槍已用,等弓滿 → 3 弓已射,等木槍再滿(=格擋時機) → 4 格擋時機已到
+const tut = { step: 0, waitTold: false, hits: 0, blockTries: 0, blockDone: false, pendingBlock: null as boolean | null, itemShown: false, itemUsed: false, ended: false };
+
+function tutorialOnPause() {
+  if (!TUTORIAL || tut.ended || bossDialogActive) return;
+  const ready = (id: string) => engine.playerCategories.some((c) => c.trackers.some((t) => t.ready && t.subAction.id === id));
+  if (tut.step === 0) {
+    if (ready("stone-axe")) showBossDialog(TUTORIAL_TEXT.axeReady, TUTORIAL_TITLE);
+    else if (!tut.waitTold && ready("wood-spear")) {
+      tut.waitTold = true;
+      showBossDialog(TUTORIAL_TEXT.waitAxe, TUTORIAL_TITLE);
+    }
+    return;
+  }
+  if (tut.step === 2 && ready("hunting-bow")) {
+    showBossDialog(TUTORIAL_TEXT.bowReady, TUTORIAL_TITLE);
+    return;
+  }
+  if (tut.step === 3 && ready("wood-spear")) {
+    tut.step = 4; // 木槍再滿的這一次暫停:她的條 99%——現在下指令格擋
+    showBossDialog(TUTORIAL_TEXT.blockNow, TUTORIAL_TITLE);
+    return;
+  }
+  const item = engine.playerCategories.find((c) => c.def.id === "item");
+  if (!tut.itemShown && tut.blockDone && item?.trackers.some((t) => t.ready)) {
+    tut.itemShown = true;
+    showBossDialog(TUTORIAL_TEXT.item, TUTORIAL_TITLE);
+    return;
+  }
+  tutorialMaybeEnd();
+}
+
+function tutorialOnUse(subActionId: string) {
+  if (!TUTORIAL || tut.ended) return;
+  if (subActionId === "bandage") tut.itemUsed = true;
+  if (tut.step === 0 && subActionId === "stone-axe") {
+    tut.step = 1;
+    showBossDialog(TUTORIAL_TEXT.axeHit, TUTORIAL_TITLE);
+  } else if (tut.step === 1 && subActionId === "wood-spear") tut.step = 2;
+  else if (tut.step === 2 && subActionId === "hunting-bow") tut.step = 3;
+}
+
+function tutorialOnLog(entry: LogEntry) {
+  if (!TUTORIAL || tut.ended) return;
+  if (entry.actor === "你" && entry.damage > 0) tut.hits++;
+}
+
+function tutorialOnTell() {
+  if (!TUTORIAL || tut.ended || tut.blockDone || bossDialogActive) return;
+  tut.blockTries++; // 第一次舉棍的說明在開場講過;之後每次再舉都提醒一句
+  if (tut.blockTries >= 2) showBossDialog(TUTORIAL_TEXT.blockRetry, TUTORIAL_TITLE);
+}
+
+function tutorialOnBlocked(perfect: boolean) {
+  if (TUTORIAL) tut.pendingBlock = perfect; // 同一招的 onEnemyAct 緊接著來,那裡再判定
+}
+
+function tutorialOnEnemyAct(move: EnemyMove) {
+  if (!TUTORIAL || tut.ended) return;
+  const res = tut.pendingBlock;
+  tut.pendingBlock = null;
+  if (!move.heavy || tut.blockDone || bossDialogActive) return;
+  if (res === true || (res === false && tut.blockTries >= 2)) {
+    tut.blockDone = true; // 完全格擋,或第二次仍只擋一半:過關,往下講道具
+    showBossDialog(res ? TUTORIAL_TEXT.blockPerfect : TUTORIAL_TEXT.blockPartial, TUTORIAL_TITLE, tutorialMaybeEnd);
+  } else if (res === false) showBossDialog(TUTORIAL_TEXT.blockPartial, TUTORIAL_TITLE);
+  else showBossDialog(TUTORIAL_TEXT.blockMissed, TUTORIAL_TITLE);
+}
+
+/** 格擋與道具都講過、且用過繃帶(或打了夠多下),或她掉到半血:收工 */
+function tutorialMaybeEnd() {
+  if (!TUTORIAL || tut.ended || bossDialogActive) return;
+  const her = engine.units[0];
+  const covered = tut.blockDone && tut.itemShown;
+  if ((covered && (tut.itemUsed || tut.hits >= 5)) || (her && her.hp <= her.maxHp * 0.5)) {
+    tut.ended = true;
+    showBossDialog(TUTORIAL_TEXT.end, TUTORIAL_TITLE, () => endCombat("對練結束", "village.html", 1500));
+  }
+}
+
 /** 戰鬥結束:停下引擎,短暫停留後自動離開,不需要按鈕 */
 function endCombat(message: string, href: string, delayMs: number) {
   engine.stop();
@@ -1722,7 +1842,7 @@ function render() {
   if (engine.shield && carried && shieldId) {
     const sdef = WEAPONS.find((w) => w.id === shieldId)!;
     const sdur = carried.durability[shieldId] ?? carriedMaxDurability(carried, shieldId);
-    blockRowEls.name.textContent = `格擋 [空白](${sdef.label}・耐久 ${sdur})`;
+    blockRowEls.name.textContent = `格擋 [B・空白](${sdef.label}・耐久 ${sdur})`;
     let frac: number;
     let tag: string;
     if (engine.blockWindowLeft > 0) {
@@ -1741,8 +1861,9 @@ function render() {
     blockRowEls.pct.textContent = tag;
     const blockReady = engine.blockCooldownLeft <= 0 && engine.blockWindowLeft <= 0 && engine.stunLeft <= 0;
     blockRowEls.bar.classList.toggle("ready", engine.blockWindowLeft > 0 || blockReady);
-    blockRowEls.useLink.disabled = !blockReady;
-    blockRowEls.useLink.classList.toggle("ready", blockReady);
+    const cmdOk = blockReady && engine.paused; // 行動列的「格擋」=指令格擋:只在暫停中下令;即時格擋走空白鍵
+    blockRowEls.useLink.disabled = !cmdOk;
+    blockRowEls.useLink.classList.toggle("ready", cmdOk);
   }
 
   // 敵欄(多目標):每隻各自的 HP/動作/凍結;▶=目前目標,倒下的變暗
