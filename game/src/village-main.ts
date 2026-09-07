@@ -1312,13 +1312,16 @@ function startVillage() {
       row.plus.classList.toggle("ready", canAdd);
       // 顯示「目前人數下的實際總產出」,而不是每人基礎值——0 人時顯示 +0,一眼看出這行現在沒在動
       const workers = engine.assignments[row.job.id] ?? 0;
+      // 鐵軌連通礦坑後鐵礦工產出 ×4:面板要顯示乘過的實際數字,並標明是礦車在搬(2026-09 用戶反饋)
+      const boost = engine.jobYieldBoost(row.job.id);
       row.info.textContent =
         Object.entries(row.job.produces)
           .map(([id, n]) => {
-            const total = (n ?? 0) * workers;
+            const base = n ?? 0;
+            const total = base > 0 ? base * workers * boost : base * workers;
             return `${RESOURCE_LABEL[id as ResourceId]}${total >= 0 ? "+" : ""}${total}`;
           })
-          .join(" ") + ` /${TICK_SECONDS}秒`;
+          .join(" ") + (boost > 1 ? `(礦車 ×${boost})` : "") + ` /${TICK_SECONDS}秒`;
     }
 
     const hasExplored = localStorage.getItem("hasExplored") === "1";

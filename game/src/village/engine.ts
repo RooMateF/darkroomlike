@@ -477,6 +477,11 @@ export class VillageEngine {
     return true;
   }
 
+  /** 鐵軌連通礦坑(rail-to-mine)→ 鐵礦工的正向產出 ×4(2026-09 用戶定案,火車建築移除);結算與工作面板顯示共用這個倍率 */
+  jobYieldBoost(jobId: string): number {
+    return jobId === "miner" && localStorage.getItem("rail-to-mine") === "1" ? 4 : 1;
+  }
+
   isJobUnlocked(jobId: string): boolean {
     const job = JOBS.find((j) => j.id === jobId)!;
     if (job.requiresBuilding && !this.hasBuilding(job.requiresBuilding)) return false;
@@ -814,10 +819,8 @@ export class VillageEngine {
 
       // 加工型工作(produces 有負值)逐位工人結算:原料不足的工人當輪不生產,不會把庫存扣成負的
       const consumes = Object.entries(job.produces).filter(([, n]) => (n ?? 0) < 0);
-      // 鐵軌鋪到礦坑旁(rail-to-mine 旗標)後,礦車自動運輸——鐵礦工的「產出」翻倍(消耗不變);
-      // 火車通車後,車廂運量再翻倍(×4)
-      const railToMine = localStorage.getItem("rail-to-mine") === "1";
-      const railwayBoost = job.id === "miner" && railToMine ? 4 : 1; // 2026-09 用戶定案:鐵軌連通礦坑即直接 ×4(火車建築移除)
+      // 鐵軌鋪到礦坑旁(rail-to-mine 旗標)後,礦車自動運輸——鐵礦工的正向產出 ×4,消耗不變(倍率與工作面板顯示共用)
+      const railwayBoost = this.jobYieldBoost(job.id);
       for (let w = 0; w < workers; w++) {
         const canWork = consumes.every(([id, n]) => this.resources[id as ResourceId] >= -(n ?? 0));
         if (!canWork) break;
