@@ -1311,3 +1311,38 @@ hr {
   border-color: var(--fg);
   cursor: pointer;
 }
+
+/* ---------- 戰鬥教學提示窗(2026-09):指著畫面元素講按鍵/數值;她的對話不講這些 ---------- */
+.tut-hint {
+  position: absolute;
+  z-index: 40;
+  max-width: 320px;
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--fg-bright);
+  background: var(--bg);
+  border: 1px solid var(--fg-bright);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.tut-hint::before {
+  content: "▼";
+  position: absolute;
+  bottom: -13px;
+  left: 12px;
+  font-size: 11px;
+  color: var(--fg-bright);
+}
+
+.tut-hint.below::before {
+  content: "▲";
+  top: -13px;
+  bottom: auto;
+}
+
+.tut-focus {
+  outline: 1px solid var(--fg-bright);
+  outline-offset: 2px;
+}

@@ -1,6 +1,6 @@
 import "./style.css";
 import { CombatEngine, type LogEntry } from "./engine";
-import { tutorialEnemy, TUTORIAL_TEXT, TUTORIAL_TITLE } from "./tutorial";
+import { tutorialEnemy, TUTORIAL_HINT, TUTORIAL_TEXT, TUTORIAL_TITLE } from "./tutorial";
 import { buildPlayerCategories } from "./demo-data";
 import { WEAPONS, fineMaxDurability, WEAPON_CARRY_LIMITS } from "./village/data";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
@@ -1240,7 +1240,7 @@ if (enemyDef.intro2) appendSystemLog(enemyDef.intro2);
 if (enemyDef.boss) {
   showBossDialog(enemyDef.intro2 ? [enemyDef.intro, enemyDef.intro2] : [enemyDef.intro], enemyDef.label);
 }
-if (TUTORIAL) showBossDialog(TUTORIAL_TEXT.start, TUTORIAL_TITLE);
+if (TUTORIAL) tutSay(TUTORIAL_TEXT.start, categoriesEl, TUTORIAL_HINT.start);
 if (dungeon?.landmarkId === "scavenger" && stolenSnapshot.length > 0) {
   appendSystemLog("幾條蒼白的觸手從牆縫裡垂下,各自纏著你被搶走的東西。");
 } else if (unitDefs.length > 1) {
@@ -1696,33 +1696,85 @@ function showLootPanel(message: string, gains: Record<string, number>, href: str
 }
 
 // ---- 戰鬥教學(2026-09 用戶要求):與她對練;流程與文本見 tutorial.ts ----
+// 兩層(用戶定案):她只負責說話,不講按鍵;按鍵/HP/CD 交給指著畫面元素的小提示窗——分開講才不割裂
 // step: 0 等石斧滿 → 1 石斧已用,等木槍 → 2 木槍已用,等弓滿 → 3 弓已射,等木槍再滿(=格擋時機) → 4 格擋時機已到
 const tut = { step: 0, waitTold: false, hits: 0, blockTries: 0, blockDone: false, pendingBlock: null as boolean | null, itemShown: false, itemUsed: false, ended: false };
+
+// 提示窗:貼在目標元素下方,▲ 指上去;目標本身加一圈外框
+const tutHintEl = document.createElement("div");
+tutHintEl.className = "tut-hint";
+tutHintEl.style.display = "none";
+document.body.appendChild(tutHintEl);
+let tutHintTarget: HTMLElement | null = null;
+
+function showTutHint(target: HTMLElement | null | undefined, text: string) {
+  hideTutHint();
+  if (!target) return;
+  tutHintTarget = target;
+  target.classList.add("tut-focus");
+  tutHintEl.textContent = text;
+  tutHintEl.style.display = "";
+  positionTutHint();
+}
+
+function hideTutHint() {
+  tutHintTarget?.classList.remove("tut-focus");
+  tutHintTarget = null;
+  tutHintEl.style.display = "none";
+}
+
+function positionTutHint() {
+  if (!tutHintTarget) return;
+  const r = tutHintTarget.getBoundingClientRect();
+  tutHintEl.style.left = `${Math.max(8, r.left + window.scrollX)}px`;
+  // prefer above the target (arrow down) so the rows below stay readable; fall back to below when there is no room
+  const above = r.top + window.scrollY - tutHintEl.offsetHeight - 10;
+  const below = above < window.scrollY + 4;
+  tutHintEl.classList.toggle("below", below);
+  tutHintEl.style.top = `${below ? r.bottom + window.scrollY + 10 : above}px`;
+}
+
+/** 行動列上某個子行動那一整列(提示窗要指的元素)與它的數字鍵 */
+function tutRowLine(subActionId: string): HTMLElement | undefined {
+  return rows.find((r) => r.subActionId === subActionId)?.name.parentElement ?? undefined;
+}
+function tutRowKey(subActionId: string): string {
+  const i = rows.findIndex((r) => r.subActionId === subActionId);
+  return i >= 0 ? String(i + 1) : "?";
+}
+
+/** 她先說(儀式對話框),讀完再彈出指著元素的提示窗 */
+function tutSay(lines: string[], hintTarget?: HTMLElement | null, hintText?: string, after?: () => void) {
+  showBossDialog(lines, TUTORIAL_TITLE, () => {
+    if (hintTarget && hintText) showTutHint(hintTarget, hintText);
+    after?.();
+  });
+}
 
 function tutorialOnPause() {
   if (!TUTORIAL || tut.ended || bossDialogActive) return;
   const ready = (id: string) => engine.playerCategories.some((c) => c.trackers.some((t) => t.ready && t.subAction.id === id));
   if (tut.step === 0) {
-    if (ready("stone-axe")) showBossDialog(TUTORIAL_TEXT.axeReady, TUTORIAL_TITLE);
+    if (ready("stone-axe")) tutSay(TUTORIAL_TEXT.axeReady, tutRowLine("stone-axe"), TUTORIAL_HINT.axeReady(tutRowKey("stone-axe")));
     else if (!tut.waitTold && ready("wood-spear")) {
       tut.waitTold = true;
-      showBossDialog(TUTORIAL_TEXT.waitAxe, TUTORIAL_TITLE);
+      tutSay(TUTORIAL_TEXT.waitAxe, tutRowLine("wood-spear"), TUTORIAL_HINT.waitAxe(tutRowKey("wood-spear")));
     }
     return;
   }
   if (tut.step === 2 && ready("hunting-bow")) {
-    showBossDialog(TUTORIAL_TEXT.bowReady, TUTORIAL_TITLE);
+    tutSay(TUTORIAL_TEXT.bowReady, tutRowLine("hunting-bow"), TUTORIAL_HINT.bowReady(tutRowKey("hunting-bow")));
     return;
   }
   if (tut.step === 3 && ready("wood-spear")) {
     tut.step = 4; // 木槍再滿的這一次暫停:她的條 99%——現在下指令格擋
-    showBossDialog(TUTORIAL_TEXT.blockNow, TUTORIAL_TITLE);
+    tutSay(TUTORIAL_TEXT.blockNow, unitEls[0]?.root, TUTORIAL_HINT.blockNow);
     return;
   }
   const item = engine.playerCategories.find((c) => c.def.id === "item");
   if (!tut.itemShown && tut.blockDone && item?.trackers.some((t) => t.ready)) {
     tut.itemShown = true;
-    showBossDialog(TUTORIAL_TEXT.item, TUTORIAL_TITLE);
+    tutSay(TUTORIAL_TEXT.item, groupRows.find((g) => g.categoryId === "item")?.line, TUTORIAL_HINT.item);
     return;
   }
   tutorialMaybeEnd();
@@ -1730,10 +1782,11 @@ function tutorialOnPause() {
 
 function tutorialOnUse(subActionId: string) {
   if (!TUTORIAL || tut.ended) return;
+  hideTutHint(); // 照著做了:提示收掉
   if (subActionId === "bandage") tut.itemUsed = true;
   if (tut.step === 0 && subActionId === "stone-axe") {
     tut.step = 1;
-    showBossDialog(TUTORIAL_TEXT.axeHit, TUTORIAL_TITLE);
+    tutSay(TUTORIAL_TEXT.axeHit, tutRowLine("wood-spear"), TUTORIAL_HINT.axeHit(tutRowKey("wood-spear")));
   } else if (tut.step === 1 && subActionId === "wood-spear") tut.step = 2;
   else if (tut.step === 2 && subActionId === "hunting-bow") tut.step = 3;
 }
@@ -1746,7 +1799,7 @@ function tutorialOnLog(entry: LogEntry) {
 function tutorialOnTell() {
   if (!TUTORIAL || tut.ended || tut.blockDone || bossDialogActive) return;
   tut.blockTries++; // 第一次舉棍的說明在開場講過;之後每次再舉都提醒一句
-  if (tut.blockTries >= 2) showBossDialog(TUTORIAL_TEXT.blockRetry, TUTORIAL_TITLE);
+  if (tut.blockTries >= 2) tutSay(TUTORIAL_TEXT.blockRetry, unitEls[0]?.root, TUTORIAL_HINT.blockRetry);
 }
 
 function tutorialOnBlocked(perfect: boolean) {
@@ -1760,9 +1813,9 @@ function tutorialOnEnemyAct(move: EnemyMove) {
   if (!move.heavy || tut.blockDone || bossDialogActive) return;
   if (res === true || (res === false && tut.blockTries >= 2)) {
     tut.blockDone = true; // 完全格擋,或第二次仍只擋一半:過關,往下講道具
-    showBossDialog(res ? TUTORIAL_TEXT.blockPerfect : TUTORIAL_TEXT.blockPartial, TUTORIAL_TITLE, tutorialMaybeEnd);
-  } else if (res === false) showBossDialog(TUTORIAL_TEXT.blockPartial, TUTORIAL_TITLE);
-  else showBossDialog(TUTORIAL_TEXT.blockMissed, TUTORIAL_TITLE);
+    tutSay(res ? TUTORIAL_TEXT.blockPerfect : TUTORIAL_TEXT.blockPartial, blockRowEls.line, res ? TUTORIAL_HINT.blockPerfect : TUTORIAL_HINT.blockPartial, tutorialMaybeEnd);
+  } else if (res === false) tutSay(TUTORIAL_TEXT.blockPartial, blockRowEls.line, TUTORIAL_HINT.blockPartial);
+  else tutSay(TUTORIAL_TEXT.blockMissed, blockRowEls.line, TUTORIAL_HINT.blockMissed);
 }
 
 /** 格擋與道具都講過、且用過繃帶(或打了夠多下),或她掉到半血:收工 */
@@ -1772,6 +1825,7 @@ function tutorialMaybeEnd() {
   const covered = tut.blockDone && tut.itemShown;
   if ((covered && (tut.itemUsed || tut.hits >= 5)) || (her && her.hp <= her.maxHp * 0.5)) {
     tut.ended = true;
+    hideTutHint();
     showBossDialog(TUTORIAL_TEXT.end, TUTORIAL_TITLE, () => endCombat("對練結束", "village.html", 1500));
   }
 }
@@ -1939,6 +1993,7 @@ function render() {
     }
   }
 
+  positionTutHint(); // 教學提示窗跟著它指的元素走(版面會隨列數變動)
   requestAnimationFrame(render);
 }
 
