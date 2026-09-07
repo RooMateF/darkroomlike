@@ -3,6 +3,7 @@ import { VillageEngine, TICK_MS, GATHERABLE, gatherStreakMult } from "./village/
 import { JOBS, BUILDINGS, WEAPONS, CONSUMABLES, UPGRADES, TRADES, repairCost, brokenRepairCost, PERK_SLOTS, SMITHY_IRON_UPGRADE_COST, BARTER_RAW, BARTER_RATE } from "./village/data";
 import { PERK_LABEL } from "./village/events-data";
 import { clearedSiteCount, specialSites, siteProgress } from "./explore/sites";
+import { RAIL_TARGETS, railDistanceTo, syncRailFlagsFromSave } from "./explore/engine";
 import { generateMap } from "./explore/map-gen";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
 import { INTRO_LINES, MILESTONES } from "./village/narrative";
@@ -58,6 +59,7 @@ function showIntro(index: number) {
 
 // ---- 正式進入村莊畫面 ----
 function startVillage() {
+  syncRailFlagsFromSave(); // 礦車旗標補查(2026-09 用戶反饋):鐵軌早就鋪到煤礦坑旁的舊存檔,不必再進遠征視圖
   app.classList.add("app-frame");
   app.innerHTML = `
     <div class="top-row">
@@ -137,6 +139,7 @@ function startVillage() {
             <input type="file" id="import-file" accept=".json" style="display:none;" />
           </div>
           <div class="hint-line" style="margin-top:6px;">進度會自動保存在這個瀏覽器裡;匯出可備份或搬到其他裝置。</div>
+          <div class="hint-line" id="rail-status" style="margin-top:6px;"></div>
           <div class="section-title" style="margin-top:14px;">模擬戰(滿裝測試場)</div>
           <div class="hint-line">鋼階滿裝+危機意識,不影響存檔;打完自動重開,「撤退」=離開。</div>
           <div style="display:flex; flex-wrap:wrap; gap:6px;" id="sandbox-btns">
@@ -1325,6 +1328,17 @@ function startVillage() {
           .join(" ") + (boost > 1 ? `(礦車 ×${boost})` : "") + ` /${TICK_SECONDS}秒`;
     }
 
+    // 礦車狀態(系統分頁):鐵軌有沒有真的接到礦坑旁——沒接到就顯示最近的鐵軌還差幾格
+    const railStatusEl = document.querySelector<HTMLDivElement>("#rail-status");
+    if (railStatusEl) {
+      railStatusEl.textContent =
+        "礦車:" +
+        RAIL_TARGETS.map((t) => {
+          if (localStorage.getItem(t.flag) === "1") return `${t.mineLabel} 已連通(${t.job} ×4)`;
+          const d = railDistanceTo(t.id);
+          return `${t.mineLabel} ${d === null ? "尚無鐵軌" : `未連通(最近的鐵軌距礦坑 ${d} 格,需 ≤1)`}`;
+        }).join("・");
+    }
     const hasExplored = localStorage.getItem("hasExplored") === "1";
     for (const row of buildingRows) {
       // 條件解鎖的建築第一次浮現時,由代行者用她的口吻點一句(只說一次,存 localStorage)

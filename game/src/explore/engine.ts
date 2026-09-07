@@ -195,6 +195,53 @@ function stateKeyFor(mapId: MapId): string {
   return mapId === "A" ? STATE_KEY : `${STATE_KEY}:${mapId}`;
 }
 
+/** 礦車運輸的兩座礦坑(2026-09 用戶定案;煤礦坑=用戶反饋補上):鐵軌距礦坑 ≤1 格(含斜角)即連通,該工種正向產出 ×4 */
+export const RAIL_TARGETS = [
+  { id: "mine", flag: "rail-to-mine", mineLabel: "鐵礦坑", job: "鐵礦工", log: "鐵軌接上了礦坑的舊軌道。第一台礦車被推上鐵軌時,整條路都在輕輕震——從今天起,礦石自己會回村了。(鐵礦工產出 ×4)" },
+  { id: "coalmine", flag: "rail-to-coalmine", mineLabel: "煤礦坑", job: "採煤工", log: "鐵軌接上了煤礦坑的舊軌道。礦車推上去時,煤灰從枕木縫裡揚起來——從今天起,煤自己會回村了。(採煤工產出 ×4)" },
+];
+
+/** 從存檔直接讀中央地圖的鐵軌格(不必掛起遠征視圖);沒存檔回 null */
+function savedRailRowsA(): string[] | null {
+  try {
+    const raw = localStorage.getItem(stateKeyFor("A"));
+    if (!raw) return null;
+    return (JSON.parse(raw) as { railRows?: string[] }).railRows ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** 最近的鐵軌格到某座礦坑的棋盤距離;null=沒有任何鐵軌/沒存檔(系統分頁的礦車狀態用) */
+export function railDistanceTo(landmarkId: string): number | null {
+  const lm = LANDMARKS.find((l) => l.id === landmarkId);
+  const rows = savedRailRowsA();
+  if (!lm || !rows) return null;
+  let best: number | null = null;
+  rows.forEach((row, y) => {
+    for (let x = 0; x < row.length; x++) {
+      if (row[x] !== "1") continue;
+      const d = Math.max(Math.abs(x - lm.x), Math.abs(y - lm.y));
+      if (best === null || d < best) best = d;
+    }
+  });
+  return best;
+}
+
+/** 依存檔補查礦車旗標(村莊頁載入時呼叫,不必進遠征視圖):回傳這次新補上的礦坑 */
+export function syncRailFlagsFromSave(): typeof RAIL_TARGETS {
+  const done: typeof RAIL_TARGETS = [];
+  for (const t of RAIL_TARGETS) {
+    if (localStorage.getItem(t.flag) === "1") continue;
+    const d = railDistanceTo(t.id);
+    if (d !== null && d <= 1) {
+      localStorage.setItem(t.flag, "1");
+      done.push(t);
+    }
+  }
+  return done;
+}
+
 function expeditionSerial(): number {
   return Number(localStorage.getItem(EXPEDITION_SERIAL_KEY) ?? "0");
 }
@@ -1190,19 +1237,23 @@ export class ExploreEngine {
     return true;
   }
 
-  /** 鐵軌連通礦坑的旗標(2026-09 用戶反饋:煤礦坑也要算):任一鐵軌格與地標相鄰(或就在地標格)即成立;
-   * 進入遠征視圖時也補查一次——舊存檔已經鋪到煤礦坑旁的,回頭補上旗標 */
+  /** 鐵軌連通礦坑的旗標(2026-09 用戶反饋:煤礦坑也要算):任一鐵軌格與礦坑距離 ≤1(含斜角)即成立;
+   * 進入遠征視圖時也補查一次(舊存檔補旗標);村莊頁另有 syncRailFlagsFromSave 直接讀存檔補查 */
   syncRailFlags() {
     if (this.mapId !== "A") return; // 兩座礦坑都在中央地圖
-    const targets: { id: string; flag: string; log: string }[] = [
-      { id: "mine", flag: "rail-to-mine", log: "鐵軌接上了礦坑的舊軌道。第一台礦車被推上鐵軌時,整條路都在輕輕震——從今天起,礦石自己會回村了。(鐵礦工產出 ×4)" },
-      { id: "coalmine", flag: "rail-to-coalmine", log: "鐵軌接上了煤礦坑的舊軌道。礦車推上去時,煤灰從枕木縫裡揚起來——從今天起,煤自己會回村了。(採煤工產出 ×4)" },
-    ];
-    for (const t of targets) {
+    for (const t of RAIL_TARGETS) {
       if (localStorage.getItem(t.flag) === "1") continue;
       const lm = LANDMARKS.find((l) => l.id === t.id);
       if (!lm) continue;
-      const near = [[1, 0], [-1, 0], [0, 1], [0, -1], [0, 0]].some(([dx, dy]) => !!this.grid[lm.y + dy]?.[lm.x + dx]?.rail);
+      let near = false;
+      for (let dy = -1; dy <= 1 && !near; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (this.grid[lm.y + dy]?.[lm.x + dx]?.rail) {
+            near = true;
+            break;
+          }
+        }
+      }
       if (!near) continue;
       localStorage.setItem(t.flag, "1");
       this.cb.onLog(t.log);
