@@ -230,10 +230,8 @@ export class CombatEngine {
   justReloaded = false;
   /** 詠唱中(法術,2026-09 用戶定案):選定法術後先念 castTime 秒,效果落地才起算法術盤;期間你的行動條全部凍結、舉不起盾 */
   casting: { cat: CategoryTracker; tracker: SubActionTracker; left: number; total: number } | null = null;
-  /** 首次就緒暫停(2026-09 用戶定案):道具/法術第一次轉滿、盾第一次舉起後冷卻轉好,也停下來等指示——
-   * 整場各一次;在那之前若已出過別類的招(轉盤被歸零重跑),就不再為它停 */
-  private firstFillArmed: Record<"item" | "magic" | "block", boolean> = { item: true, magic: true, block: false };
-  private blockUsedOnce = false;
+  /** 盾的冷卻剛轉好(2026-09 用戶定案):就緒的那一刻停一次等指示;之後只是「隨時可舉」,不再為它停 */
+  private blockNewlyReady = false;
   /** 暈眩剩餘秒數:你的所有行動條凍結(敵方照常行動——被壓制的恐懼感) */
   stunLeft = 0;
   /** 遲緩剩餘秒數:行動條充能減半 */
@@ -377,11 +375,7 @@ export class CombatEngine {
     if (this.casting) return false; // 詠唱中:手上捏著卷軸,舉不起盾
     this.blockWindowLeft = BLOCK_WINDOW;
     this.blockCooldownLeft = this.shield.cd;
-    if (!this.blockUsedOnce) {
-      this.blockUsedOnce = true;
-      this.firstFillArmed.block = true; // 第一次舉盾:冷卻轉好那一刻停一次(期間出了招就不停)
-    }
-    this.noteActionUsed("block");
+    this.blockNewlyReady = false;
     // 格擋自成一類(2026-09 用戶定案):對其他類別而言就是「別類的招」——舉盾讓所有行動條重頭跑;
     // 反向不成立:出招不重置盾的冷卻(盾 CD 是裝備計時,不是充能條,否則盾永遠舉不起來)
     for (const c of this.playerCategories) {
@@ -443,7 +437,10 @@ export class CombatEngine {
     if (!this.paused) {
       // 控制效果倒數
       if (this.blockWindowLeft > 0) this.blockWindowLeft = Math.max(0, this.blockWindowLeft - dt);
-      if (this.blockCooldownLeft > 0) this.blockCooldownLeft = Math.max(0, this.blockCooldownLeft - dt);
+      if (this.blockCooldownLeft > 0) {
+        this.blockCooldownLeft = Math.max(0, this.blockCooldownLeft - dt);
+        if (this.blockCooldownLeft <= 0 && this.shield) this.blockNewlyReady = true; // 冷卻轉好:停一次等指示
+      }
       if (this.stunLeft > 0) this.stunLeft = Math.max(0, this.stunLeft - dt);
       if (this.slowLeft > 0) this.slowLeft = Math.max(0, this.slowLeft - dt);
       if (this.controlImmuneLeft > 0) this.controlImmuneLeft = Math.max(0, this.controlImmuneLeft - dt);
@@ -510,21 +507,13 @@ export class CombatEngine {
 
       // 任一「尚未被回應過」的子行動跑滿 → 觸發決策點,模擬時鐘暫停(§2.6)
       // 玩家可以選擇使用,也可以明確選擇「暫不使用」(見 skip()),讓速度較慢的類別有機會繼續累積。
-      // 道具類例外(2026-09 用戶反饋:每次出招道具歸零重充、一就緒又暫停,被迫狂點「暫不使用」)——
-      // 道具就緒只是「隨時可用」,不打斷節奏;要用就在任何暫停時或即時點下去
-      // 道具/法術(2026-09 用戶定案):只在整場第一次轉滿時停一次;盾:第一次舉起後冷卻轉好停一次——
-      // 之後就緒只是「隨時可用」,不打斷節奏;在那之前若已出過別類的招,也不再為它停
-      const groupReady = (id: "item" | "magic") => this.playerCategories.some((c) => c.def.id === id && c.trackers.some((t) => t.ready));
-      const hasNewlyReady = this.playerCategories.some((c) => {
-        if (c.def.id === "item" || c.def.id === "magic") return this.firstFillArmed[c.def.id] && c.trackers.some((t) => t.ready);
-        return c.trackers.some((t) => t.ready && !this.acknowledged.has(this.key(c.def.id, t.subAction.id)));
-      });
-      const blockReady = !!this.shield && this.blockCooldownLeft <= 0 && this.blockWindowLeft <= 0;
-      if (hasNewlyReady || (this.firstFillArmed.block && blockReady)) {
-        // 首次就緒暫停只吃一次:這次暫停時已經轉滿的群組,之後不再為它停
-        if (groupReady("item")) this.firstFillArmed.item = false;
-        if (groupReady("magic")) this.firstFillArmed.magic = false;
-        if (blockReady) this.firstFillArmed.block = false;
+      // 道具類曾例外不停(2026-09 早期反饋);同月用戶定案改回:單一按鍵之後,道具/法術跟武器一樣在轉滿那一刻停一次,
+      // 停在 100% 期間不再為它停;被別類的招歸零重跑、再轉滿→再停。盾:冷卻剛轉好那一刻也停一次
+      const hasNewlyReady = this.playerCategories.some((c) =>
+        c.trackers.some((t) => t.ready && !this.acknowledged.has(this.key(c.def.id, t.subAction.id))),
+      );
+      if (hasNewlyReady || this.blockNewlyReady) {
+        this.blockNewlyReady = false; // 這次暫停已經把「盾轉好了」交給玩家看過
         // 就緒寬限:差不到 PAUSE_SNAP_SECONDS 的行動條一併補滿,暫停畫面上不會出現「99% 但按不下去」
         for (const c of this.playerCategories) {
           for (const t of c.trackers) {
@@ -658,7 +647,6 @@ export class CombatEngine {
       tracker.magazineUsed = 0;
       this.reloadLock = tracker.subAction.reloadCost ?? 1;
       this.justReloaded = true;
-      this.noteActionUsed(cat.def.id);
       for (const c of this.playerCategories) {
         c.resetAll();
         this.applyItemField(c);
@@ -674,7 +662,6 @@ export class CombatEngine {
     const castTime = tracker.subAction.castTime ?? 0;
     if (castTime > 0) {
       this.casting = { cat, tracker, left: castTime, total: castTime };
-      this.noteActionUsed(cat.def.id);
       this.firstStrikeBoost = false;
       for (const c of this.playerCategories) {
         c.resetAll();
@@ -685,7 +672,6 @@ export class CombatEngine {
       this.resume();
       return true;
     }
-    this.noteActionUsed(cat.def.id);
     this.applyEffect(cat, tracker);
     this.settleAfterUse(cat, tracker);
     return true;
@@ -903,13 +889,6 @@ export class CombatEngine {
     }
 
     this.resume();
-  }
-
-  /** 任何一次出招/舉盾:道具、法術不再是「第一次」(被歸零重跑或已用過);舉盾以外的行動也解除盾的首次暫停 */
-  private noteActionUsed(catId: CategoryId | "block") {
-    this.firstFillArmed.item = false;
-    this.firstFillArmed.magic = false;
-    if (catId !== "block") this.firstFillArmed.block = false;
   }
 
   /**
