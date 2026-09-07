@@ -188,6 +188,8 @@ if (SANDBOX === "chain") {
 }
 /** 這一戰的完整陣容(含連鎖各波;勝利時戰利品合計、異晶逐隻擲骰) */
 const unitDefs: EnemyDef[] = [...initialWave];
+/** Boss 戰不能撤退(2026-09 用戶定案,教學文本定稿):陣容裡有 boss 旗標的就算 */
+const isBossFight = unitDefs.some((d) => d.boss);
 
 // 拾荒的長手 Boss 戰:贓物快照與歸還記帳(護贓觸手倒下即歸還那件)
 const sandboxStealStore = { kinds: [] as string[], stolen: [] as { kind: string; id?: string; durability?: number; fine?: boolean; count?: number }[] };
@@ -270,22 +272,30 @@ retreatBtn.addEventListener("click", () => {
     return;
   }
   if (retreatBtn.disabled) return;
-  localStorage.removeItem(DUNGEON_KEY); // 地城進度已在每層勝利時保存,中途撤退不影響
-
-  const pursued = Math.random() < 0.6;
-  if (pursued) {
-    const dmg = engine.enemy.currentMove.damage || 3;
+  if (isBossFight) {
+    appendSystemLog("這一戰退不了——牠盯著你,沒有留下任何空隙。");
+    return;
+  }
+  // 逃跑判定(2026-09 用戶定案):基礎 60%,隨敵方(在場全體)剩餘血量下降線性升到 100%;
+  // 失敗=背後挨目前那招一下、留在戰鬥裡(時間繼續走),等下一次暫停可以再試
+  const living = engine.units.filter((u) => u.hp > 0);
+  const hpFrac = living.reduce((a, u) => a + u.hp, 0) / Math.max(1, living.reduce((a, u) => a + u.maxHp, 0));
+  const chance = 0.6 + 0.4 * (1 - hpFrac);
+  if (Math.random() >= chance) {
+    const dmg = engine.targetUnit?.tracker.currentMove.damage || 3;
     engine.playerHp = Math.max(0, engine.playerHp - dmg);
-    appendSystemLog(`你轉身撤退,背後重重挨了一下(-${dmg})。`);
+    appendSystemLog(`你轉身想跑,卻被追上——背後重重挨了一下(-${dmg})。這一戰還沒完。`);
     if (engine.playerHp <= 0) {
       clearCarried();
       if (!SANDBOX) localStorage.setItem("death-cause", "combat");
       endCombat("你在逃跑途中倒下……一股溫暖的微光在你的意識消散前包裹著你。", "village.html", 2200);
       return;
     }
-  } else {
-    appendSystemLog("你抓準空隙脫離了戰鬥。");
+    engine.skip(); // 沒逃掉:時間繼續走
+    return;
   }
+  localStorage.removeItem(DUNGEON_KEY); // 地城進度已在每層勝利時保存,中途撤退不影響
+  appendSystemLog("你抓準空隙脫離了戰鬥。");
   if (carried) {
     carried.hp = engine.playerHp;
     saveCarried(carried);
@@ -977,8 +987,10 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
     statusEl.textContent = paused ? "▍等待你的指示…" : "";
     skipBtn.disabled = !paused;
     skipBtn.classList.toggle("ready", paused);
-    retreatBtn.disabled = !paused;
-    retreatBtn.classList.toggle("ready", paused);
+    const canRetreat = paused && (SANDBOX ? true : !isBossFight); // Boss 戰:撤退鍵反灰(模擬戰的撤退=離開,照常)
+    retreatBtn.disabled = !canRetreat;
+    retreatBtn.classList.toggle("ready", canRetreat);
+    retreatBtn.title = isBossFight && !SANDBOX ? "Boss 戰無法撤退" : "";
   },
   onHpChange: () => {
     scavengerCheck();

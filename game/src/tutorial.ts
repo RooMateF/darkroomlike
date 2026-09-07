@@ -84,9 +84,9 @@ export type TutorialTourTarget = "hp" | "enemy" | "controls" | "categories" | "m
 export const TUTORIAL_HINT = {
   /** 開場導覽(用戶定案順序):面板與按鍵 → CD → 近戰 → 遠程 → 道具 → 盾;每格帶「繼續」鍵,期間時鐘停住 */
   tour: [
-    { target: "hp" as TutorialTourTarget, text: "HP:你的血。歸零就倒下——在外面倒下的話,她會把你帶回村莊,但身上帶的東西全都留在那裡。" },
-    { target: "enemy" as TutorialTourTarget, text: "敵欄:對手的 HP 與動作條。動作條跑滿牠就出手;大招出手前會先有一句預告。◉ 是目前目標,Tab 切換。" },
-    { target: "controls" as TutorialTourTarget, text: "暫不使用 [0]:不出手,讓時間繼續走。撤退 [R]:離開這一戰(外面有六成機率被追擊一下)。" },
+    { target: "hp" as TutorialTourTarget, text: "HP:你的血量。歸零的話就會死亡。" },
+    { target: "enemy" as TutorialTourTarget, text: "敵方欄位:對手的 HP 與動作條。動作條跑滿對手就會發動攻擊; 每一個招式都會自己獨特的敘述,要仔細判斷他是重攻擊還是普通攻擊。◉ 是目前目標,按Tab 切換目標。" },
+    { target: "controls" as TutorialTourTarget, text: "暫不使用 [0]:當一個動作的CD讀完時, 時間會暫停詢問你是否要動作,若選擇暫不使用則可以等待其他的招式讀完他的CD。撤退 [R]:離開這一戰(除了BOSS戰無法撤退,其於戰鬥有60%機率逃跑成功,會隨著敵方的血量減少增加成功率)" },
     { target: "categories" as TutorialTourTarget, text: "行動條(CD):每個行動要跑滿才能用,任一條跑滿的那一刻時間會停下來等你決定。出了一類的招,其他類全部從頭跑;同一類的其他招保留一半。" },
     { target: "melee" as TutorialTourTarget, text: "近戰:通用的攻擊。不消耗彈藥,只磨耐久;耐久歸零武器就壞了。數字鍵或點「使用」。" },
     { target: "ranged" as TutorialTourTarget, text: "遠程:回轉比近戰快,但每一箭消耗 1 弓矢(槍械消耗子彈)。沒彈藥就射不出去。" },
