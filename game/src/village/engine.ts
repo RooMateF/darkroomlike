@@ -477,9 +477,12 @@ export class VillageEngine {
     return true;
   }
 
-  /** 鐵軌連通礦坑(rail-to-mine)→ 鐵礦工的正向產出 ×4(2026-09 用戶定案,火車建築移除);結算與工作面板顯示共用這個倍率 */
+  /** 鐵軌連通鐵礦坑/煤礦坑(rail-to-mine / rail-to-coalmine)→ 鐵礦工/採煤工的正向產出 ×4(2026-09 用戶定案,火車建築移除;
+   * 煤礦坑同樣適用=用戶反饋);結算與工作面板顯示共用這個倍率 */
   jobYieldBoost(jobId: string): number {
-    return jobId === "miner" && localStorage.getItem("rail-to-mine") === "1" ? 4 : 1;
+    if (jobId === "miner") return localStorage.getItem("rail-to-mine") === "1" ? 4 : 1;
+    if (jobId === "coalminer") return localStorage.getItem("rail-to-coalmine") === "1" ? 4 : 1;
+    return 1;
   }
 
   isJobUnlocked(jobId: string): boolean {

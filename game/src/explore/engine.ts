@@ -1185,17 +1185,28 @@ export class ExploreEngine {
     tile.rail = true;
     this.carried.rails = (this.carried.rails ?? 0) - 1;
     saveCarried(this.carried);
-    // 鋪到礦坑旁:礦車自動運輸
-    const mine = LANDMARKS.find((l) => l.id === "mine");
-    if (mine && localStorage.getItem("rail-to-mine") !== "1") {
-      const adj = Math.abs(this.playerX - mine.x) + Math.abs(this.playerY - mine.y) <= 1;
-      if (adj) {
-        localStorage.setItem("rail-to-mine", "1");
-        this.cb.onLog("鐵軌接上了礦坑的舊軌道。第一台礦車被推上鐵軌時,整條路都在輕輕震——從今天起,礦石自己會回村了。(鐵礦工產出 ×4)");
-      }
-    }
+    this.syncRailFlags(); // 鋪到鐵礦坑/煤礦坑旁:礦車自動運輸
     this.saveState();
     return true;
+  }
+
+  /** 鐵軌連通礦坑的旗標(2026-09 用戶反饋:煤礦坑也要算):任一鐵軌格與地標相鄰(或就在地標格)即成立;
+   * 進入遠征視圖時也補查一次——舊存檔已經鋪到煤礦坑旁的,回頭補上旗標 */
+  syncRailFlags() {
+    if (this.mapId !== "A") return; // 兩座礦坑都在中央地圖
+    const targets: { id: string; flag: string; log: string }[] = [
+      { id: "mine", flag: "rail-to-mine", log: "鐵軌接上了礦坑的舊軌道。第一台礦車被推上鐵軌時,整條路都在輕輕震——從今天起,礦石自己會回村了。(鐵礦工產出 ×4)" },
+      { id: "coalmine", flag: "rail-to-coalmine", log: "鐵軌接上了煤礦坑的舊軌道。礦車推上去時,煤灰從枕木縫裡揚起來——從今天起,煤自己會回村了。(採煤工產出 ×4)" },
+    ];
+    for (const t of targets) {
+      if (localStorage.getItem(t.flag) === "1") continue;
+      const lm = LANDMARKS.find((l) => l.id === t.id);
+      if (!lm) continue;
+      const near = [[1, 0], [-1, 0], [0, 1], [0, -1], [0, 0]].some(([dx, dy]) => !!this.grid[lm.y + dy]?.[lm.x + dx]?.rail);
+      if (!near) continue;
+      localStorage.setItem(t.flag, "1");
+      this.cb.onLog(t.log);
+    }
   }
 
   /** 站在據點上嗎(補給點或已解放地標)——休息類動作的前提 */

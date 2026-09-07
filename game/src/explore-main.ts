@@ -797,6 +797,7 @@ window.addEventListener("keydown", onKeydown);
 render();
 
 (window as unknown as { __explore: typeof engine }).__explore = engine;
+engine.syncRailFlags(); // 舊存檔補查:鐵軌已經鋪到煤礦坑旁的,進來就補上旗標
 
 return () => {
   window.removeEventListener("keydown", onKeydown);
