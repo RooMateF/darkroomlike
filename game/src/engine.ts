@@ -135,6 +135,12 @@ export interface EnemyUnitOpts {
   tag?: string;
   /** 人類型態:倒下留屍(未來復活機制);非人類倒下即從敵欄消失 */
   human?: boolean;
+  /** 甲殼(反制式 Boss,2026-09):沒踉蹌時只吃這個比例的傷害——重武器把牠打踉蹌才砍得進去 */
+  armor?: number;
+  /** 霧體(反制式 Boss,2026-09):沒寒滯時近戰/遠程只吃這個比例——鬼雪凍住牠,或用火(道具/法術不受影響) */
+  ethereal?: number;
+  /** 第一次被牠抵掉傷害時,戰鬥頁記一句提示(反制的線索) */
+  counterHint?: string;
 }
 
 /** 戰場上的一隻敵人(2026-09 多目標改版):各自的血量/行動條/凍結/狂暴 */
@@ -158,6 +164,11 @@ export class EnemyUnit {
   staggerLeft = 0;
   readonly freezeResist: boolean;
   readonly human: boolean;
+  readonly armor?: number;
+  readonly ethereal?: number;
+  readonly counterHint?: string;
+  /** 反制提示只記一次 */
+  resistHinted = false;
   /** 招架待命秒數(特殊武器抓中窗口):這段時間內牠落地的那一擊視為被完美格擋 */
   riposteLeft = 0;
 
@@ -171,6 +182,9 @@ export class EnemyUnit {
     this.tag = opts.tag;
     this.freezeResist = opts.freezeResist ?? false;
     this.human = opts.human ?? false;
+    this.armor = opts.armor;
+    this.ethereal = opts.ethereal;
+    this.counterHint = opts.counterHint;
     this.tracker = new EnemyTracker(moves, () => (this.chilled ? 0.5 : 1) * this.hasteMult, opts.pattern);
   }
 }
@@ -197,6 +211,8 @@ export interface EngineCallbacks {
   onPlayerHit?: (dmg: number) => void;
   /** 某隻敵人完成了一次行動(教堂神父的孕育結算等);move=剛結算的那一招 */
   onEnemyAct?: (unit: EnemyUnit, move: EnemyMove) => void;
+  /** 這一擊被牠的甲殼/霧體抵掉了大半(每隻只回報第一次:戰鬥頁記反制提示) */
+  onResisted?: (unit: EnemyUnit) => void;
 }
 
 /**
@@ -270,7 +286,7 @@ export class CombatEngine {
     categories: CategoryDef[],
     enemyMoves: EnemyMove[],
     private readonly cb: EngineCallbacks,
-    opts?: { enemyHp?: number; enemyLabel?: string; freezeResist?: boolean; pattern?: string[] },
+    opts?: { enemyHp?: number; enemyLabel?: string; freezeResist?: boolean; pattern?: string[]; human?: boolean; armor?: number; ethereal?: number; counterHint?: string },
   ) {
     this.playerCategories = categories.map((c) => new CategoryTracker(c, () => this.playerSpeed * (this.slowLeft > 0 ? 0.5 : 1) * (this.firstStrikeBoost ? 2 : 1)));
     this.units.push(
@@ -279,6 +295,10 @@ export class CombatEngine {
         label: opts?.enemyLabel ?? "敵人",
         freezeResist: opts?.freezeResist,
         pattern: opts?.pattern,
+        human: opts?.human,
+        armor: opts?.armor,
+        ethereal: opts?.ethereal,
+        counterHint: opts?.counterHint,
       }),
     );
   }
@@ -683,6 +703,26 @@ export class CombatEngine {
     return true;
   }
 
+  /** 反制式 Boss(2026-09 用戶定案):甲殼=沒踉蹌時只吃 armor 比例;霧體=沒寒滯時近戰/遠程只吃 ethereal 比例(道具/法術照打)。
+   * 抵掉的第一擊回報 onResisted(戰鬥頁記提示) */
+  private adjustDamage(unit: EnemyUnit, dmg: number, catId: CategoryId): number {
+    if (dmg <= 0) return dmg;
+    let out = dmg;
+    let resisted = false;
+    if (unit.armor !== undefined && unit.staggerLeft <= 0) {
+      out = Math.max(1, Math.round(out * unit.armor));
+      resisted = true;
+    } else if (unit.ethereal !== undefined && !unit.chilled && (catId === "melee" || catId === "ranged")) {
+      out = Math.max(1, Math.round(out * unit.ethereal));
+      resisted = true;
+    }
+    if (resisted && !unit.resistHinted) {
+      unit.resistHinted = true;
+      this.cb.onResisted?.(unit);
+    }
+    return out;
+  }
+
   /** 效果落地:傷害/回復/壓制/招架/凍結……(即時行動直接呼叫;法術在詠唱結束時呼叫) */
   private applyEffect(cat: CategoryTracker, tracker: SubActionTracker) {
     let dmg = tracker.subAction.damage;
@@ -708,6 +748,7 @@ export class CombatEngine {
         const u2 = living[Math.floor(Math.random() * living.length)];
         let d = dmg;
         if (u2.staggerLeft > 0) d = Math.round(d * 1.25);
+        d = this.adjustDamage(u2, d, cat.def.id);
         u2.hp = Math.max(0, u2.hp - d);
         this.cb.onUnitHit?.(u2, d);
         total += d;
@@ -738,6 +779,7 @@ export class CombatEngine {
         if (!u2 || u2.hp <= 0) break;
         let d = Math.round((tracker.subAction.burstDamages?.[i] ?? tracker.subAction.damage) * burstScale);
         if (u2.staggerLeft > 0) d = Math.round(d * 1.25);
+        d = this.adjustDamage(u2, d, cat.def.id);
         u2.hp = Math.max(0, u2.hp - d);
         this.cb.onUnitHit?.(u2, d);
         total += d;
@@ -768,6 +810,7 @@ export class CombatEngine {
         if (u2.hp <= 0) continue;
         let d = dmg;
         if (u2.staggerLeft > 0) d = Math.round(d * 1.25);
+        d = this.adjustDamage(u2, d, cat.def.id);
         u2.hp = Math.max(0, u2.hp - d);
         this.cb.onUnitHit?.(u2, d);
         total += d;
@@ -801,6 +844,7 @@ export class CombatEngine {
         }
       }
       if (target.staggerLeft > 0) dmg = Math.round(dmg * 1.25); // 踉蹌中受創加成
+      dmg = this.adjustDamage(target, dmg, cat.def.id);
       target.hp = Math.max(0, target.hp - dmg);
       this.cb.onUnitHit?.(target, dmg);
       // 壓制(劍類,2026-09 用戶定案):砍在對方蓄力過半時,把牠的動作條往回推——

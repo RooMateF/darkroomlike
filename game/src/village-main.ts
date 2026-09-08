@@ -151,7 +151,14 @@ function startVillage() {
             <button class="btn" data-sandbox="shrine">祭壇</button>
             <button class="btn" data-sandbox="scavenger">拾荒的長手</button>
             <button class="btn" data-sandbox="counter">數數的東西</button>
-            <button class="btn" data-sandbox="lv3">Lv3 看守</button>
+            <button class="btn" data-sandbox="bunker">碉堡・甲殼獸</button>
+            <button class="btn" data-sandbox="drowned">淹沒村落・霧</button>
+            <button class="btn" data-sandbox="farmstead">農莊・巢母</button>
+            <button class="btn" data-sandbox="lv3-0">Lv3 看守</button>
+            <button class="btn" data-sandbox="lv3-1">Lv3 防衛機</button>
+            <button class="btn" data-sandbox="lv3-2">Lv3 接種者</button>
+            <button class="btn" data-sandbox="lv3-3">Lv3 凝視者</button>
+            <button class="btn" data-sandbox="lv3-4">Lv3 使徒</button>
             <button class="btn" data-sandbox="redmoon">紅月三連戰</button>
             <button class="btn" data-sandbox="siren">哼歌的東西</button>
             <button class="btn" data-sandbox="tentacle">收藏的觸手</button>

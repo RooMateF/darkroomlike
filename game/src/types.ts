@@ -72,4 +72,6 @@ export interface EnemyMove {
   steal?: boolean;
   /** 穿盾(教堂百手壓下):普通格擋的減傷上限壓到 50%,只有完全格擋能無傷 */
   pierceBlock?: boolean;
+  /** 產卵(農莊的巢母,2026-09):這一招結算時鑽出 N 隻孳生失敗體(戰鬥頁執行) */
+  spawn?: number;
 }

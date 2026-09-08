@@ -27,6 +27,12 @@ export interface EnemyDef {
   freezeResist?: boolean;
   /** 連招腳本(數數的東西):依 move id 順序循環出招,取代隨機抽 */
   pattern?: string[];
+  /** 甲殼(反制式 Boss):沒踉蹌時只吃這個比例的傷害——斧/大劍疊踉蹌才砍得進去 */
+  armor?: number;
+  /** 霧體(反制式 Boss):沒寒滯時近戰/遠程只吃這個比例——鬼雪凍住牠,或用火焰卷軸 */
+  ethereal?: number;
+  /** 第一次被抵掉傷害時的一句提示(只講看得見的現象,不講數值) */
+  counterHint?: string;
 }
 
 /** 孳生失敗體(野外同款;教堂神父的「孕育」鑽出的也是這個) */
@@ -276,6 +282,88 @@ export const LV3_BOSS: EnemyDef = {
   boss: true,
 };
 
+
+/**
+ * Lv3 遺跡的看守群(2026-09 用戶要求:同一種太單調;血量 80~160 依屬性,少放怪物、多放教徒與使徒)。
+ * 每座遺跡依 key 確定性挑一位——同一座永遠是同一位,不同座才會碰到不同的東西。
+ */
+export const LV3_GUARDIANS: EnemyDef[] = [
+  LV3_BOSS,
+  {
+    // 舊時代的自律防衛機(bestiary 中期):高頻穩定的小傷害+鎖定後的集火;機器不怕冷(凍結抗性)
+    id: "rusted-sentry",
+    label: "鏽蝕的防衛機",
+    intro: "通道盡頭立著一台半人高的機器,底盤陷在碎石裡,外殼鏽成了土色。你踏進去的那一步,它頂上的一顆玻璃眼睛亮了——紅的,然後轉向你。",
+    hp: 110,
+    moves: [
+      { id: "burst", label: "掃射", baseCost: 0.9, symbol: "»»", damage: 4 },
+      { id: "lock", label: "鎖定", baseCost: 1.6, symbol: "…", damage: 0, tell: "玻璃眼睛縮成一個點,機身裡傳出一串細碎的咔嗒聲。" },
+      { id: "volley", label: "集火", baseCost: 2.4, symbol: "»»»»»", damage: 14, heavy: true, tell: "它的槍口抬了起來,鏽屑簌簌落下。" },
+    ],
+    pattern: ["burst", "burst", "lock", "volley"],
+    loot: { iron: 5, bullet: 6, stone: 3 },
+    freezeResist: true,
+    boss: true,
+  },
+  {
+    // 瘟疫教派的接種者(bestiary 中期):主動接受低劑量汙染,皮膚病變但有紀律;中毒疊加是牠的語言
+    id: "plague-inoculated",
+    label: "瘟疫教派的接種者",
+    human: true,
+    intro: "一個人從石柱後面走出來,袖子捲到肘上——手臂上一排排整齊的膿瘡,像是自己劃開又縫上的。他朝你點了點頭,語氣很客氣:「你來得正好。」",
+    hp: 90,
+    moves: [
+      { id: "jab", label: "刺擊", baseCost: 1.0, symbol: "»»", damage: 5, status: { kind: "poison", amount: 20 } },
+      { id: "ash", label: "撒灰", baseCost: 1.4, symbol: "…", damage: 3, status: { kind: "poison", amount: 40 }, tell: "他從腰袋裡抓出一把灰白的粉末。" },
+      { id: "embrace", label: "獻身撲擊", baseCost: 2.3, symbol: "»»»»»", damage: 13, heavy: true, status: { kind: "poison", amount: 30 }, tell: "他張開雙臂,像要擁抱你——膿瘡一顆顆裂開了。" },
+    ],
+    loot: { bandage: 2, ration: 2 },
+    shardChance: 0.6,
+    boss: true,
+  },
+  {
+    // 星空教派的凝視者(bestiary 中期):攻擊前搖長,命中附幻惑(混亂);醒神鹽是解法
+    id: "star-gazer",
+    label: "星空的凝視者",
+    human: true,
+    intro: "最深處的人仰著臉,一動不動——洞頂裂開一道縫,他就盯著那道縫裡的天。你走近了他才轉過頭來,眼白比常人多出一圈。「你看見了嗎?」他問。",
+    hp: 100,
+    moves: [
+      { id: "gaze", label: "凝望", baseCost: 1.8, symbol: "…", damage: 0, confusion: 35, tell: "他的眼睛睜得更開了,像要把你也裝進去。" },
+      { id: "staff", label: "揮杖", baseCost: 1.1, symbol: "»»", damage: 5 },
+      { id: "whisper", label: "墜落的低語", baseCost: 2.6, symbol: "»»»»»", damage: 12, heavy: true, confusion: 40, tell: "他開始說話——很慢,每個字都像從很高的地方掉下來。" },
+    ],
+    loot: { shard: 3, ration: 2 },
+    boss: true,
+  },
+  {
+    // 深淵教派的使徒(bestiary 中期・狂信徒的極端型):肢體反折,慢而重;凝滯=遲緩,深淵的重量=暈眩
+    id: "abyss-apostle",
+    label: "深淵的使徒",
+    human: true,
+    intro: "那個人背對著你站在最深處,雙手垂在身側——垂得太低了,指尖過了膝蓋。他轉身的時候,肩膀比脖子晚了半拍。他沒有臉朝著你,聲音卻從正前方來:「你也是來看底下的嗎?」",
+    hp: 140,
+    moves: [
+      { id: "fold", label: "反折的手", baseCost: 1.3, symbol: "»»»", damage: 6 },
+      { id: "stall", label: "凝滯", baseCost: 1.6, symbol: "…", damage: 0, control: { kind: "slow", duration: 2.0 }, tell: "他的影子先動了半拍,身體才跟上。" },
+      { id: "weight", label: "深淵的重量", baseCost: 2.8, symbol: "»»»»»»", damage: 18, heavy: true, control: { kind: "stun", duration: 1.0 }, tell: "他的關節一節一節往反方向折,整個人矮了下去——然後猛地彈起。" },
+    ],
+    loot: { shard: 4, bandage: 1 },
+    shardChance: 1,
+    freezeResist: true,
+    boss: true,
+  },
+];
+
+/** 這座 Lv3 遺跡的看守是誰:key 雜湊→固定一位;模擬戰用 lv3-<n> 直接指定 */
+export function lv3GuardianFor(key: string): EnemyDef {
+  const m = /^lv3-(\d+)$/.exec(key);
+  if (m) return LV3_GUARDIANS[Number(m[1]) % LV3_GUARDIANS.length];
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  return LV3_GUARDIANS[h % LV3_GUARDIANS.length];
+}
+
 /**
  * 地標守衛(嚴苛的戰鬥,bestiary.md 中期梯隊等級):
  * 打贏才解放對應地標。血量與傷害刻意高於前期雜兵一個檔次,
@@ -355,6 +443,57 @@ export const GUARDIANS: Record<string, EnemyDef> = {
     freezeResist: true,
   boss: true,
   },
+  // ---- 2026-09 反制式 Lv4(用戶要求:要有針對性的武器才打得贏)----
+  // 崩塌的碉堡:甲殼——沒踉蹌時只吃 25%;鐵斧/鋼大劍疊滿踉蹌的那 3 秒才是輸出窗
+  bunker: {
+    id: "bunker-guardian",
+    label: "縮在壘裡的甲殼獸",
+    intro: "混凝土的裂口裡卡著一團東西,起初你以為是塌下來的頂板——直到那些板子一片片翹起,露出底下濕潤的關節。牠比坑道還寬,殼上留著舊時代的彈痕,一顆都沒打穿。",
+    hp: 160,
+    armor: 0.25,
+    counterHint: "刃口在甲殼上滑開,只留下一道白痕。這種殼,得先把牠打得站不穩,才砍得進去。",
+    moves: [
+      { id: "shell-strike", label: "甲擊", baseCost: 1.2, symbol: "»»»", damage: 7 },
+      { id: "grind", label: "碾壓", baseCost: 2.5, symbol: "»»»»»»", damage: 16, heavy: true, control: { kind: "stun", duration: 0.8 }, tell: "牠把整個身子抬了起來,殼緣刮著混凝土。" },
+    ],
+    loot: { ingot: 20, stone: 10, shard: 5 },
+    freezeResist: true,
+    boss: true,
+  },
+  // 淹沒的村落:霧體——沒寒滯時近戰/遠程只吃 20%;鬼雪凍住牠(牠不抗凍)或火焰卷軸照燒
+  drowned: {
+    id: "drowned-guardian",
+    label: "不肯散的霧",
+    intro: "水淹到膝蓋。屋頂只剩脊梁露在水面上,像一排肋骨。霧從水面升起來,慢慢聚成一個人形——不,好幾個,疊在一起,面朝著你。",
+    hp: 120,
+    ethereal: 0.2,
+    counterHint: "刀鋒穿了過去——像砍進霧裡,什麼也沒留下。這種東西,得先讓牠冷下來,或者用火。",
+    moves: [
+      { id: "cold-hand", label: "冷的手", baseCost: 1.0, symbol: "~»", damage: 5, control: { kind: "slow", duration: 1.5 } },
+      { id: "drag", label: "拖進水裡", baseCost: 1.7, symbol: "»»»", damage: 9 },
+      { id: "sink", label: "沉入", baseCost: 2.4, symbol: "»»»»»", damage: 14, heavy: true, confusion: 30, tell: "霧壓低了,水面沒有一絲波紋——牠們一起彎下了腰。" },
+    ],
+    loot: { shard: 6, elixir: 1 },
+    boss: true,
+  },
+  // 廢棄的農莊:巢母——每第二招「擠出」兩隻孳生體;單體武器永遠砍不完,散彈槍/火焰卷軸清場
+  farmstead: {
+    id: "farmstead-guardian",
+    label: "農莊的巢母",
+    intro: "穀倉的門板早被撐破了。裡面的東西塞滿了整個穀倉——一團團肉囊掛在樑上,有幾團在動。正中央那一團最大,表面慢慢起伏,像在呼吸。",
+    hp: 140,
+    counterHint: "牠們越擠越多。一次只砍一隻,永遠砍不完——散開的火,或者散開的彈丸,才清得掉。",
+    moves: [
+      { id: "lash", label: "甩鞭", baseCost: 1.1, symbol: "»»", damage: 6 },
+      { id: "brood", label: "擠出", baseCost: 2.0, symbol: "◎◎", damage: 0, spawn: 2, tell: "巢母的表面鼓起幾個包,一個接一個地裂開。" },
+      { id: "smother", label: "壓覆", baseCost: 2.6, symbol: "»»»»»", damage: 15, heavy: true, status: { kind: "poison", amount: 30 }, tell: "整團肉囊從樑上垂了下來,朝你罩過來。" },
+    ],
+    pattern: ["lash", "brood", "lash", "smother"],
+    loot: { leather: 10, meat: 6, shard: 5 },
+    shardChance: 1,
+    freezeResist: true,
+    boss: true,
+  },
   // 北嶺煤礦坑(Lv4):鐵階裝備的攻堅目標——毒塵+崩落暈眩是特色威脅。
   // 蒙地卡羅(現實補給:繃2/藥1/肉16/鹽3,滿血進場):勝率 60%(單場 100 秒);
   // 不帶鹽 4%、殘血(40/50)進場 7%——鹽是反制、礦旁據點休整是紀律;囤到繃6藥2則 100%
@@ -421,6 +560,18 @@ export const LANDMARK_REWARDS: Record<string, { loot?: Record<string, number>; w
   coalmine: {
     loot: { coal: 15, stone: 10 },
     message: "煤礦解放了。黑亮的煤層一路延伸進山腹深處——爐火燃燒的日子,要開始了。",
+  },
+  bunker: {
+    loot: { bullet: 20, ingot: 15 },
+    message: "碉堡深處的彈藥箱大半鏽死,你撬開了還能開的那幾口。子彈用油紙一排排包著——包的人很仔細。",
+  },
+  drowned: {
+    loot: { elixir: 2, shard: 4 },
+    message: "霧散了。水面平得像一面鏡子。淹在底下的屋子裡浮起幾只密封的小瓶,標籤泡爛了,瓶身還完好。",
+  },
+  farmstead: {
+    loot: { grain: 40, leather: 15 },
+    message: "穀倉清空了。底下的地窖還鎖著幾袋沒發霉的穀種,和一捆捆鞣好的皮——這家人走得很急,東西都留著。",
   },
   church: {
     weapon: "alloy-blade",

@@ -5,7 +5,7 @@ import { buildPlayerCategories } from "./demo-data";
 import { WEAPONS, fineMaxDurability, WEAPON_CARRY_LIMITS } from "./village/data";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
 import { loadCarried, saveCarried, clearCarried, addLoot, playerMaxHp, carriedMaxDurability, packUsed } from "./carried";
-import { pickRandomEnemy, pickMidEnemy, pickEnemyGroup, GUARDIANS, LANDMARK_REWARDS, LV3_BOSS, EVENT_BOSSES, TENTACLE_GUARD, SPAWN_UNIT, MOON_MUTANT, REDMOON_BOSS, CHURCH_PHASE2_MOVES, CHURCH_PHASE2_PATTERN, WILD_SPAWN, type EnemyDef } from "./enemies";
+import { pickRandomEnemy, pickMidEnemy, pickEnemyGroup, GUARDIANS, LANDMARK_REWARDS, lv3GuardianFor, EVENT_BOSSES, TENTACLE_GUARD, SPAWN_UNIT, MOON_MUTANT, REDMOON_BOSS, CHURCH_PHASE2_MOVES, CHURCH_PHASE2_PATTERN, WILD_SPAWN, type EnemyDef } from "./enemies";
 import { markLandmarkCleared, currentMapId, isAutoPickup } from "./explore/engine";
 
 // 蓋「這趟有收穫」章(空手計數的歸零依據;引導事件用)
@@ -81,14 +81,14 @@ try {
 } catch {
   dungeon = null;
 }
-if (SANDBOX && ["church", "coalmine", "mine", "observatory", "shrine", "scavenger", "counter", "lv3"].includes(SANDBOX)) {
-  // 守衛型模擬戰:直接打最深層 Boss
+if (SANDBOX && (["church", "coalmine", "mine", "observatory", "shrine", "scavenger", "counter", "bunker", "drowned", "farmstead"].includes(SANDBOX) || SANDBOX.startsWith("lv3"))) {
+  // 守衛型模擬戰:直接打最深層 Boss(lv3 / lv3-<n>:Lv3 看守群逐一指定)
   dungeon = {
-    key: "sandbox",
-    level: SANDBOX === "lv3" ? 3 : 5,
+    key: SANDBOX.startsWith("lv3") ? SANDBOX : "sandbox",
+    level: SANDBOX.startsWith("lv3") ? 3 : 5,
     stage: 1,
     stages: 1,
-    landmarkId: SANDBOX === "lv3" ? undefined : SANDBOX,
+    landmarkId: SANDBOX.startsWith("lv3") ? undefined : SANDBOX,
     x: 0,
     y: 0,
   } as unknown as DungeonRun;
@@ -101,7 +101,7 @@ function pickDungeonEnemy(run: DungeonRun): EnemyDef {
   const isFinal = run.stage >= run.stages;
   if (isFinal) {
     if (run.level >= 4 && run.landmarkId && GUARDIANS[run.landmarkId]) return GUARDIANS[run.landmarkId];
-    if (run.level === 3) return LV3_BOSS;
+    if (run.level === 3) return lv3GuardianFor(run.key); // Lv3 看守群:每座遺跡固定一位
     return pickRandomEnemy(); // Lv1/2 沒有獨立 Boss,最後一層也是雜兵強度
   }
   // 層間敵人:低等級用前期雜兵,高等級用中期梯隊
@@ -938,8 +938,24 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
     const host = document.querySelector<HTMLElement>("#player-hp-row");
     if (host) spawnDamagePop(host, `-${dmg}`);
   },
+  onResisted: (unit) => {
+    if (unit.counterHint) appendSystemLog(unit.counterHint); // 反制式 Boss:第一次被抵掉時給一句看得見的線索
+  },
   onEnemyAct: (unit, move) => {
     tutorialOnEnemyAct(move);
+    // 產卵(農莊的巢母,2026-09):這一招結算時鑽出 N 隻孳生失敗體——單體武器永遠砍不完,散開的火/彈丸才清得掉
+    if (move.spawn && unit.hp > 0) {
+      appendSystemLog("肉囊一顆顆裂開——幾團新的東西落到地上,還沒站穩就朝你爬來。");
+      if (unit.counterHint && !unit.resistHinted) {
+        unit.resistHinted = true; // 巢母沒有甲殼/霧體:反制提示掛在第一次產卵
+        appendSystemLog(unit.counterHint);
+      }
+      for (let k = 0; k < move.spawn; k++) {
+        engine.addEnemy(applyBlessing(WILD_SPAWN.moves), { hp: WILD_SPAWN.hp, label: WILD_SPAWN.label });
+        unitDefs.push(WILD_SPAWN);
+      }
+      return;
+    }
     // 教堂半血(2026-09 用戶定案):第五招「孕育」必定釋放——零傷害的空窗,結算時鑽出兩隻
     if (move.id !== "priest-spawn" || unit.hp <= 0) return;
     appendSystemLog("孳生失敗體從不再祈禱的神父的身體裡鑽出");
@@ -1021,7 +1037,7 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
           human: wave[0].human,
         });
         for (const d of wave.slice(1)) {
-          engine.addEnemy(applyBlessing(d.moves), { hp: d.hp, label: d.label, freezeResist: d.freezeResist, pattern: d.pattern, human: d.human });
+          engine.addEnemy(applyBlessing(d.moves), { hp: d.hp, label: d.label, freezeResist: d.freezeResist, pattern: d.pattern, human: d.human, armor: d.armor, ethereal: d.ethereal, counterHint: d.counterHint });
         }
         unitDefs.push(...wave);
         appendSystemLog(wave[0].intro);
@@ -1122,7 +1138,7 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
       }
     }
   },
-}, { enemyHp: enemyDef.hp, enemyLabel: enemyDef.label, freezeResist: enemyDef.freezeResist, pattern: enemyDef.pattern, human: enemyDef.human });
+}, { enemyHp: enemyDef.hp, enemyLabel: enemyDef.label, freezeResist: enemyDef.freezeResist, pattern: enemyDef.pattern, human: enemyDef.human, armor: enemyDef.armor, ethereal: enemyDef.ethereal, counterHint: enemyDef.counterHint });
 
 // HP 跨戰鬥持續:從行囊接續上一場打完的血量(回村整備才會回滿);上限含皮甲加成
 engine.playerMaxHp = playerMaxHp();
@@ -1163,7 +1179,9 @@ if (SANDBOX) {
   addTitle("模擬戰・對手");
   const fights: [string, string][] = [
     ["tutorial", "戰鬥教學"], ["church", "教堂"], ["coalmine", "煤礦坑"], ["mine", "鐵礦坑"], ["observatory", "觀測台"],
-    ["shrine", "祭壇"], ["scavenger", "拾荒的長手"], ["counter", "數數的東西"], ["lv3", "Lv3看守"],
+    ["shrine", "祭壇"], ["scavenger", "拾荒的長手"], ["counter", "數數的東西"],
+    ["bunker", "碉堡・甲殼獸"], ["drowned", "淹沒村落・霧"], ["farmstead", "農莊・巢母"],
+    ["lv3-0", "Lv3看守"], ["lv3-1", "Lv3防衛機"], ["lv3-2", "Lv3接種者"], ["lv3-3", "Lv3凝視者"], ["lv3-4", "Lv3使徒"],
     ["redmoon", "紅月三連戰"], ["siren", "哼歌的東西"], ["tentacle", "收藏的觸手"],
     ["group", "外圍組隊"], ["spawnpack", "孳生體群"], ["chain", "遺跡連鎖戰"],
   ];
@@ -1231,7 +1249,7 @@ if (SANDBOX) {
 }
 // 這一波其餘敵人同時上場(組隊/孳生窩展開)
 for (const d of initialWave.slice(1)) {
-  engine.addEnemy(applyBlessing(d.moves), { hp: d.hp, label: d.label, freezeResist: d.freezeResist, pattern: d.pattern, human: d.human });
+  engine.addEnemy(applyBlessing(d.moves), { hp: d.hp, label: d.label, freezeResist: d.freezeResist, pattern: d.pattern, human: d.human, armor: d.armor, ethereal: d.ethereal, counterHint: d.counterHint });
 }
 // 拾荒的長手:每件贓物由一條護贓觸手纏著上場——打倒觸手直接取回
 if (dungeon?.landmarkId === "scavenger") {
