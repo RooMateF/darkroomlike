@@ -1,6 +1,6 @@
 // 對應 design-notes.md § 3.2 的符號說明
 
-export type TileType = "plain" | "brush" | "rubble" | "wall" | "water" | "depot" | "resource" | "event" | "site" | "exit" | "landmark" | "chest" | "slopeL" | "slopeV" | "slopeR" | "redmoon";
+export type TileType = "plain" | "brush" | "rubble" | "wall" | "water" | "depot" | "resource" | "event" | "site" | "exit" | "landmark" | "chest" | "slopeL" | "slopeV" | "slopeR" | "redmoon" | "poi";
 
 export const TILE_SYMBOL: Record<TileType, string> = {
   plain: ".",
@@ -20,6 +20,7 @@ export const TILE_SYMBOL: Record<TileType, string> = {
   slopeV: "|", // 直上直下(南北向)才走得過
   slopeR: "\\", // 從右邊(東側)才踏得上去
   redmoon: "☾", // 紅月窪地(紅月事件×3 後近村出現):踩上=固定三場連鎖戰,打贏即消失
+  poi: "&", // 原野建物(存檔用統一符號;畫面上依 POIS 定義各自的小寫字母)
 };
 
 /** 有名字的特別地點(骨架層手工放置,固定座標);Lv4 中盤級,Lv5 幾乎無法戰勝(design-notes.md § 3.10.1) */
@@ -170,4 +171,103 @@ export interface Checkpoint {
   x: number;
   y: number;
   water: number;
+}
+
+/**
+ * 原野建物(2026-09 用戶要求):地圖上要有符合故事背景的建築、遺跡、設施——但不多,重點是合理。
+ * 不是地城:踩上去給一段側寫,第一次到訪有一份東西可拿(或一次視野);之後只剩一句再訪的話。
+ * 位置依象限個性擺:林地放獵人小屋/伐木場/墓園,廢墟放哨塔/軍車,平原放堤壩,濕地路上放神龕。
+ */
+export interface PoiDef {
+  id: string;
+  label: string;
+  /** 畫面符號(小寫,和地標的大寫區分) */
+  symbol: string;
+  x: number;
+  y: number;
+  mapId?: string;
+  /** 第一次到訪 */
+  firstText: string;
+  /** 之後再訪 */
+  againText: string;
+  /** 第一次到訪拿到的東西(受揹負空間限制) */
+  loot?: Record<string, number>;
+  /** 第一次到訪揭開周圍這麼多格的視野(哨塔) */
+  reveal?: number;
+}
+
+export const POIS: PoiDef[] = [
+  {
+    id: "hunter-lodge",
+    label: "獵人的小屋",
+    symbol: "h",
+    x: 34,
+    y: 18,
+    firstText: "一間用整根原木疊起來的小屋,門楣上釘著一副鹿角。屋裡的火塘早涼了,牆上還掛著幾張撐開的皮,邊緣捲了。桌上擺著一把削好的箭,箭桿上刻著同一個記號。",
+    againText: "小屋還是空的。門楣上的鹿角被風吹得輕輕晃。",
+    loot: { arrow: 4, jerky: 2 },
+  },
+  {
+    id: "sawmill",
+    label: "伐木場的遺跡",
+    symbol: "w",
+    x: 18,
+    y: 16,
+    firstText: "林子裡清出過一大片空地,樹樁齊得像用尺量過。空地中央躺著一台鏽死的機器,鋸片比人還高,齒縫裡卡著木屑,還沒爛透。旁邊碼著幾垛原木,底下的已經朽了,上面的還能用。",
+    againText: "鋸片上的鏽又厚了一層。原木垛只剩下面朽掉的那幾層。",
+    loot: { wood: 12 },
+  },
+  {
+    id: "graveyard",
+    label: "無名的墓園",
+    symbol: "g",
+    x: 24,
+    y: 24,
+    firstText: "林子裡有一小片空地,幾十塊石頭排成整齊的列,每一塊都朝同一個方向。石頭上沒有名字,只有刻痕——同一個日期,刻了幾十遍。最後一列的石頭比較新,土也還鬆。",
+    againText: "石頭還是那些石頭。風把落葉吹進刻痕裡,又吹出來。",
+  },
+  {
+    id: "watchtower",
+    label: "傾倒的哨塔",
+    symbol: "t",
+    x: 58,
+    y: 12,
+    firstText: "一座鋼架哨塔斜倒在碎石堆上,頂上的平台還掛著半截鐵絲網。你順著斜倒的架子爬上去——風大得睜不開眼,但這一帶的地形,在腳下攤成了一張圖。",
+    againText: "哨塔還斜在那裡。架子在風裡哼著一種很細的聲音。",
+    reveal: 7,
+  },
+  {
+    id: "army-truck",
+    label: "翻覆的軍車",
+    symbol: "u",
+    x: 68,
+    y: 20,
+    firstText: "一輛翻倒的軍用卡車,輪子朝天,車斗的帆布爛成了條。駕駛座的門開著,座椅上沒有人,只有一頂鋼盔,盔帶還扣著。車斗底下壓著幾口鐵箱,一口撬開了——裡面的子彈用油紙包得很整齊,像有人以為還會回來拿。",
+    againText: "卡車還翻在那裡。鋼盔不見了——也許是風,也許不是。",
+    loot: { bullet: 8, iron: 3 },
+  },
+  {
+    id: "dam",
+    label: "乾涸的堤壩",
+    symbol: "d",
+    x: 52,
+    y: 33,
+    firstText: "一道混凝土堤壩橫在乾涸的河床上,壩面裂開幾道縫,縫裡長出了樹。壩底的閘門鏽死在半開的位置——水早就從那裡走光了。閘門後面的凹槽裡卡著一截截被沖下來的石料,方方正正,不是河裡會有的東西。",
+    againText: "堤壩的影子在河床上拉得很長。閘門後面什麼也沒剩。",
+    loot: { stone: 8 },
+  },
+  {
+    id: "wayside-shrine",
+    label: "路邊的神龕",
+    symbol: "n",
+    x: 28,
+    y: 40,
+    firstText: "路邊立著一座及腰的小龕,石頭砌的,龕裡沒有神像,只有一個用炭畫的圓——圓裡又畫了一個圓。龕前擺著幾只碗,碗裡是曬乾的鹽粒,結成一小塊一小塊。有人定期來換。",
+    againText: "碗裡的鹽又換過了。你來的時候沒碰見人,走的時候也沒有。",
+    loot: { salt: 1 },
+  },
+];
+
+export function poiAt(x: number, y: number, mapId = "A"): PoiDef | undefined {
+  return POIS.find((p) => p.x === x && p.y === y && (p.mapId ?? "A") === mapId);
 }

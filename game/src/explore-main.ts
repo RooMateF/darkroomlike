@@ -2,7 +2,7 @@ import "./style.css";
 import { ExploreEngine, MAP_WIDTH, MAP_HEIGHT, LAMP_RADIUS, isAutoPickup, setAutoPickup } from "./explore/engine";
 import { MAP_DEFS } from "./explore/map-gen";
 import { hasChurchKey, siteProgress, specialSites } from "./explore/sites";
-import { LANDMARKS, TILE_SYMBOL } from "./explore/types";
+import { LANDMARKS, TILE_SYMBOL, POIS } from "./explore/types";
 import { playerMaxHp, packUsed, saveCarried } from "./carried";
 import { WEAPONS, ARROWS_PER_SLOT, RATIONS_PER_SLOT, BULLETS_PER_SLOT, RAILS_PER_SLOT, OIL_SLOTS, fineMaxDurability } from "./village/data";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
@@ -624,6 +624,11 @@ function render() {
       // 地標依定義畫各自的字母(M 礦坑 / O 觀測台 / A 祭壇 / K 煤礦坑)
       if (tile.revealed && tile.type === "landmark") {
         symbol = LANDMARKS.find((l) => l.x === x && l.y === y && (l.mapId ?? "A") === engine.mapId)?.symbol ?? "!";
+      }
+      // 原野建物:小寫字母(h 獵人小屋 / w 伐木場 / g 墓園 / t 哨塔 / u 軍車 / d 堤壩 / n 神龕)
+      if (tile.revealed && tile.type === "poi") {
+        symbol = POIS.find((p) => p.x === x && p.y === y && (p.mapId ?? "A") === engine.mapId)?.symbol ?? "&";
+        cell.classList.add("poi");
       }
       // 村莊:整張地圖最特別的一格(家的符號),只在中央地圖
       if (engine.mapId === "A" && tile.revealed && x === homePos.x && y === homePos.y) symbol = "⌂";

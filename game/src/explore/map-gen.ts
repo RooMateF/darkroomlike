@@ -1,4 +1,5 @@
 import type { Tile, TileType } from "./types";
+import { POIS } from "./types";
 import { specialSites } from "./sites";
 
 // 2026-09 縮圖 30%(105x65 → 88x54,用戶反饋:原野太空曠無趣)——
@@ -242,6 +243,19 @@ export function generateMap(mapId: MapId = "A"): Tile[][] {
     }
   }
 
+  // 原野建物(2026-09 用戶要求):固定座標,周圍清出可走的地
+  for (const p of POIS.filter((q) => (q.mapId ?? "A") === "A")) {
+    const cur = grid[p.y]?.[p.x];
+    if (!cur || cur.type === "site" || cur.type === "landmark" || cur.type === "exit") continue;
+    grid[p.y][p.x] = { type: "poi", revealed: false };
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const t = grid[p.y + dy]?.[p.x + dx];
+        if (t && (t.type === "wall" || t.type === "water")) grid[p.y + dy][p.x + dx] = { type: "plain", revealed: false };
+      }
+    }
+  }
+
   // 補給點:初始區域密集,外圍稀疏(design-notes.md § 3.10 補給點密度曲線)
   let placed = 0;
   for (let tries = 0; tries < 1200 && placed < 16; tries++) {
@@ -255,6 +269,7 @@ export function generateMap(mapId: MapId = "A"): Tile[][] {
     if (rng() > acceptChance) continue;
     const tile = grid[y][x];
     if (tile.type !== "plain" && tile.type !== "brush" && tile.type !== "rubble") continue;
+    if (POIS.some((p) => Math.abs(p.x - x) <= 1 && Math.abs(p.y - y) <= 1)) continue; // 別貼著建物生據點
     grid[y][x] = { type: "depot", revealed: false };
     placed++;
   }

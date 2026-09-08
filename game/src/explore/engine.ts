@@ -1,4 +1,4 @@
-import { BLOCKED, LANDMARKS, TILE_SYMBOL, type Checkpoint, type Tile, type TileType } from "./types";
+import { BLOCKED, LANDMARKS, POIS, TILE_SYMBOL, poiAt, type Checkpoint, type PoiDef, type Tile, type TileType } from "./types";
 import { generateMap, startPosition, exitLinkAt, borderDepotFor, MAP_DEFS, MAP_WIDTH, MAP_HEIGHT, MAZE, COAL_RIDGE, type MapId, type ExitLink } from "./map-gen";
 import { loadCarried, saveCarried, clearCarried, addLoot, packUsed, playerMaxHp, type Carried } from "../carried";
 import { RESOURCE_LABEL, type ResourceId } from "../village/types";
@@ -376,7 +376,7 @@ const FOOD_EVERY_STEPS = 2; // 每走 2 格消耗 1 乾糧(仿 ADR)
 const ENCOUNTER_CHANCE = 0.2;
 // 特殊地點的落腳步不觸發隨機遭遇(2026-09 用戶定案):據點/探勘點/地標/寶箱/出口
 // 的到場敘事不被戰鬥撞在同一步——想打地標仍要玩家主動選「深入調查」
-const ENCOUNTER_FREE_TILES: TileType[] = ["depot", "site", "landmark", "chest", "exit"];
+const ENCOUNTER_FREE_TILES: TileType[] = ["depot", "site", "landmark", "chest", "exit", "poi"];
 const LAMP_OIL_COST = 1; // 點亮一座據點燈柱要一罐燈油(一罐=舊制三份,占 3 格)
 export const LAMP_RADIUS = 8; // 燈火壓遇敵的範圍(曼哈頓距離);UI 用它把光圈畫在地圖上
 const LAMP_SUPPRESS = 0.5; // 照亮區內的遭遇率倍率(0.2 × 0.5 = 舊版基礎值 0.1)
@@ -464,6 +464,7 @@ export class ExploreEngine {
 
     // 撒點遺跡補種:後續版本新增的探勘點要能長進既有存檔的地圖
     this.syncSeededSites();
+    this.syncPois(); // 原野建物:舊存檔補刻
     // 紅月窪地(2026-09 核可):紅月事件滿三次 → 近村刷 ☾;打贏後撤掉
     this.syncRedmoonSite();
 
@@ -569,7 +570,7 @@ export class ExploreEngine {
 
   /** 撒點遺跡補種(2026-09):後續版本新增的 Lv1~3 探勘點,補畫進既有存檔的地圖(含清出周邊一圈路) */
   private syncSeededSites() {
-    const protect = ["site", "redmoon", "chest", "landmark", "exit", "slopeL", "slopeV", "slopeR"];
+    const protect = ["site", "redmoon", "chest", "landmark", "exit", "slopeL", "slopeV", "slopeR", "poi"];
     for (const s of specialSites()) {
       if ((s.mapId ?? "A") !== this.mapId || s.level > 3) continue;
       if (siteProgress(s.key).cleared) continue;
@@ -585,6 +586,44 @@ export class ExploreEngine {
         }
       }
     }
+  }
+
+  /** 原野建物(2026-09):舊存檔的網格沒有這些格——進來時補刻(不覆蓋地標/探勘點/據點/出口等有玩法意義的格) */
+  private syncPois() {
+    const protect = ["site", "redmoon", "chest", "landmark", "exit", "slopeL", "slopeV", "slopeR", "depot", "poi"];
+    for (const p of POIS) {
+      if ((p.mapId ?? "A") !== this.mapId) continue;
+      const t = this.grid[p.y]?.[p.x];
+      if (!t || protect.includes(t.type)) continue;
+      t.type = "poi";
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const n = this.grid[p.y + dy]?.[p.x + dx];
+          if (n && (n.type === "wall" || n.type === "water")) n.type = "plain";
+        }
+      }
+    }
+  }
+
+  /** 踩上原野建物:第一次給側寫+一份東西(或一次視野),之後只剩再訪的一句 */
+  private visitPoi(p: PoiDef) {
+    const flag = `poi-visited:${p.id}`;
+    if (localStorage.getItem(flag) === "1") {
+      this.cb.onLog(`【${p.label}】${p.againText}`);
+      return;
+    }
+    localStorage.setItem(flag, "1");
+    this.cb.onLog(`【${p.label}】${p.firstText}`);
+    if (p.reveal) {
+      for (let dy = -p.reveal; dy <= p.reveal; dy++) {
+        for (let dx = -p.reveal; dx <= p.reveal; dx++) {
+          const t = this.grid[p.y + dy]?.[p.x + dx];
+          if (t) t.revealed = true; // 哨塔上看到的,不會因為倒下就忘掉——不記進檢查點回滾
+        }
+      }
+      this.cb.onLog("你把看到的都記在心裡,才順著架子爬下來。");
+    }
+    if (p.loot && this.carried) this.cb.onLog(this.applyPickup({ ...p.loot }));
   }
 
   /** Lv1/Lv3 打通後變成補給點(前線基地);只處理本地圖的點 */
@@ -1046,6 +1085,9 @@ export class ExploreEngine {
           .join("、");
         this.cb.onLog(`你翻找出:${text}。`);
       }
+    } else if (target.type === "poi") {
+      const p = poiAt(nx, ny, this.mapId);
+      if (p) this.visitPoi(p);
     } else if (target.type === "site" || target.type === "landmark") {
       // 特殊探勘地點(五級制):踩上只給敘事與危險氛圍,由玩家主動選「深入調查」才開戰
       const site = siteAt(nx, ny, this.mapId);
