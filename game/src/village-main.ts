@@ -159,6 +159,7 @@ function startVillage() {
             <button class="btn" data-sandbox="lv3-2">Lv3 接種者</button>
             <button class="btn" data-sandbox="lv3-3">Lv3 凝視者</button>
             <button class="btn" data-sandbox="lv3-4">Lv3 使徒</button>
+            <button class="btn" data-sandbox="lv3-5">Lv3 僧</button>
             <button class="btn" data-sandbox="redmoon">紅月三連戰</button>
             <button class="btn" data-sandbox="siren">哼歌的東西</button>
             <button class="btn" data-sandbox="tentacle">收藏的觸手</button>

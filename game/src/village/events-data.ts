@@ -307,6 +307,13 @@ export const EVENTS: VillageEvent[] = [
     effect: {},
   },
   { kind: "passive", id: "river-fish", minTick: 5, text: "河裡的魚多得反常,一網下去沉得拉不動。", effect: { meat: 5 } },
+  {
+    kind: "passive",
+    id: "night-sutra",
+    minTick: 35,
+    text: "夜裡風從林子那邊送來一段誦經聲,一句一句,很慢。村裡沒有人聽得懂,但每個人都跟著數到了同一個數。",
+    effect: {},
+  },
   { kind: "passive", id: "stone-vein", text: "採石場挖到易開採的新岩層。", effect: { stone: 6 }, condition: (ctx) => (ctx.assignments["quarrier"] ?? 0) > 0 },
   { kind: "passive", id: "beehive", text: "村民發現蜂巢與周邊獵物聚集地。", effect: { meat: 3 } },
   { kind: "passive", id: "fur-bounty", text: "狩獵隊帶回了品質很好的皮毛。", effect: { hide: 4 }, condition: (ctx) => (ctx.assignments["hunter"] ?? 0) > 0 },

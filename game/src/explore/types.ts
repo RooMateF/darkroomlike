@@ -266,6 +266,17 @@ export const POIS: PoiDef[] = [
     againText: "碗裡的鹽又換過了。你來的時候沒碰見人,走的時候也沒有。",
     loot: { salt: 1 },
   },
+  {
+    // 2026-09 用戶補充:信仰不只西方——東方的廟也在這片原野上,也一樣不對勁
+    id: "hill-temple",
+    label: "半山的小廟",
+    symbol: "m",
+    x: 40,
+    y: 10,
+    firstText: "山坡上有一間小廟,屋頂的瓦掉了一半,門楣上的匾額只剩兩個字認得出:「……安……」。香爐裡的灰堆得比爐口還高,最上面插著三支還沒燒完的香——香是冷的,灰卻是溫的。供桌上擺著幾塊乾硬的餅,沒發霉。",
+    againText: "香爐裡的香換過了。還是三支,還是冷的。",
+    loot: { ration: 3 },
+  },
 ];
 
 export function poiAt(x: number, y: number, mapId = "A"): PoiDef | undefined {

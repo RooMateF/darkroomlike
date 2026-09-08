@@ -381,6 +381,22 @@ export const LV3_GUARDIANS: EnemyDef[] = [
     freezeResist: true,
     boss: true,
   },
+  {
+    // 不肯圓寂的僧(2026-09 用戶補充:信仰不只西方,佛道也會被感染):念珠聲疊混亂、頂禮=暈眩;打坐的人不躲
+    id: "unrested-monk",
+    label: "不肯圓寂的僧",
+    human: true,
+    intro: "洞窟深處盤坐著一個人,袈裟褪成了灰色,手裡的念珠一顆一顆撥過去。他的頭皮上長出一圈很短的、像肉芽的東西,排得跟念珠一樣整齊。他沒有睜眼,念誦卻停了:「施主,坐。」",
+    hp: 120,
+    moves: [
+      { id: "beads", label: "撥珠", baseCost: 1.2, symbol: "…", damage: 0, confusion: 30, tell: "念珠的聲音變密了,一顆疊著一顆。" },
+      { id: "palm", label: "掌摑", baseCost: 1.0, symbol: "»»", damage: 6 },
+      { id: "prostrate", label: "頂禮", baseCost: 2.6, symbol: "»»»»»", damage: 15, heavy: true, control: { kind: "stun", duration: 1.0 }, tell: "他把額頭抵到地上——整個洞窟跟著沉了一寸。" },
+    ],
+    loot: { shard: 3, bandage: 2 },
+    shardChance: 0.8,
+    boss: true,
+  },
 ];
 
 /** 這座 Lv3 遺跡的看守是誰:key 雜湊→固定一位;模擬戰用 lv3-<n> 直接指定 */
