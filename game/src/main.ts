@@ -114,7 +114,7 @@ if (!carried && !dungeon) {
 }
 
 // 事件小 Boss(選擇式小劇情觸發,如「唱歌的風」):優先於地城與隨機遭遇
-const eventBossId = SANDBOX === "siren" || SANDBOX === "tentacle" ? SANDBOX : localStorage.getItem("pending-event-boss");
+const eventBossId = SANDBOX && ["siren", "tentacle", "boar", "deer"].includes(SANDBOX) ? SANDBOX : localStorage.getItem("pending-event-boss");
 if (!SANDBOX && eventBossId) localStorage.removeItem("pending-event-boss");
 
 // 外圍組隊(探索頁標記):2~3 隻車輪戰;地城/事件 Boss 不組隊
@@ -1182,7 +1182,7 @@ if (SANDBOX) {
     ["shrine", "祭壇"], ["scavenger", "拾荒的長手"], ["counter", "數數的東西"],
     ["bunker", "碉堡・甲殼獸"], ["drowned", "淹沒村落・霧"], ["farmstead", "農莊・巢母"],
     ["lv3-0", "Lv3看守"], ["lv3-1", "Lv3防衛機"], ["lv3-2", "Lv3接種者"], ["lv3-3", "Lv3凝視者"], ["lv3-4", "Lv3使徒"],
-    ["redmoon", "紅月三連戰"], ["siren", "哼歌的東西"], ["tentacle", "收藏的觸手"],
+    ["redmoon", "紅月三連戰"], ["siren", "哼歌的東西"], ["tentacle", "收藏的觸手"], ["boar", "野豬"], ["deer", "觸手化的鹿"],
     ["group", "外圍組隊"], ["spawnpack", "孳生體群"], ["chain", "遺跡連鎖戰"],
   ];
   for (const [id, label] of fights) {

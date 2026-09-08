@@ -244,6 +244,69 @@ export const EVENTS: VillageEvent[] = [
 
   // ---- village-events.md A. 資源事件 — 正面(擴充批) ----
   { kind: "passive", id: "driftwood", text: "河邊沖來大量浮木。", effect: { wood: 8 } },
+
+  // ---- 2026-09 擴充批(用戶反饋:第一章復用的事件太多)——夜裡的訪客、林子送來的東西、井與霧 ----
+  {
+    kind: "choice",
+    id: "night-knock",
+    minTick: 15,
+    text: "夜裡有人敲門。門外站著一個渾身濕透的人,說他的隊伍在林子裡散了,只求在柴房裡待到天亮。",
+    condition: (ctx) => (ctx.resources.grain ?? 0) >= 5,
+    options: [
+      {
+        label: "讓他在柴房過夜(穀物 -5)",
+        effect: { grain: -5, arrow: 3 },
+        resultText: "天亮的時候柴房空了,柴堆得比昨天整齊。門口的石頭上壓著幾支削好的箭。",
+      },
+      { label: "隔著門讓他走", effect: {}, resultText: "腳步聲在門外停了很久,才慢慢遠去。雨到後半夜才停。" },
+    ],
+  },
+  {
+    kind: "passive",
+    id: "strange-antler",
+    minTick: 10,
+    text: "獵人帶回一副鹿角——右邊那支的分岔上長著一小截不像角的東西,軟的,摸起來是溫的。他們沒敢留角,只留下了皮。",
+    effect: { hide: 2, shard: 1 },
+    condition: (ctx) => (ctx.assignments["hunter"] ?? 0) > 0,
+  },
+  {
+    kind: "passive",
+    id: "sweet-well",
+    minTick: 25,
+    text: "這幾天井水特別甜。大家都多喝了些,晚上睡得也沉。有人說夜裡聽見井底有水在流——那是口死井,底下沒有水脈。",
+    effect: {},
+  },
+  {
+    kind: "choice",
+    id: "traveling-armorer",
+    minTick: 20,
+    text: "一個背著工具箱的老人在工匠鋪前停下,說他能把粗鐵打成好皮甲用的扣件——只要給他一點鐵當工錢。",
+    condition: (ctx) => ctx.hasBuilding("smithy") && (ctx.resources.ingot ?? 0) >= 30,
+    options: [
+      {
+        label: "讓他做(鐵 -30 → 皮革 +60)",
+        effect: { ingot: -30, leather: 60 },
+        resultText: "他做了一整天,收工時把工具一件件擦乾淨才收。皮革堆在牆邊,扣件釘得很齊。",
+      },
+      { label: "婉拒", effect: {}, resultText: "老人點點頭,背起工具箱往林子的方向走了。" },
+    ],
+  },
+  {
+    kind: "passive",
+    id: "fog-night",
+    minTick: 30,
+    text: "霧濃得看不見鄰屋的燈。早上霧散了,燻肉架上少了幾條肉。地上沒有腳印——一個都沒有。",
+    effect: { meat: -3 },
+    condition: (ctx) => (ctx.resources.meat ?? 0) >= 3,
+  },
+  {
+    kind: "passive",
+    id: "glass-lens",
+    minTick: 20,
+    text: "孩子們在河邊撿回一片圓玻璃,磨得很精細,把石頭上的紋路放得很大。她把玻璃收進了抽屜,沒說為什麼。",
+    effect: {},
+  },
+  { kind: "passive", id: "river-fish", minTick: 5, text: "河裡的魚多得反常,一網下去沉得拉不動。", effect: { meat: 5 } },
   { kind: "passive", id: "stone-vein", text: "採石場挖到易開採的新岩層。", effect: { stone: 6 }, condition: (ctx) => (ctx.assignments["quarrier"] ?? 0) > 0 },
   { kind: "passive", id: "beehive", text: "村民發現蜂巢與周邊獵物聚集地。", effect: { meat: 3 } },
   { kind: "passive", id: "fur-bounty", text: "狩獵隊帶回了品質很好的皮毛。", effect: { hide: 4 }, condition: (ctx) => (ctx.assignments["hunter"] ?? 0) > 0 },

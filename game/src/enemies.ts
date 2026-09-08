@@ -130,6 +130,34 @@ export const EVENT_BOSSES: Record<string, EnemyDef> = {
     freezeResist: true,
   boss: true,
   },
+  // 野豬(bestiary 4.1 純自然野獸,2026-09):領域性強;蓄力衝撞前搖長、傷害高——慢條=痛
+  boar: {
+    id: "wild-boar",
+    label: "野豬",
+    boss: true,
+    intro: "灌木炸開。一頭野豬撞了出來,肩高及腰,獠牙比你的前臂還長。牠停在五步外,前蹄刨著地,鼻息噴出白霧。",
+    hp: 40,
+    moves: [
+      { id: "gore", label: "拱撞", baseCost: 1.0, symbol: "»»", damage: 5 },
+      { id: "charge", label: "衝撞", baseCost: 2.4, symbol: "»»»»»", damage: 12, heavy: true, tell: "牠低下頭,獠牙對準了你,後腿蹬進土裡。" },
+    ],
+    loot: { meat: 6, hide: 3 },
+  },
+  // 觸手化的鹿(bestiary 4.2,2026-09):不主動攻擊;拉弓才打——一旦交戰,反撲很重
+  deer: {
+    id: "tentacle-deer",
+    label: "觸手化的鹿",
+    boss: true,
+    intro: "牠面對著你站定,右側那幾條東西全部立了起來,尖端的小口一開一合。鹿的眼睛還是鹿的眼睛——溫馴,潮濕,盯著你手裡的弓。",
+    hp: 55,
+    moves: [
+      { id: "kick", label: "蹄踢", baseCost: 1.1, symbol: "»»", damage: 5 },
+      { id: "lash", label: "觸手抽擊", baseCost: 0.8, symbol: "~»", damage: 4, status: { kind: "bleed", amount: 20 } },
+      { id: "rear", label: "反撲", baseCost: 2.2, symbol: "»»»»»", damage: 16, heavy: true, tell: "牠整個身子往後坐,幾條東西同時繃直——" },
+    ],
+    loot: { meat: 5, hide: 4, shard: 2 },
+    shardChance: 1,
+  },
 };
 
 export function pickRandomEnemy(): EnemyDef {
