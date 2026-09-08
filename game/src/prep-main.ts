@@ -311,7 +311,7 @@ const supplyDefs = [
   { id: "ration", label: RESOURCE_LABEL.ration, extra: `${RATIONS_PER_SLOT} 份占 1 格・行路口糧,每 2 步吃 1 份(不回血)`, get: () => pick.rations, set: (n: number) => (pick.rations = n) },
   { id: "jerky", label: RESOURCE_LABEL.jerky, extra: "占 1 格・咬一口 +10 HP;乾糧見底時拿來充飢", get: () => pick.jerky, set: (n: number) => (pick.jerky = n) },
   { id: "bandage", label: RESOURCE_LABEL.bandage, extra: "占 1 格・稀有,大量回復並止血", get: () => pick.bandages, set: (n: number) => (pick.bandages = n) },
-  { id: "coarsebandage", label: RESOURCE_LABEL.coarsebandage, extra: "占 1 格・自製,回 20 並止血(比繃帶慢 0.2 秒)", get: () => pick.coarseBandages, set: (n: number) => (pick.coarseBandages = n) },
+  { id: "coarsebandage", label: RESOURCE_LABEL.coarsebandage, extra: "占 1 格・自製,回 20 並止血;用過後下一輪比繃帶慢一點", get: () => pick.coarseBandages, set: (n: number) => (pick.coarseBandages = n) },
   { id: "arrow", label: RESOURCE_LABEL.arrow, extra: `${ARROWS_PER_SLOT} 支占 1 格・獵弓的彈藥`, get: () => pick.arrows, set: (n: number) => (pick.arrows = n) },
   { id: "bullet", label: RESOURCE_LABEL.bullet, extra: `${BULLETS_PER_SLOT} 發占 1 格・左輪/散彈通用`, get: () => pick.bullets, set: (n: number) => (pick.bullets = n) },
   { id: "rail", label: RESOURCE_LABEL.rail, extra: `${RAILS_PER_SLOT} 根占 1 格・鋪在地圖上的永久建設`, get: () => pick.rails, set: (n: number) => (pick.rails = n) },
