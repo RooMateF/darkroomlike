@@ -127,14 +127,17 @@ const isRedmoonFight = SANDBOX === "redmoon" || (!eventBossId && !dungeon && loc
 if (!SANDBOX && localStorage.getItem("pending-redmoon")) localStorage.removeItem("pending-redmoon");
 
 // 相鄰地圖(中央地圖以外)的野外更兇:一半機率抽中期梯隊
-/** 教學用的第一記劈下:石斧→木槍→一箭用完,木槍再滿(那一次決策暫停)的 0.06 秒後她的棍子落下——
- * 石斧 H 滿 → 木槍留一半(H+S/2)→ 弓從頭跑(+B)→ 木槍從頭跑(+S);同類補償 0.5 見 engine CARRYOVER_RATIO */
+/** 教學用的第一記劈下(用戶定案順序 石斧→木槍→包紮→弓→格擋):一箭用完,木槍再滿(那一次決策暫停)的 0.06 秒後她的棍子落下——
+ * 石斧 H 滿 → 木槍留一半(H+S/2)→ 道具盤從頭跑(+1.0)→ 包紮後弓從頭跑(+B)→ 木槍從頭跑(+S);
+ * 她先輕敲一下(1.8s)再開始蓄力,所以扣掉輕敲。同類補償 0.5 見 engine CARRYOVER_RATIO */
 function tutorialFirstHeavyCost(): number {
   const cost = (id: string) => WEAPONS.find((w) => w.id === id)?.baseCost ?? 1;
   const H = cost("stone-axe");
   const S = cost("wood-spear");
   const B = cost("hunting-bow");
-  return H + S / 2 + B + S + 0.06;
+  const ITEM = 1.0; // 道具盤
+  const TAP = 1.8; // 她的第一記輕敲(tutorial.ts tut-tap)
+  return H + S / 2 + ITEM + B + S + 0.06 - TAP;
 }
 const pickedDef = TUTORIAL
   ? tutorialEnemy(tutorialFirstHeavyCost())
@@ -268,6 +271,7 @@ const retreatBtn = document.querySelector<HTMLButtonElement>("#retreat-btn")!;
 // 撤退(design-notes.md § 2.10):隨時可退,但有風險——六成機率被追擊一次
 retreatBtn.addEventListener("click", () => {
   if (SANDBOX) {
+    localStorage.removeItem("tutorial-return"); // 中途離開對練:別留著旗標
     window.location.href = "village.html";
     return;
   }
@@ -1120,6 +1124,7 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
         carried.hp = engine.playerHp;
         saveCarried(carried);
       }
+      if (!SANDBOX) localStorage.setItem("explore-after-fight", enemyDef.label); // 回到地圖時遠征紀錄補一句收尾
       if (!carried || Object.keys(gains).length === 0) {
         endCombat(`${message}。`, "village.html?view=expedition", delay);
       } else if (isAutoPickup()) {
@@ -1732,8 +1737,8 @@ function showLootPanel(message: string, gains: Record<string, number>, href: str
 
 // ---- 戰鬥教學(2026-09 用戶要求):與她對練;流程與文本見 tutorial.ts ----
 // 兩層(用戶定案):她只負責說話,不講按鍵;按鍵/HP/CD 交給指著畫面元素的小提示窗——分開講才不割裂
-// step: 0 等石斧滿 → 1 石斧已用,等木槍 → 2 木槍已用,等弓滿 → 3 弓已射,等木槍再滿(=格擋時機) → 4 格擋時機已到
-const tut = { step: 0, waitTold: false, hits: 0, blockTries: 0, blockDone: false, pendingBlock: null as boolean | null, itemShown: false, itemUsed: false, ended: false };
+// step: 0 等石斧滿 → 1 石斧已用,等木槍 → 2 木槍已用,道具盤滿時講腰包 → 3 已包紮,等弓(木槍先滿要忍) → 4 弓已射,等木槍再滿(=格擋時機) → 5 格擋時機已到
+const tut = { step: 0, waitTold: false, waitBowTold: false, hits: 0, blockTries: 0, blockDone: false, pendingBlock: null as boolean | null, itemShown: false, itemUsed: false, ended: false };
 
 // 提示窗:貼在目標元素下方,▲ 指上去;目標本身加一圈外框
 const tutHintEl = document.createElement("div");
@@ -1835,19 +1840,24 @@ function tutorialOnPause() {
     }
     return;
   }
-  if (tut.step === 2 && ready("hunting-bow")) {
-    tutSay(TUTORIAL_TEXT.bowReady, tutRowLine("hunting-bow"), TUTORIAL_HINT.bowReady(tutRowKey("hunting-bow")));
-    return;
-  }
-  if (tut.step === 3 && ready("wood-spear")) {
-    tut.step = 4; // 木槍再滿的這一次暫停:她的條 99%——現在下指令格擋
-    tutSay(TUTORIAL_TEXT.blockNow, unitEls[0]?.root, TUTORIAL_HINT.blockNow);
-    return;
-  }
-  const item = engine.playerCategories.find((c) => c.def.id === "item");
-  if (!tut.itemShown && tut.blockDone && item?.trackers.some((t) => t.ready)) {
+  // 木槍用完、道具盤轉滿的這一次暫停講腰包(用戶定案順序:石斧→木槍→道具→弓→格擋)
+  if (tut.step === 2 && !tut.itemShown && ready("bandage")) {
     tut.itemShown = true;
     tutSay(TUTORIAL_TEXT.item, groupRows.find((g) => g.categoryId === "item")?.line, TUTORIAL_HINT.item);
+    return;
+  }
+  if (tut.step === 3) {
+    if (ready("hunting-bow")) {
+      tutSay(TUTORIAL_TEXT.bowReady, tutRowLine("hunting-bow"), TUTORIAL_HINT.bowReady(tutRowKey("hunting-bow")));
+    } else if (!tut.waitBowTold && ready("wood-spear")) {
+      tut.waitBowTold = true; // 包紮後木槍先滿:再忍一次,等弓
+      tutSay(TUTORIAL_TEXT.waitBow, tutRowLine("wood-spear"), TUTORIAL_HINT.waitBow(tutRowKey("wood-spear")));
+    }
+    return;
+  }
+  if (tut.step === 4 && ready("wood-spear")) {
+    tut.step = 5; // 一箭之後木槍再滿的這一次暫停:她的條 99%——現在下指令格擋
+    tutSay(TUTORIAL_TEXT.blockNow, unitEls[0]?.root, TUTORIAL_HINT.blockNow);
     return;
   }
   tutorialMaybeEnd();
@@ -1856,12 +1866,14 @@ function tutorialOnPause() {
 function tutorialOnUse(subActionId: string) {
   if (!TUTORIAL || tut.ended) return;
   hideTutHint(); // 照著做了:提示收掉
-  if (subActionId === "bandage") tut.itemUsed = true;
   if (tut.step === 0 && subActionId === "stone-axe") {
     tut.step = 1;
     tutSay(TUTORIAL_TEXT.axeHit, tutRowLine("wood-spear"), TUTORIAL_HINT.axeHit(tutRowKey("wood-spear")));
   } else if (tut.step === 1 && subActionId === "wood-spear") tut.step = 2;
-  else if (tut.step === 2 && subActionId === "hunting-bow") tut.step = 3;
+  else if (tut.step === 2 && subActionId === "bandage") {
+    tut.step = 3;
+    tut.itemUsed = true;
+  } else if (tut.step === 3 && subActionId === "hunting-bow") tut.step = 4;
 }
 
 function tutorialOnLog(entry: LogEntry) {
@@ -1911,6 +1923,13 @@ function endCombat(message: string, href: string, delayMs: number) {
   retreatBtn.style.display = "none";
   window.setTimeout(() => {
     if (SANDBOX) {
+      if (TUTORIAL && localStorage.getItem("tutorial-return") === "1") {
+        // 從村莊接受她的邀請來練的:練完回村,不重開
+        localStorage.removeItem("tutorial-return");
+        localStorage.setItem("tutorial-done", "1");
+        window.location.href = "village.html";
+        return;
+      }
       window.location.reload(); // 模擬戰:原地重開下一場
       return;
     }

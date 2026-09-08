@@ -211,6 +211,34 @@ function startVillage() {
   const overlayTextEl = overlayEl.querySelector<HTMLDivElement>("#overlay-text")!;
   const overlayOptionsEl = overlayEl.querySelector<HTMLDivElement>("#overlay-options")!;
   let shownEventId: string | null = null;
+
+  // 第一次能出門(2026-09 用戶核可):她問要不要先練一場——答應就進對練(練完回村),之後再說就記一句;系統分頁隨時可再找她。
+  // 走事件遮罩的同一條顯示鏈(pendingEvent → 紅月提醒 → 指路 → 邀請),否則會被「沒事件就隱藏」蓋掉
+  let tutorialInvite = false;
+  function renderTutorialInvite() {
+    const title = overlayEl.querySelector<HTMLDivElement>(".event-title")!;
+    title.textContent = "她";
+    overlayTextEl.textContent = "「出去之前,先陪我練一場好嗎?我想親眼看看你站不站得穩。」";
+    overlayOptionsEl.innerHTML = "";
+    const yes = document.createElement("button");
+    yes.className = "btn ready";
+    yes.textContent = "好";
+    yes.addEventListener("click", () => {
+      localStorage.setItem("tutorial-return", "1");
+      window.location.href = "index.html?sandbox=tutorial";
+    });
+    const later = document.createElement("button");
+    later.className = "btn ready";
+    later.textContent = "之後再說";
+    later.addEventListener("click", () => {
+      tutorialInvite = false;
+      shownEventId = null;
+      title.textContent = "事件";
+      appendLog("她點點頭:「那……小心一點。」(想練的話,系統分頁裡隨時找得到她。)");
+      render();
+    });
+    overlayOptionsEl.append(yes, later);
+  }
   const jobsEl = document.querySelector<HTMLDivElement>("#jobs")!;
   const buildingsEl = document.querySelector<HTMLDivElement>("#buildings")!;
   const logEl = document.querySelector<HTMLDivElement>("#log")!;
@@ -1267,6 +1295,12 @@ function startVillage() {
         overlayOptionsEl.appendChild(btn);
       }
       overlayEl.style.display = "flex";
+    } else if (tutorialInvite) {
+      if (shownEventId !== "tutorial") {
+        shownEventId = "tutorial";
+        renderTutorialInvite();
+      }
+      overlayEl.style.display = "flex";
     } else {
       overlayEl.style.display = "none";
       shownEventId = null;
@@ -1587,6 +1621,10 @@ function startVillage() {
     // 投射面板:分頁鈕常駐標題列;遠征佔滿內容區(左欄與投射面板整組隱藏)
     const onExpedition = loadCarried() !== null; // 遠征中=身上有行囊;回村結算後自然解除
     const readyToGo = engine.populationCap >= 20 && engine.hasBuilding("farm");
+    if (readyToGo && !onExpedition && !localStorage.getItem("tutorial-asked")) {
+      localStorage.setItem("tutorial-asked", "1"); // 只問一次
+      tutorialInvite = true;
+    }
     const workshopHas = armoryEl.childElementCount > 0 || anyCraftVisible;
     const tabHas: Record<VillageTab, boolean> = {
       jobs: !onExpedition,

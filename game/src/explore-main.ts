@@ -803,6 +803,14 @@ render();
 
 (window as unknown as { __explore: typeof engine }).__explore = engine;
 engine.syncRailFlags(); // 舊存檔補查:鐵軌已經鋪到煤礦坑旁的,進來就補上旗標
+{
+  // 戰鬥回來:遠征紀錄補一句收尾(2026-09 用戶核可)——不然紀錄停在「氣息」那一行
+  const beaten = localStorage.getItem("explore-after-fight");
+  if (beaten) {
+    localStorage.removeItem("explore-after-fight");
+    appendLog(`你把${beaten}留在身後,收拾好東西繼續上路。`);
+  }
+}
 
 return () => {
   window.removeEventListener("keydown", onKeydown);
