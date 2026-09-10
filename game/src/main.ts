@@ -420,6 +420,7 @@ const rows: SubActionRow[] = [];
 
 /** 這個子行動現在還能不能用(弓沒箭、消耗品用完、武器全壞 → 不能) */
 function canUse(subActionId: string): boolean {
+  if (TUTORIAL && !tutorialAllowsSub(subActionId)) return false; // 教學鎖:只開放這一步該出的招
   if (!carried) return subActionId === "fists";
   const weapon = WEAPONS.find((w) => w.id === subActionId);
   if (weapon) {
@@ -598,6 +599,7 @@ function renderGroupRow(g: GroupRow, cat: CombatEngine["playerCategories"][numbe
   g.barEmpty.textContent = "░".repeat(BAR_WIDTH - filledCount);
   g.pct.textContent = tag;
   const open = anyUsable && !casting;
+  g.line.classList.toggle("tut-locked", TUTORIAL && !tut.ended && lead.ready && !open);
   g.bar.classList.toggle("ready", open);
   g.useLink.disabled = !open;
   g.useLink.classList.toggle("ready", open);
@@ -719,7 +721,7 @@ const blockRowEls = (() => {
   const useLink = document.createElement("button");
   useLink.className = "use-link";
   useLink.textContent = "格擋";
-  useLink.addEventListener("click", () => { if (!bossDialogActive) engine.useBlock(); });
+  useLink.addEventListener("click", () => { if (!bossDialogActive && tutorialAllowsBlock(false)) engine.useBlock(); });
   line.append(name, barWrap, useLink);
   categoriesEl.appendChild(line);
   return { line, name, bar, barFilled, barEmpty, pct, useLink };
@@ -870,11 +872,11 @@ window.addEventListener("keydown", (e) => {
   }
   if (e.key === " ") {
     e.preventDefault();
-    engine.useBlock(true); // 即時格擋:靠反應,只算普通格擋
+    if (tutorialAllowsBlock(true)) engine.useBlock(true); // 即時格擋:靠反應,只算普通格擋(對練中鎖住:格擋只在排好的那一刻用 B)
     return;
   }
   if (e.key === "b" || e.key === "B") {
-    engine.useBlock(); // 指令格擋:只在決策暫停中成立(配速換完全格擋)
+    if (tutorialAllowsBlock(false)) engine.useBlock(); // 指令格擋:只在決策暫停中成立(配速換完全格擋)
     return;
   }
   if (e.key === "0") {
@@ -1005,8 +1007,9 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
     if (lootPanelActive) return; // 勝利訊息別被收尾的 resume 洗掉
     if (paused) queueMicrotask(tutorialOnPause); // 教學:等這一幀的狀態畫完再開口
     statusEl.textContent = paused ? "▍等待你的指示…" : "";
-    skipBtn.disabled = !paused;
-    skipBtn.classList.toggle("ready", paused);
+    const canSkip = paused && tutorialAllowsSkip();
+    skipBtn.disabled = !canSkip;
+    skipBtn.classList.toggle("ready", canSkip);
     const canRetreat = paused && (SANDBOX ? true : !isBossFight); // Boss 戰:撤退鍵反灰(模擬戰的撤退=離開,照常)
     retreatBtn.disabled = !canRetreat;
     retreatBtn.classList.toggle("ready", canRetreat);
@@ -1294,6 +1297,7 @@ if (new URLSearchParams(window.location.search).has("dev")) {
     engine,
     step: (dt: number) => (engine as unknown as { step: (dt: number) => void }).step(dt),
     chainWaves, // 連鎖戰測試用:可窺可塞
+    render, // 背景分頁不跑 rAF:驗證腳本手動重繪一幀
   };
 }
 
@@ -1740,6 +1744,37 @@ function showLootPanel(message: string, gains: Record<string, number>, href: str
 // step: 0 等石斧滿 → 1 石斧已用,等木槍 → 2 木槍已用,道具盤滿時講腰包 → 3 已包紮,等弓(木槍先滿要忍) → 4 弓已射,等木槍再滿(=格擋時機) → 5 格擋時機已到
 const tut = { step: 0, waitTold: false, waitBowTold: false, hits: 0, blockTries: 0, blockDone: false, pendingBlock: null as boolean | null, itemShown: false, itemUsed: false, ended: false };
 
+/**
+ * 教學鎖(2026-09-10 用戶定案):對練時只開放這一步該出的招,其餘反灰——玩家必須照教學的出招順序打。
+ * 石斧→木槍→包紮→(木槍先滿要忍)→弓→(木槍再滿)按 B。設計上這個完美格擋的時機單放同一招到不了,只有這套聯招到得了。
+ */
+function tutTrackerReady(subActionId: string): boolean {
+  return engine.playerCategories.some((c) => c.trackers.some((t) => t.subAction.id === subActionId && t.ready));
+}
+function tutorialAllowsSub(subActionId: string): boolean {
+  if (!TUTORIAL || tut.ended) return true;
+  switch (tut.step) {
+    case 0: return subActionId === "stone-axe";
+    case 1: return subActionId === "wood-spear";
+    case 2: return subActionId === "bandage";
+    case 3: return subActionId === "hunting-bow";
+    default: return false; // 4/5:只剩舉盾
+  }
+}
+/** 暫不使用 [0]:這一步該出的招還沒轉滿時才能按(木槍先滿/木槍用完自己又先滿/包紮後木槍先滿);該出招或該舉盾的那一次不能跳過 */
+const TUT_EXPECTED = ["stone-axe", "wood-spear", "bandage", "hunting-bow"];
+function tutorialAllowsSkip(): boolean {
+  if (!TUTORIAL || tut.ended) return true;
+  const expected = TUT_EXPECTED[tut.step];
+  return expected ? !tutTrackerReady(expected) : false;
+}
+/** 格擋:對練中空白鍵整場鎖住;B 只在一箭之後木槍再滿的那一次暫停(她 99%)開放 */
+function tutorialAllowsBlock(instant: boolean): boolean {
+  if (!TUTORIAL || tut.ended) return true;
+  if (instant) return false;
+  return tut.step === 5 || (tut.step === 4 && engine.paused && tutTrackerReady("wood-spear"));
+}
+
 // 提示窗:貼在目標元素下方,▲ 指上去;目標本身加一圈外框
 const tutHintEl = document.createElement("div");
 tutHintEl.className = "tut-hint";
@@ -2007,9 +2042,10 @@ function render() {
     blockRowEls.pct.textContent = tag;
     const blockReady = engine.blockCooldownLeft <= 0 && engine.blockWindowLeft <= 0 && engine.stunLeft <= 0;
     blockRowEls.bar.classList.toggle("ready", engine.blockWindowLeft > 0 || blockReady);
-    const cmdOk = blockReady && engine.paused; // 行動列的「格擋」=指令格擋:只在暫停中下令;即時格擋走空白鍵
+    const cmdOk = blockReady && engine.paused && tutorialAllowsBlock(false); // 行動列的「格擋」=指令格擋:只在暫停中下令;即時格擋走空白鍵
     blockRowEls.useLink.disabled = !cmdOk;
     blockRowEls.useLink.classList.toggle("ready", cmdOk);
+    blockRowEls.line.classList.toggle("tut-locked", TUTORIAL && !tut.ended && blockReady && !tutorialAllowsBlock(false));
   }
 
   // 敵欄(多目標):每隻各自的 HP/動作/凍結;▶=目前目標,倒下的變暗
@@ -2082,6 +2118,7 @@ function render() {
       row.bar.classList.toggle("ready", usable);
       row.useLink.disabled = !usable;
       row.useLink.classList.toggle("ready", usable);
+      row.name.parentElement?.classList.toggle("tut-locked", TUTORIAL && !tut.ended && t.ready && !tutorialAllowsSub(t.subAction.id)); // 教學鎖:轉滿卻不該出的招反灰
     }
   }
 

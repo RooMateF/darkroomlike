@@ -1347,6 +1347,11 @@ hr {
   outline-offset: 2px;
 }
 
+/* 教學鎖:轉滿了卻不是這一步該出的招——整列壓暗 */
+.tut-locked {
+  opacity: 0.45;
+}
+
 .tut-hint.has-next {
   pointer-events: auto;
 }
