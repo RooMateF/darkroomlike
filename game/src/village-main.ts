@@ -13,7 +13,7 @@ import { mountExplore } from "./explore-main";
 
 // 行囊歸還:只有「真的回村」才結算——戰鬥打完跳回(?view=expedition)或
 // 遠征進行中重新整理(village-tab 停在 expedition)時,行囊要留著接續遠征
-// 倒下被帶回村(death-cause 還沒結算):這趟遠征已經結束——不接續;【替身】保住的行囊就在這裡入庫
+// 倒下被帶回村(death-cause 還沒結算):這趟遠征已經結束——不接續;占卜紙人保住的行囊就在這裡入庫
 const diedAway = localStorage.getItem("death-cause") !== null;
 if (diedAway && localStorage.getItem("village-tab") === "expedition") localStorage.setItem("village-tab", "build");
 // 行囊還在身上=人還在外面(2026-09 修正):不看分頁/網址,一律接回遠征——以前遠征中切到系統分頁再重新整理,
@@ -177,11 +177,6 @@ function startVillage() {
             <button class="btn" id="redmoon-status-btn">查看目前次數</button>
             <button class="btn" id="redmoon-reset-btn">循環歸零</button>
           </div>
-          <div class="section-title" style="margin-top:14px;">稀有訪客(真實存檔)</div>
-          <div class="hint-line">超稀有訪客正常約每百個事件才來一位。這裡直接請他上門,看文本、試交換(異晶照扣;人在遠征/整備中不會來)。</div>
-          <div style="display:flex; flex-wrap:wrap; gap:6px;">
-            <button class="btn" id="dev-taoist-btn">道士來訪(替身)</button>
-          </div>
         </div>
       </div>
     </div>
@@ -327,9 +322,6 @@ function startVillage() {
 
   document.querySelector<HTMLButtonElement>("#redmoon-fire-btn")!.addEventListener("click", () => {
     engine.devFireEventById("red-moon");
-  });
-  document.querySelector<HTMLButtonElement>("#dev-taoist-btn")!.addEventListener("click", () => {
-    if (loadCarried() !== null || !engine.devFireChoiceById("taoist-substitute")) engine.devLog?.("(測試)現在叫不出訪客:有事件卡著,或人在整備/遠征中。");
   });
   document.querySelector<HTMLButtonElement>("#redmoon-status-btn")!.addEventListener("click", () => {
     const n = localStorage.getItem("redmoon-count") ?? "0";
@@ -1747,11 +1739,11 @@ function startVillage() {
     const tips = REVIVAL_TIPS[deathCause] ?? REVIVAL_TIPS.combat;
     const idxKey = `revival-tip-${deathCause}`;
     const idx = Number(localStorage.getItem(idxKey) ?? "0");
-    // 【替身】的結果(carried.ts loseCarriedOnDeath):"1"=行囊保住、"0"=裝著但沒替到、沒有=沒裝
+    // 占卜紙人的結果(carried.ts loseCarriedOnDeath):"1"=行囊保住、"0"=裝著但沒替到、沒有=沒裝
     const kept = localStorage.getItem(DEATH_GEAR_KEPT_KEY);
     localStorage.removeItem(DEATH_GEAR_KEPT_KEY);
-    if (kept === "1") appendLog("你在營地的火堆旁醒來。行囊就擱在手邊,一樣也沒少——衣襟裡那張黃紙人,腰上多了一道摺痕。");
-    else if (kept === "0") appendLog("你在營地的火堆旁醒來。身上帶出去的東西,一樣也沒能回來。衣襟裡的黃紙人倒是還在,平平整整的。");
+    if (kept === "1") appendLog("你在營地的火堆旁醒來。行囊就擱在手邊,一樣也沒少,像是還沒出過門。原本收在衣襟裡的紙人不知什麼時候握在了手裡,腰上多了一道摺痕。");
+    else if (kept === "0") appendLog("你在營地的火堆旁醒來。身上帶出去的東西,一樣也沒能回來。衣襟裡的紙人倒是還在,平平整整的。");
     else appendLog("你在營地的火堆旁醒來。身上帶出去的東西,一樣也沒能回來。");
     appendLog(tips[idx % tips.length]);
     localStorage.setItem(idxKey, String((idx + 1) % tips.length));

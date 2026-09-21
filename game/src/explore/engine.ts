@@ -1653,7 +1653,7 @@ export class ExploreEngine {
     localStorage.setItem("death-cause", cause); // 回村後代行者依死因給一句叮囑(village-main)
     this.thirstSteps = 0;
     this.hungerSteps = 0;
-    const gearKept = loseCarriedOnDeath(); // 【替身】:一半的機會行囊原封不動(回村時整包入庫);否則全失
+    const gearKept = loseCarriedOnDeath(); // 占卜紙人:一半的機會行囊原封不動(回村時整包入庫);否則全失
 
     for (const key of this.revealedSinceCheckpoint) {
       const [x, y] = key.split(",").map(Number);

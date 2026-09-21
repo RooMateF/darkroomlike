@@ -65,6 +65,8 @@ export interface TradeDef {
   /** 兌換即飲下的永久改造(一次性商品,喝了就是永久);顯示名稱用 label */
   grantModification?: string;
   label?: string;
+  /** 買下永久品時寫進村莊紀錄的句子(沒填=改造藥劑那兩句) */
+  purchaseLog?: string[];
   /** 花費的異晶數 */
   shards: number;
   /** 一句來歷敘事(show-don't-tell:交易的對象是誰,玩家自己想) */
@@ -101,6 +103,21 @@ export const TRADES: TradeDef[] = [
     minExpeditions: 15,
     flavor: "一小瓶綠得發亮的藥劑,瓶塞用蠟封得嚴嚴實實。買家比劃了半天,你只看懂一件事:只有這一瓶。",
     effect: "永久改造:每場戰鬥開場的第一次充能,全部行動條速度 ×2;放出任一行動後恢復正常。",
+  },
+  // 占卜紙人(2026-09 用戶定案:名稱與說明用戶定稿;比照改造藥劑——交易所獨賣、只有一張、買了就是永久):
+  // 遠征中倒下時 50% 機率行囊不丟(carried.ts loseCarriedOnDeath 讀 modifications["paper-doll"])
+  {
+    id: "trade-paper-doll",
+    label: "占卜紙人",
+    shards: 100,
+    grantModification: "paper-doll",
+    minExpeditions: 15,
+    flavor: "聽說握著這個紙人就能夠體驗一場彷若真實的夢境,但若夢境與現實同樣真實,實際上碰到的一切是真是假又該何解呢?",
+    effect: "永久效果(只有一張):遠征中倒下時,有 50% 機率行囊原封不動地跟著你回來。",
+    purchaseLog: [
+      "你把紙人接過來。薄薄一張,剪成人形,沒有畫臉。",
+      "她湊過來看了一眼,伸手替你把它摺好、收進你的衣襟,又輕輕按了按:『不管它靈不靈……我都希望你用不上它。』",
+    ],
   },
 ];
 

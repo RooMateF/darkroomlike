@@ -91,7 +91,7 @@ export class VillageEngine {
   ownedWeapons: Record<string, number> = {};
   /** 一次性裝備升級(如大水袋) */
   upgrades: Record<string, boolean> = {};
-  /** 稀有訪客交換來的永久被動(潛行/機巧/祝禱/替身)——「擁有」不等於「生效」 */
+  /** 稀有訪客交換來的永久被動(潛行/機巧/祝禱)——「擁有」不等於「生效」 */
   perks: Record<string, boolean> = {};
   /** 目前裝備中的被動(上限 PERK_SLOTS 格):只有裝上的才生效,出門前要按 Boss 換裝 */
   equippedPerks: string[] = [];
@@ -190,6 +190,12 @@ export class VillageEngine {
       this.perks = s.perks ?? {};
       // 舊存檔遷移:沒有裝備欄資料時,把已擁有的被動依序裝上(維持原「全部生效」的體感)
       this.equippedPerks = s.equippedPerks ?? Object.keys(this.perks).filter((k) => this.perks[k]).slice(0, PERK_SLOTS);
+      if (this.perks.substitute) {
+        // 遷移(2026-09):【替身】被動改版成交易所的「占卜紙人」——買過的直接換成紙人
+        delete this.perks.substitute;
+        this.equippedPerks = this.equippedPerks.filter((p) => p !== "substitute");
+        this.modifications["paper-doll"] = true;
+      }
       this.scheduledFollowUps = s.scheduledFollowUps ?? [];
       this.lastEventTick = s.lastEventTick ?? 0;
       this.weaponDurability = s.weaponDurability ?? {};
@@ -496,6 +502,10 @@ export class VillageEngine {
       // 改造藥劑:兌換即飲下,永久生效(2026-09 用戶核可文本)
       this.modifications[def.grantModification] = true;
       this.saveState();
+      if (def.purchaseLog) {
+        for (const line of def.purchaseLog) this.cb.onLog(line);
+        return true;
+      }
       this.cb.onLog("眼前的綠色藥劑擺在你的面前,你拿起瓶子露出猶豫的神情。");
       this.cb.onLog("『別擔心,雖然他不是我們能製作出來的東西,但是基本上他對人體無害』她說道『可以放心的喝下,說不定還會有一點小小的幫助呢!』");
       return true;
@@ -1012,16 +1022,6 @@ export class VillageEngine {
   /** DEV 測試:往村莊紀錄寫一行(系統分頁的測試按鈕用) */
   devLog(text: string) {
     this.cb.onLog(text);
-  }
-
-  /** DEV 測試:指定叫出一則抉擇事件(超稀有訪客正常要等上百個事件,測試/核可文本用) */
-  devFireChoiceById(id: string): boolean {
-    const event = EVENTS.find((e) => e.id === id);
-    if (this.frozen || this.pendingEvent || !event || event.kind !== "choice") return false;
-    this.pendingEvent = event;
-    this.lastEventTick = this.tickCount;
-    this.cb.onTick();
-    return true;
   }
 
   /** DEV 測試:指定觸發一則被動事件(照正常路徑走,紅月計數/災厄照算) */

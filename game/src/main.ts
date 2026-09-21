@@ -292,7 +292,7 @@ retreatBtn.addEventListener("click", () => {
     appendSystemLog(`你轉身想跑,卻被追上——背後重重挨了一下(-${dmg})。這一戰還沒完。`);
     if (engine.playerHp <= 0) {
       combatOver = true;
-      loseCarriedOnDeath(); // 【替身】:一半的機會行囊保住(村莊頁載入時入庫)
+      loseCarriedOnDeath(); // 占卜紙人:一半的機會行囊保住(村莊頁載入時入庫)
       if (!SANDBOX) {
         localStorage.removeItem(DUNGEON_KEY);
         localStorage.setItem("death-cause", "combat");
@@ -1035,9 +1035,9 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
       appendSystemLog("視線的邊緣開始發黑,耳朵裡有一層薄薄的嗡鳴。你知道自己快撐不住了。");
     }
     if (engine.playerHp <= 0) {
-      if (combatOver) return; // 已經結算過這次倒下(撤退被追上那條路也會觸發 onHpChange):【替身】不重擲
+      if (combatOver) return; // 已經結算過這次倒下(撤退被追上那條路也會觸發 onHpChange):占卜紙人不重擲
       combatOver = true;
-      // 死亡:帶出門的東西全部消失(§3.9;裝著【替身】有一半的機會保住),自動送回村莊(已探索的地圖知識與地城層數進度保留)
+      // 死亡:帶出門的東西全部消失(§3.9;有占卜紙人時一半的機會保住),自動送回村莊(已探索的地圖知識與地城層數進度保留)
       loseCarriedOnDeath();
       if (!SANDBOX) {
         localStorage.removeItem(DUNGEON_KEY);

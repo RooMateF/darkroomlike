@@ -1,4 +1,4 @@
-// 隨身行囊:整備頁打包 → 探索/戰鬥消耗 → 回村歸還;死亡時整包消失(design-notes.md § 3.9;裝著【替身】有一半的機會保住)
+// 隨身行囊:整備頁打包 → 探索/戰鬥消耗 → 回村歸還;死亡時整包消失(design-notes.md § 3.9;有占卜紙人時一半的機會保住)
 // 用 localStorage 跨頁共享,是村莊庫存以外唯一的「在外狀態」。
 
 export const PLAYER_MAX_HP = 30;
@@ -189,28 +189,29 @@ export function saveCarried(carried: Carried) {
   localStorage.setItem(KEY, JSON.stringify(carried));
 }
 
-/** 【替身】(2026-09 用戶要求):遠征中倒下時,行囊保住的機率 */
-export const SUBSTITUTE_KEEP_CHANCE = 0.5;
-/** 倒下那一刻【替身】的結果,回村的敘述讀它改口:"1"=行囊保住了、"0"=裝著但這次沒替到;沒裝=不寫 */
+/** 占卜紙人(2026-09 用戶定案:交易所一次性永久品,異晶 100):遠征中倒下時,行囊保住的機率 */
+export const PAPER_DOLL_KEEP_CHANCE = 0.5;
+/** 倒下那一刻占卜紙人的結果,回村的敘述讀它改口:"1"=行囊保住了、"0"=有紙人但這次沒保住;沒有紙人=不寫 */
 export const DEATH_GEAR_KEPT_KEY = "death-gear-kept";
 
 /**
  * 遠征中倒下時呼叫(探索頁力竭、戰鬥頁戰死、撤退被追上都走這裡,取代直接 clearCarried):
- * 裝著【替身】→ 一半的機會行囊原封不動(留著,回村時由 returnCarriedToVillage 整包入庫);否則照舊全失(§3.9)。
+ * 有占卜紙人(village-state.modifications["paper-doll"],買了就常駐,不占被動欄)→ 一半的機會行囊原封不動
+ * (留著,回村時由 returnCarriedToVillage 整包入庫);否則照舊全失(§3.9)。
  * 回傳 true = 行囊保住了。
  */
 export function loseCarriedOnDeath(): boolean {
   if ((globalThis as unknown as { __sandboxNoSave?: boolean }).__sandboxNoSave) return false; // 模擬戰:不動存檔
   localStorage.removeItem(DEATH_GEAR_KEPT_KEY);
-  let equipped = false;
+  let owned = false;
   try {
     const v = JSON.parse(localStorage.getItem("village-state") ?? "{}");
-    equipped = Array.isArray(v.equippedPerks) ? v.equippedPerks.includes("substitute") : v.perks?.substitute === true;
+    owned = v.modifications?.["paper-doll"] === true || v.perks?.substitute === true; // 後者=還沒經過村莊頁遷移的舊【替身】
   } catch {
-    /* 壞資料:當作沒裝 */
+    /* 壞資料:當作沒有 */
   }
-  if (equipped && loadCarried() !== null) {
-    if (Math.random() < SUBSTITUTE_KEEP_CHANCE) {
+  if (owned && loadCarried() !== null) {
+    if (Math.random() < PAPER_DOLL_KEEP_CHANCE) {
       localStorage.setItem(DEATH_GEAR_KEPT_KEY, "1");
       return true;
     }
@@ -231,7 +232,7 @@ export function clearCarried() {
  * 村莊頁與整備頁載入時都會呼叫,確保不管從哪條路回村,東西都正確入庫。
  */
 export function returnCarriedToVillage() {
-  // 總閘(2026-09 修正):這一趟是倒下收場(death-cause 還沒結算)而且行囊沒被【替身】保住——
+  // 總閘(2026-09 修正):這一趟是倒下收場(death-cause 還沒結算)而且行囊沒被占卜紙人保住——
   // 不管行囊是被哪個殘留的按鈕/按鍵又寫回來的(戰鬥頁倒下後 2.2 秒內的出手、探索頁的丟棄鈕……),一律清掉不入庫
   if (localStorage.getItem("death-cause") !== null && localStorage.getItem(DEATH_GEAR_KEPT_KEY) !== "1") {
     clearCarried();
