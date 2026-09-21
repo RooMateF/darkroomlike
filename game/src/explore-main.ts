@@ -96,12 +96,21 @@ try {
   /* 同上 */
 }
 
+// 回村只結算一次(2026-09 修正):倒下後人被放回檢查點(常常就是村口),畫面上會出現「返回村莊」鈕——
+// 點了它、2.2 秒後倒下計時器又再回村一次,會把玩家剛重新出發的那一趟直接結束掉
+let returned = false;
+const returnOnce = () => {
+  if (returned) return;
+  returned = true;
+  opts.onReturnVillage();
+};
+
 const engine = new ExploreEngine({
   onLog: appendLog,
   onDeath: () => {
     // 死亡:帶出門的東西已消失(§3.9),自動送回村莊,不需要按鈕
     statusEl.textContent = "▍正在返回村莊……";
-    window.setTimeout(() => opts.onReturnVillage(), 2200);
+    window.setTimeout(returnOnce, 2200);
   },
   onEncounter: () => {
     // 保存遠征進度,戰鬥勝利回來時從原地接續
@@ -711,7 +720,7 @@ function render() {
     const homeBtn = document.createElement("button");
     homeBtn.className = "btn btn-primary";
     homeBtn.textContent = "返回村莊(結束遠征)";
-    homeBtn.addEventListener("click", () => opts.onReturnVillage());
+    homeBtn.addEventListener("click", returnOnce);
     siteActionEl.appendChild(homeBtn);
   }
 

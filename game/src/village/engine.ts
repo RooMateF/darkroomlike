@@ -91,7 +91,7 @@ export class VillageEngine {
   ownedWeapons: Record<string, number> = {};
   /** 一次性裝備升級(如大水袋) */
   upgrades: Record<string, boolean> = {};
-  /** 稀有訪客交換來的永久被動(潛行/機巧/祝禱)——「擁有」不等於「生效」 */
+  /** 稀有訪客交換來的永久被動(潛行/機巧/祝禱/替身)——「擁有」不等於「生效」 */
   perks: Record<string, boolean> = {};
   /** 目前裝備中的被動(上限 PERK_SLOTS 格):只有裝上的才生效,出門前要按 Boss 換裝 */
   equippedPerks: string[] = [];
@@ -117,8 +117,30 @@ export class VillageEngine {
     this.loadState();
   }
 
+  /**
+   * 凍結(2026-09 修正,用戶回報「渴死後裝備沒丟」):整備/遠征視圖掛著的期間,village-state 由別的視圖直接改寫
+   * (整備扣裝、行囊歸還)——活引擎記憶體裡還是舊庫存。這段期間它不准寫檔、不准跑週期、不准發事件、不准採集;
+   * 否則任何一次 saveState(打盹事件、DEV 鈕、⏩ 重啟的週期)都會把帶出門的東西寫回倉庫(死了不丟、活著回來變兩份)。
+   */
+  frozen = false;
+
+  /** 進入整備/遠征視圖:先把記憶體存好,停鐘,之後一律不寫 */
+  freeze() {
+    if (this.frozen) return;
+    this.saveState();
+    this.stop();
+    this.frozen = true;
+  }
+
+  /** 回到村莊視圖:解凍並重讀存檔(要不要開鐘由殼層決定——人還在外面就不開) */
+  thaw() {
+    this.frozen = false;
+    this.loadState();
+  }
+
   /** 村莊狀態存進 localStorage,讓整備頁/跨頁重載都讀得到同一份庫存 */
   saveState() {
+    if (this.frozen) return; // 凍結中:記憶體是舊的,寫了就蓋掉別的視圖的改動
     localStorage.setItem(
       "village-state",
       JSON.stringify({
@@ -137,6 +159,7 @@ export class VillageEngine {
         upgrades: this.upgrades,
         perks: this.perks,
         equippedPerks: this.equippedPerks,
+        pendingCraft: this.pendingCraft, // 打造中先扣掉的材料:重新整理時靠它退回
         scheduledFollowUps: this.scheduledFollowUps,
         lastEventTick: this.lastEventTick,
         weaponDurability: this.weaponDurability,
@@ -172,6 +195,14 @@ export class VillageEngine {
       this.weaponDurability = s.weaponDurability ?? {};
       this.tradeCount = s.tradeCount ?? 0;
       this.tickCount = s.tickCount ?? 0;
+      // 打造到一半頁面就重載了(節奏條不會跟著回來):先扣掉的材料全額退回
+      this.pendingCraft = null;
+      if (s.pendingCraft?.cost) {
+        for (const [id, amount] of Object.entries(s.pendingCraft.cost as Record<string, number>)) {
+          this.resources[id as ResourceId] = (this.resources[id as ResourceId] ?? 0) + (amount ?? 0);
+        }
+        this.saveState(); // 退料立刻落檔:別讓存檔裡留著「已扣料、沒武器」的半成品狀態
+      }
     } catch {
       /* 壞資料直接忽略,當作全新開局 */
     }
@@ -223,13 +254,48 @@ export class VillageEngine {
   /** 武器可重複打造,備用武器在耐久度機制下有實際意義 */
   /** 打造武器:refundPct 是準度退料;fine=true(完美)產出精工品(耐久上限 +25%) */
   craftWeapon(weaponId: string, refundPct = 0, fine = false): boolean {
+    if (!this.beginWeaponCraft(weaponId)) return false;
+    return this.finishWeaponCraft(refundPct, fine);
+  }
+
+  /**
+   * 打造中的武器(2026-09 修正,用戶回報「材料花掉了小木屋還蓋得出來」):按下「打造」就先把材料扣掉——
+   * 以前要到節奏條按「停!」才扣,條跑著的期間材料還躺在倉庫裡,照樣能拿去蓋房子,回頭按停才發現「材料不夠了」。
+   * 現在:開打先全額扣 → 按停依準度退料(結果與舊制相同)→ 中途被收掉(切去整備/遠征)或重新整理=全額退回。
+   */
+  pendingCraft: { weaponId: string; cost: Partial<Record<ResourceId, number>> } | null = null;
+
+  beginWeaponCraft(weaponId: string): boolean {
     const weapon = WEAPONS.find((w) => w.id === weaponId);
+    if (this.frozen || this.pendingCraft) return false;
     if (!weapon || weapon.lootOnly || !this.canAfford(weapon.cost)) return false;
+    for (const [id, amount] of Object.entries(weapon.cost)) this.resources[id as ResourceId] -= amount ?? 0;
+    this.pendingCraft = { weaponId, cost: { ...weapon.cost } };
+    this.saveState();
+    return true;
+  }
+
+  /** 節奏條被收掉(沒有按停):材料全額退回 */
+  cancelWeaponCraft() {
+    const p = this.pendingCraft;
+    if (!p) return;
+    this.pendingCraft = null;
+    for (const [id, amount] of Object.entries(p.cost)) this.resources[id as ResourceId] += amount ?? 0;
+    this.saveState();
+  }
+
+  /** 按「停!」:依準度退料、武器入庫 */
+  finishWeaponCraft(refundPct = 0, fine = false): boolean {
+    const p = this.pendingCraft;
+    const weapon = p ? WEAPONS.find((w) => w.id === p.weaponId) : undefined;
+    if (!p || !weapon) return false;
+    this.pendingCraft = null;
+    const weaponId = p.weaponId;
 
     const saved: string[] = [];
-    for (const [id, amount] of Object.entries(weapon.cost)) {
+    for (const [id, amount] of Object.entries(p.cost)) {
       const back = Math.round((amount ?? 0) * refundPct);
-      this.resources[id as ResourceId] -= (amount ?? 0) - back;
+      this.resources[id as ResourceId] += back;
       if (back > 0) saved.push(`${RESOURCE_LABEL[id as ResourceId]} ${back}`);
     }
     // 幽靈耐久防呆:這一型的舊武器已經全數失去(戰死帶走)時,殘耐久紀錄也該跟著消失——
@@ -570,7 +636,7 @@ export class VillageEngine {
   }
 
   get canGather(): boolean {
-    return this.gatherCooldownLeft <= 0;
+    return !this.frozen && this.gatherCooldownLeft <= 0; // 凍結中(整備/遠征視圖)不採集:成果寫不進存檔
   }
 
   /**
@@ -736,11 +802,14 @@ export class VillageEngine {
     }
 
     const summary = this.applyEventEffect(effect, populationDelta, effectPct, populationPct, option.overCap === true);
+    let slotsFull = false; // 被動欄滿了=拿到了但沒生效:結果那句之後補一句提醒
     if (option.grantPerk) {
       this.perks[option.grantPerk] = true;
       // 有空格就直接裝上——玩家不用為第一個被動學一套 UI
       if (this.equippedPerks.length < PERK_SLOTS && !this.equippedPerks.includes(option.grantPerk)) {
         this.equippedPerks.push(option.grantPerk);
+      } else if (!this.equippedPerks.includes(option.grantPerk)) {
+        slotsFull = true;
       }
     }
     if (option.followUp) {
@@ -749,6 +818,7 @@ export class VillageEngine {
       this.scheduledFollowUps.push({ atTick: this.tickCount + delay, pool: option.followUp.pool });
     }
     this.cb.onLog(summary ? `${resultText}(${summary})` : resultText);
+    if (slotsFull) this.cb.onLog("(被動欄已滿——到工房的裝備庫換上才會生效)");
     this.pendingEvent = null;
     this.syncSeenResources();
     this.saveState();
@@ -757,6 +827,7 @@ export class VillageEngine {
   /** 防掛機(2026-09 用戶定案):閒置太久由頁面層呼叫,強制觸發打盹事件——
    * 事件卡著的期間生產迴圈整個暫停,直到玩家回應才繼續 */
   forceIdleEvent() {
+    if (this.frozen) return; // 整備/遠征中村莊本來就凍結:不發事件(事件的結算會寫檔)
     if (this.pendingEvent) return; // 已有事件卡著=本來就暫停了,別疊
     const ev = EVENTS.find((e) => e.id === "idle-doze");
     if (!ev) return;
@@ -787,11 +858,14 @@ export class VillageEngine {
   speedMult = 1;
 
   start() {
+    if (this.frozen) return; // 凍結中不開鐘(解凍後由殼層開)
+    this.stop(); // 防重複開鐘:舊計時器沒清就覆蓋 id=永遠停不掉的雙倍週期(2026-09 修正)
     this.timer = window.setInterval(() => this.tick(), TICK_MS / this.speedMult);
   }
 
   stop() {
     clearInterval(this.timer);
+    this.timer = 0;
   }
 
   /** 從 localStorage 重讀狀態:整備扣裝/遠征歸還直接改了存檔,活引擎要跟上 */
@@ -801,9 +875,10 @@ export class VillageEngine {
 
   /** 切換時間倍速並重排計時器 */
   setSpeed(mult: number) {
+    const wasRunning = this.timer !== 0;
     this.speedMult = mult;
-    this.stop();
-    this.start();
+    // 只有鐘本來在走才重排:整備/遠征中(或人在外面看系統分頁)按 ⏩ 只記倍速,不把停住的村莊叫醒
+    if (wasRunning) this.start();
   }
 
   private tick() {
@@ -937,6 +1012,16 @@ export class VillageEngine {
   /** DEV 測試:往村莊紀錄寫一行(系統分頁的測試按鈕用) */
   devLog(text: string) {
     this.cb.onLog(text);
+  }
+
+  /** DEV 測試:指定叫出一則抉擇事件(超稀有訪客正常要等上百個事件,測試/核可文本用) */
+  devFireChoiceById(id: string): boolean {
+    const event = EVENTS.find((e) => e.id === id);
+    if (this.frozen || this.pendingEvent || !event || event.kind !== "choice") return false;
+    this.pendingEvent = event;
+    this.lastEventTick = this.tickCount;
+    this.cb.onTick();
+    return true;
   }
 
   /** DEV 測試:指定觸發一則被動事件(照正常路徑走,紅月計數/災厄照算) */

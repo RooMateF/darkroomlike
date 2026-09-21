@@ -7,15 +7,18 @@ import { RAIL_TARGETS, railDistanceTo, syncRailFlagsFromSave } from "./explore/e
 import { generateMap } from "./explore/map-gen";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
 import { INTRO_LINES, MILESTONES } from "./village/narrative";
-import { returnCarriedToVillage, loadCarried } from "./carried";
+import { returnCarriedToVillage, loadCarried, DEATH_GEAR_KEPT_KEY } from "./carried";
 import { mountPrep } from "./prep-main";
 import { mountExplore } from "./explore-main";
 
 // 行囊歸還:只有「真的回村」才結算——戰鬥打完跳回(?view=expedition)或
 // 遠征進行中重新整理(village-tab 停在 expedition)時,行囊要留著接續遠征
-const resumingExpedition =
-  new URLSearchParams(location.search).get("view") === "expedition" ||
-  localStorage.getItem("village-tab") === "expedition";
+// 倒下被帶回村(death-cause 還沒結算):這趟遠征已經結束——不接續;【替身】保住的行囊就在這裡入庫
+const diedAway = localStorage.getItem("death-cause") !== null;
+if (diedAway && localStorage.getItem("village-tab") === "expedition") localStorage.setItem("village-tab", "build");
+// 行囊還在身上=人還在外面(2026-09 修正):不看分頁/網址,一律接回遠征——以前遠征中切到系統分頁再重新整理,
+// 整包行囊會被直接送回村(還能躲掉眼前的渴死)。要回村只有兩條路:自己走回村口,或倒下被帶回來
+const resumingExpedition = !diedAway && loadCarried() !== null;
 if (!resumingExpedition) returnCarriedToVillage();
 
 const TICK_SECONDS = TICK_MS / 1000;
@@ -174,6 +177,11 @@ function startVillage() {
             <button class="btn" id="redmoon-status-btn">查看目前次數</button>
             <button class="btn" id="redmoon-reset-btn">循環歸零</button>
           </div>
+          <div class="section-title" style="margin-top:14px;">稀有訪客(真實存檔)</div>
+          <div class="hint-line">超稀有訪客正常約每百個事件才來一位。這裡直接請他上門,看文本、試交換(異晶照扣;人在遠征/整備中不會來)。</div>
+          <div style="display:flex; flex-wrap:wrap; gap:6px;">
+            <button class="btn" id="dev-taoist-btn">道士來訪(替身)</button>
+          </div>
         </div>
       </div>
     </div>
@@ -320,6 +328,9 @@ function startVillage() {
   document.querySelector<HTMLButtonElement>("#redmoon-fire-btn")!.addEventListener("click", () => {
     engine.devFireEventById("red-moon");
   });
+  document.querySelector<HTMLButtonElement>("#dev-taoist-btn")!.addEventListener("click", () => {
+    if (!engine.devFireChoiceById("taoist-substitute")) engine.devLog?.("(測試)現在叫不出訪客:有事件卡著,或人在整備/遠征中。");
+  });
   document.querySelector<HTMLButtonElement>("#redmoon-status-btn")!.addEventListener("click", () => {
     const n = localStorage.getItem("redmoon-count") ?? "0";
     engine.devLog?.(`(紅月目前 ${n}/3;滿 3 出窪地,第 5 次災厄)`);
@@ -357,6 +368,8 @@ function startVillage() {
       const data = JSON.parse(await file.text()) as Record<string, string>;
       if (!data["village-state"]) throw new Error("不是有效的存檔");
       // 先清掉現有進度(保留底色偏好),再寫入匯入的內容
+      engine.stop();
+      engine.frozen = true; // 重載前不准再寫檔(否則匯入的村莊會被下一個週期用舊記憶體蓋掉)
       const theme = localStorage.getItem("theme");
       localStorage.clear();
       if (theme) localStorage.setItem("theme", theme);
@@ -370,6 +383,8 @@ function startVillage() {
 
   document.querySelector<HTMLButtonElement>("#reset-btn")!.addEventListener("click", () => {
     if (!window.confirm("確定要重置遊戲嗎?所有進度將會消失,無法復原。")) return;
+    engine.stop();
+    engine.frozen = true; // 重載前不准再寫檔(否則剛清掉的舊村莊會被下一個週期寫回來)
     const theme = localStorage.getItem("theme");
     localStorage.clear();
     if (theme) localStorage.setItem("theme", theme);
@@ -378,6 +393,10 @@ function startVillage() {
 
   // 測試用:一鍵灌滿各種資源,省去慢慢生產的等待
   document.querySelector<HTMLButtonElement>("#dev-btn")!.addEventListener("click", () => {
+    if (engine.frozen) {
+      appendLog("(測試)整備/遠征中村莊是凍結的——回到村莊分頁再用。");
+      return;
+    }
     for (const id of Object.keys(RESOURCE_LABEL) as ResourceId[]) {
       engine.resources[id] += 50;
     }
@@ -703,6 +722,8 @@ function startVillage() {
   // ---- 整備/遠征視圖的掛載管理:離開村莊視圖時暫停生產(遠征期間村莊凍結,維持原有平衡),
   // 回村後重讀存檔再恢復(整備扣裝/遠征歸還都直接動 localStorage) ----
   let mountedView: "" | "prep" | "expedition" = "";
+  /** 雙分頁鎖:另一個村莊分頁開啟後,這一頁停止一切更新與寫檔(見檔尾 storage 監聽) */
+  let tabLocked = false;
   let exploreCleanup: (() => void) | null = null;
 
   function mountExpeditionView() {
@@ -732,10 +753,10 @@ function startVillage() {
     const wasAway = mountedView !== "";
     mountedView = want;
     if (want && !wasAway) {
-      engine.saveState();
-      engine.stop();
+      cancelMinigames(); // 跑到一半的採集/打造條:收掉,不結算也不扣料(凍結中結算寫不進存檔)
+      engine.freeze();
     } else if (!want && wasAway) {
-      engine.reloadState();
+      engine.thaw();
       // 行囊還在身上=人還在外面(例如遠征中切去看系統分頁):村莊維持凍結,不能邊探險邊生產
       if (loadCarried() === null) engine.start();
     }
@@ -804,6 +825,8 @@ function startVillage() {
 
   function startCraftGame(kind: "weapon" | "consumable", id: string) {
     if (craftState) return;
+    // 武器:按下打造就先扣料(條跑著的期間材料不能再拿去蓋房子);扣不起就不開條
+    if (kind === "weapon" && !engine.beginWeaponCraft(id)) return;
     clearTimeout(craftResultTimer);
     craftResultEl.textContent = "";
     craftResultEl.className = "gather-result";
@@ -823,6 +846,24 @@ function startVillage() {
     drawBar(craftCells, craftState.pos);
   }
 
+  /** 進整備/遠征視圖時呼叫:兩條節奏條直接收掉(沒有結果、沒有消耗) */
+  function cancelMinigames() {
+    if (gatherState) {
+      clearInterval(gatherState.timer);
+      gatherState = null;
+      stopBtn.style.display = "none";
+      gatherBarEl.style.visibility = "hidden";
+    }
+    if (craftState) {
+      clearInterval(craftState.timer);
+      if (craftState.kind === "weapon") engine.cancelWeaponCraft(); // 先扣掉的材料全額退回
+      craftState = null;
+      craftStopBtn.style.display = "none";
+      craftBarEl.style.visibility = "hidden";
+      craftLabelEl.style.visibility = "hidden";
+    }
+  }
+
   function stopCraftGame() {
     if (!craftState) return;
     const { kind, id, pos } = craftState;
@@ -833,7 +874,7 @@ function startVillage() {
     const perfect = distance <= 1;
     // 武器完美=精工品(耐久上限+25%,不退料);其餘準度退料。消耗品完美仍退 20%
     const refundPct = perfect ? (kind === "weapon" ? 0 : 0.2) : distance <= 3 ? 0.1 : distance <= 6 ? 0.05 : 0;
-    const ok = kind === "weapon" ? engine.craftWeapon(id, refundPct, perfect) : engine.craftConsumable(id, refundPct);
+    const ok = kind === "weapon" ? engine.finishWeaponCraft(refundPct, perfect) : engine.craftConsumable(id, refundPct);
 
     drawStopped(craftCells, pos, distance);
     craftStopBtn.style.display = "none";
@@ -1236,6 +1277,7 @@ function startVillage() {
   }
 
   function render() {
+    if (tabLocked) return; // 另一個分頁接手了:這一頁凍住
     // 事件用全螢幕遮罩呈現(時間本來就暫停了,讓玩家專心做決定)
     maybeArmGuidance();
     maybeArmRedmoon();
@@ -1316,6 +1358,7 @@ function startVillage() {
       g.btn.style.display = gatherable.includes(g.id) ? "" : "none";
       const usable = engine.canGather && !gatherState;
       g.btn.disabled = !usable;
+      g.btn.title = engine.frozen ? "整備中村莊是暫停的——切回其他分頁再採集" : "";
       g.btn.classList.toggle("ready", usable);
       g.btn.textContent = cdLeft > 0
         ? `${RESOURCE_LABEL[g.id]} ${Math.ceil(cdLeft / 1000)}s`
@@ -1619,7 +1662,9 @@ function startVillage() {
     }
 
     // 投射面板:分頁鈕常駐標題列;遠征佔滿內容區(左欄與投射面板整組隱藏)
-    const onExpedition = loadCarried() !== null; // 遠征中=身上有行囊;回村結算後自然解除
+    // 遠征中=身上有行囊;回村結算後自然解除。倒下的那 2.2 秒(death-cause 已立、遠征視圖還掛著)也算——
+    // 否則行囊一清空,半秒內畫面就被切回村莊,倒下的那兩句紀錄根本來不及看(2026-09 修正)
+    const onExpedition = loadCarried() !== null || (mountedView === "expedition" && localStorage.getItem("death-cause") !== null);
     const readyToGo = engine.populationCap >= 20 && engine.hasBuilding("farm");
     if (readyToGo && !onExpedition && !localStorage.getItem("tutorial-asked")) {
       localStorage.setItem("tutorial-asked", "1"); // 只問一次
@@ -1692,7 +1737,12 @@ function startVillage() {
     const tips = REVIVAL_TIPS[deathCause] ?? REVIVAL_TIPS.combat;
     const idxKey = `revival-tip-${deathCause}`;
     const idx = Number(localStorage.getItem(idxKey) ?? "0");
-    appendLog("你在營地的火堆旁醒來。身上帶出去的東西,一樣也沒能回來。");
+    // 【替身】的結果(carried.ts loseCarriedOnDeath):"1"=行囊保住、"0"=裝著但沒替到、沒有=沒裝
+    const kept = localStorage.getItem(DEATH_GEAR_KEPT_KEY);
+    localStorage.removeItem(DEATH_GEAR_KEPT_KEY);
+    if (kept === "1") appendLog("你在營地的火堆旁醒來。行囊就擱在手邊,一樣也沒少——衣襟裡那張黃紙人,腰上多了一道摺痕。");
+    else if (kept === "0") appendLog("你在營地的火堆旁醒來。身上帶出去的東西,一樣也沒能回來。衣襟裡的黃紙人倒是還在,平平整整的。");
+    else appendLog("你在營地的火堆旁醒來。身上帶出去的東西,一樣也沒能回來。");
     appendLog(tips[idx % tips.length]);
     localStorage.setItem(idxKey, String((idx + 1) % tips.length));
   }
@@ -1700,16 +1750,19 @@ function startVillage() {
 
   /** 遠征歸來(走回村口/倒下):行囊歸還入庫、活引擎重讀存檔、死因叮囑 */
   function handleReturnHome() {
+    if (tabLocked) return; // 另一個分頁接手了:這一頁不再結算
     returnCarriedToVillage();
     engine.reloadState();
     localStorage.removeItem("explore-log-v2"); // 回村=這趟遠征結束,清掉當次遠征紀錄(村莊紀錄照舊保留)
     processDeathCause();
+    // 人已經回村:鐘要走(凍結中 start 自己會擋;解凍那條路也會開,這裡補的是「倒下那 2.2 秒切去系統分頁」沒人開鐘的縫)
+    if (loadCarried() === null) engine.start();
   }
 
-  engine.start();
+  if (loadCarried() === null) engine.start(); // 人還在外面=村莊凍結,不開鐘(2026-09 修正)
   // 戰鬥頁打完回來(?view=expedition),或遠征進行中重新整理:直接接回遠征視圖
-  if (loadCarried() !== null && (new URLSearchParams(location.search).get("view") === "expedition" || localStorage.getItem("village-tab") === "expedition")) {
-    villageTab = "expedition";
+  if (loadCarried() !== null && villageTab !== "system") {
+    villageTab = "expedition"; // 人在外面:除了系統分頁,一律接回遠征視圖
   }
   render();
   // 冷卻倒數需要每秒更新顯示,不能只靠 10 秒一次的生產週期
@@ -1728,6 +1781,26 @@ function startVillage() {
       lastActivity = performance.now(); // 觸發後重計:事件卡著期間本來就暫停,不必重複疊
     }
   }, 30_000);
+
+  // 雙分頁鎖(2026-09 修正):同一個存檔開兩個村莊分頁時,兩邊引擎會輪流用自己的記憶體整包覆寫 village-state
+  // (出發扣掉的裝備十秒內被另一頁寫回來=死了不丟)。新開的分頁為準:舊分頁收到通知就停下來,要回來玩請重新整理
+  const TAB_ID = `${performance.timeOrigin}-${Math.random().toString(36).slice(2)}`;
+  localStorage.setItem("village-owner", TAB_ID);
+  window.addEventListener("storage", (e) => {
+    if (e.key !== "village-owner" || !e.newValue || e.newValue === TAB_ID) return;
+    tabLocked = true; // 之後這一頁不再更新畫面、不再結算回村、不再寫任何存檔
+    engine.stop();
+    engine.frozen = true;
+    exploreCleanup?.(); // 遠征視圖的鍵盤也收掉(遮罩擋不住 WASD)
+    exploreCleanup = null;
+    const block = document.createElement("div");
+    block.className = "event-overlay";
+    block.style.display = "flex";
+    block.style.zIndex = "1000";
+    block.innerHTML = `<div class="event-box"><div class="event-title">系統</div><div class="event-text">遊戲已經在另一個分頁開啟,這個分頁先停下來了(兩邊同時跑會互相蓋掉存檔)。要回到這裡玩,請重新整理。</div><div class="event-options"><button class="btn btn-primary" id="tab-lock-reload">重新整理</button></div></div>`;
+    document.body.appendChild(block);
+    block.querySelector<HTMLButtonElement>("#tab-lock-reload")!.addEventListener("click", () => location.reload());
+  });
 
   (window as unknown as { __village: typeof engine }).__village = engine;
 }

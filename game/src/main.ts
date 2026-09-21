@@ -4,7 +4,7 @@ import { tutorialEnemy, TUTORIAL_HINT, TUTORIAL_TEXT, TUTORIAL_TITLE, type Tutor
 import { buildPlayerCategories } from "./demo-data";
 import { WEAPONS, fineMaxDurability, WEAPON_CARRY_LIMITS } from "./village/data";
 import { RESOURCE_LABEL, type ResourceId } from "./village/types";
-import { loadCarried, saveCarried, clearCarried, addLoot, playerMaxHp, carriedMaxDurability, packUsed } from "./carried";
+import { loadCarried, saveCarried, loseCarriedOnDeath, addLoot, playerMaxHp, carriedMaxDurability, packUsed } from "./carried";
 import { pickRandomEnemy, pickMidEnemy, pickEnemyGroup, GUARDIANS, LANDMARK_REWARDS, lv3GuardianFor, EVENT_BOSSES, TENTACLE_GUARD, SPAWN_UNIT, MOON_MUTANT, REDMOON_BOSS, CHURCH_PHASE2_MOVES, CHURCH_PHASE2_PATTERN, WILD_SPAWN, type EnemyDef } from "./enemies";
 import { markLandmarkCleared, currentMapId, isAutoPickup } from "./explore/engine";
 
@@ -270,6 +270,7 @@ const retreatBtn = document.querySelector<HTMLButtonElement>("#retreat-btn")!;
 
 // 撤退(design-notes.md § 2.10):隨時可退,但有風險——六成機率被追擊一次
 retreatBtn.addEventListener("click", () => {
+  if (combatOver) return;
   if (SANDBOX) {
     localStorage.removeItem("tutorial-return"); // 中途離開對練:別留著旗標
     window.location.href = "village.html";
@@ -290,8 +291,12 @@ retreatBtn.addEventListener("click", () => {
     engine.playerHp = Math.max(0, engine.playerHp - dmg);
     appendSystemLog(`你轉身想跑,卻被追上——背後重重挨了一下(-${dmg})。這一戰還沒完。`);
     if (engine.playerHp <= 0) {
-      clearCarried();
-      if (!SANDBOX) localStorage.setItem("death-cause", "combat");
+      combatOver = true;
+      loseCarriedOnDeath(); // 【替身】:一半的機會行囊保住(村莊頁載入時入庫)
+      if (!SANDBOX) {
+        localStorage.removeItem(DUNGEON_KEY);
+        localStorage.setItem("death-cause", "combat");
+      }
       endCombat("你在逃跑途中倒下……一股溫暖的微光在你的意識消散前包裹著你。", "village.html", 2200);
       return;
     }
@@ -419,7 +424,12 @@ const rows: SubActionRow[] = [];
 // ---- 隨身資源的消耗規則(耐久度/弓矢/消耗品) ----
 
 /** 這個子行動現在還能不能用(弓沒箭、消耗品用完、武器全壞 → 不能) */
+/** 這一戰已經分出勝負(倒下/撤退成功/勝利結算中):之後的任何出手都不算——
+ * 倒下後還有 2.2 秒才換頁,這段期間的按鍵以前會照常出手並把整包行囊寫回存檔(2026-09 修正) */
+let combatOver = false;
+
 function canUse(subActionId: string): boolean {
+  if (combatOver) return false;
   if (TUTORIAL && !tutorialAllowsSub(subActionId)) return false; // 教學鎖:只開放這一步該出的招
   if (!carried) return subActionId === "fists";
   const weapon = WEAPONS.find((w) => w.id === subActionId);
@@ -442,7 +452,7 @@ function canUse(subActionId: string): boolean {
 /** 使用後結算:武器扣耐久(壞了換備用)、弓扣箭、消耗品扣數量 */
 function afterUse(subActionId: string) {
   tutorialOnUse(subActionId);
-  if (!carried) return;
+  if (!carried || combatOver) return; // 勝負已分:不再動行囊存檔
   if (engine.justReloaded) return; // 換彈不是射擊:不耗彈藥也不耗任何東西
   const weapon = WEAPONS.find((w) => w.id === subActionId);
   if (weapon) {
@@ -721,7 +731,7 @@ const blockRowEls = (() => {
   const useLink = document.createElement("button");
   useLink.className = "use-link";
   useLink.textContent = "格擋";
-  useLink.addEventListener("click", () => { if (!bossDialogActive && tutorialAllowsBlock(false)) engine.useBlock(); });
+  useLink.addEventListener("click", () => { if (!combatOver && !bossDialogActive && tutorialAllowsBlock(false)) engine.useBlock(); });
   line.append(name, barWrap, useLink);
   categoriesEl.appendChild(line);
   return { line, name, bar, barFilled, barEmpty, pct, useLink };
@@ -863,6 +873,7 @@ bossDialogNext.addEventListener("click", () => {
 // 空白鍵 = 即時格擋(只算普通格擋);B = 指令格擋(只在決策暫停中成立,可完全格擋);0 = 暫不使用;Tab = 切換目標;R = 撤退;Esc = 收起選單
 window.addEventListener("keydown", (e) => {
   if (e.repeat) return;
+  if (combatOver) return; // 勝負已分:不收鍵
   if (bossDialogActive) return; // 儀式對話框開著:先讀完
   if (lootPanelActive) return; // 掉落面板開著:按鍵交給面板
   if (tutTourNext && (e.key === "Enter" || e.key === " ")) {
@@ -1024,8 +1035,10 @@ const engine = new CombatEngine(PLAYER_CATEGORIES, combatMoves, {
       appendSystemLog("視線的邊緣開始發黑,耳朵裡有一層薄薄的嗡鳴。你知道自己快撐不住了。");
     }
     if (engine.playerHp <= 0) {
-      // 死亡:帶出門的東西全部消失(§3.9),自動送回村莊(已探索的地圖知識與地城層數進度保留)
-      clearCarried();
+      if (combatOver) return; // 已經結算過這次倒下(撤退被追上那條路也會觸發 onHpChange):【替身】不重擲
+      combatOver = true;
+      // 死亡:帶出門的東西全部消失(§3.9;裝著【替身】有一半的機會保住),自動送回村莊(已探索的地圖知識與地城層數進度保留)
+      loseCarriedOnDeath();
       if (!SANDBOX) {
         localStorage.removeItem(DUNGEON_KEY);
         localStorage.setItem("death-cause", "combat"); // 回村後代行者依死因給一句叮囑

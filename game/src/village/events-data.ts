@@ -85,6 +85,7 @@ export const PERK_LABEL: Record<string, string> = {
   stealth: "潛行",
   machinist: "機巧",
   blessing: "祝禱",
+  substitute: "替身",
 };
 
 /**
@@ -220,6 +221,24 @@ export const EVENTS: VillageEvent[] = [
         resultText: "他教了村民一段不成調的低吟。說也奇怪,唱過之後,傷口沒那麼容易惡化了。(獲得【祝禱】:戰鬥中毒/流血的累積減半)",
       },
       { label: "請他離開", effect: {}, resultText: "他望著屋簷下的異晶,又看了你一眼,一步三回頭地走了。" },
+    ],
+  },
+  {
+    // 【替身】(2026-09 用戶要求:同樣 100 異晶;東方信仰的訪客——道士與黃紙人):遠征中倒下時一半的機會行囊不丟(carried.ts loseCarriedOnDeath)
+    kind: "choice",
+    id: "taoist-substitute",
+    weight: 0.06,
+    minTick: 60,
+    condition: (ctx) => !ctx.perks.substitute && (ctx.resources.shard ?? 0) > 0,
+    text: "一個背著竹箱的道士在村口歇腳。道袍洗得發白,袖口卻別著一排剪成人形的黃紙,每一張都沒有畫臉。他看了看屋簷下掛著的異晶,又看了看你:「這個,貧道拿去鎮箱底。換你一張替身——哪天你在外頭倒下了,讓它替你倒。」",
+    options: [
+      {
+        label: "與他交換(異晶 -100)",
+        effect: { shard: -100 },
+        grantPerk: "substitute",
+        resultText: "他從袖口拆下一張黃紙人,咬破指尖,在胸口的位置點了一點,摺好塞進你的衣襟。「靈不靈,一半一半。」他說得很坦白。(獲得【替身】:遠征中倒下時,有一半的機會行囊不會丟)",
+      },
+      { label: "請他上路", effect: {}, resultText: "道士也不多說,背起竹箱走了。走出很遠,袖口那排紙人還在一張一張地翻——那天沒有風。" },
     ],
   },
   {

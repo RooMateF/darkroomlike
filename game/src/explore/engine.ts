@@ -1,6 +1,6 @@
 import { BLOCKED, LANDMARKS, POIS, TILE_SYMBOL, poiAt, type Checkpoint, type PoiDef, type Tile, type TileType } from "./types";
 import { generateMap, startPosition, exitLinkAt, borderDepotFor, MAP_DEFS, MAP_WIDTH, MAP_HEIGHT, MAZE, COAL_RIDGE, type MapId, type ExitLink } from "./map-gen";
-import { loadCarried, saveCarried, clearCarried, addLoot, packUsed, playerMaxHp, type Carried } from "../carried";
+import { loadCarried, saveCarried, loseCarriedOnDeath, addLoot, packUsed, playerMaxHp, type Carried } from "../carried";
 import { RESOURCE_LABEL, type ResourceId } from "../village/types";
 import { siteAt, siteProgress, specialSites, hasChurchKey, DUNGEON_KEY, SITE_ARRIVAL_TEXT, LV1_TO_LV3, type DungeonRun } from "./sites";
 import { RATIONS_PER_SLOT } from "../village/data";
@@ -524,6 +524,7 @@ export class ExploreEngine {
       this.checkpoint = { x: start.x, y: start.y, water: this.maxWater };
       this.revealedSinceCheckpoint.clear();
       this.collectedSinceCheckpoint = [];
+      this.pendingPickup = null; // 上一趟腳邊沒撿的東西不跟到新的一趟
       this.depotGrantsUsed.clear();
       this.passLootUsed.clear(); // 新遠征:各據點的乾糧儲備重新補上
       this.depotHealUsed.clear();
@@ -1652,23 +1653,26 @@ export class ExploreEngine {
     localStorage.setItem("death-cause", cause); // 回村後代行者依死因給一句叮囑(village-main)
     this.thirstSteps = 0;
     this.hungerSteps = 0;
+    const gearKept = loseCarriedOnDeath(); // 【替身】:一半的機會行囊原封不動(回村時整包入庫);否則全失
 
     for (const key of this.revealedSinceCheckpoint) {
       const [x, y] = key.split(",").map(Number);
       const tile = this.grid[y]?.[x];
       if (tile) tile.revealed = false;
     }
-    for (const item of this.collectedSinceCheckpoint) {
+    // 行囊保住了=撿到的東西也還在身上:拾獲點不放回地圖(放回去就複製了)
+    for (const item of gearKept ? [] : this.collectedSinceCheckpoint) {
       const tile = this.grid[item.y]?.[item.x];
       if (tile) tile.type = item.type;
     }
     this.revealedSinceCheckpoint.clear();
     this.collectedSinceCheckpoint = [];
+    this.pendingPickup = null; // 倒下那一格翻出來、還沒撿的東西留在原地(以前會跟著人到下一趟的村口)
     this.playerX = this.checkpoint.x;
     this.playerY = this.checkpoint.y;
     this.water = this.checkpoint.water;
 
-    clearCarried();
+    this.carried = gearKept ? this.carried : null; // 全失:記憶體裡那份也放掉,倒下後的任何存檔動作都救不回來
     localStorage.removeItem("maze-stolen");
     localStorage.removeItem("maze-stolen-kinds");
     this.saveState();
