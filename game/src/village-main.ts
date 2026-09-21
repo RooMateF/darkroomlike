@@ -329,7 +329,7 @@ function startVillage() {
     engine.devFireEventById("red-moon");
   });
   document.querySelector<HTMLButtonElement>("#dev-taoist-btn")!.addEventListener("click", () => {
-    if (!engine.devFireChoiceById("taoist-substitute")) engine.devLog?.("(測試)現在叫不出訪客:有事件卡著,或人在整備/遠征中。");
+    if (loadCarried() !== null || !engine.devFireChoiceById("taoist-substitute")) engine.devLog?.("(測試)現在叫不出訪客:有事件卡著,或人在整備/遠征中。");
   });
   document.querySelector<HTMLButtonElement>("#redmoon-status-btn")!.addEventListener("click", () => {
     const n = localStorage.getItem("redmoon-count") ?? "0";
@@ -733,6 +733,9 @@ function startVillage() {
         switchVillageTab("build");
       },
       onRemount: () => {
+        // 跨圖的 700ms 轉場中玩家切走了(系統分頁)或這一頁被鎖了:不重掛——
+        // 硬掛會多出一個看不見的遠征引擎和一組鍵盤監聽(下次切回遠征分頁會照存檔正常掛載)
+        if (tabLocked || mountedView !== "expedition") return;
         // 跨圖:卸掉重掛(取代整頁 reload)
         exploreCleanup?.();
         expeditionSectionEl.innerHTML = "";
@@ -748,6 +751,13 @@ function startVillage() {
       exploreCleanup?.();
       exploreCleanup = null;
       expeditionSectionEl.innerHTML = "";
+      // 倒下的那 2.2 秒內自己切走(系統分頁):卸載當下就結算這次倒下——death-cause 不能懸著,
+      // 否則馬上重新整備出發的話,晚到的結算會把新的一趟的行囊當成倒下的那包清掉
+      if (localStorage.getItem("death-cause") !== null) {
+        returnCarriedToVillage();
+        localStorage.removeItem("explore-log-v2");
+        processDeathCause();
+      }
     }
     if (mountedView === "prep") prepSectionEl.innerHTML = "";
     const wasAway = mountedView !== "";
@@ -1798,8 +1808,12 @@ function startVillage() {
     block.style.display = "flex";
     block.style.zIndex = "1000";
     block.innerHTML = `<div class="event-box"><div class="event-title">系統</div><div class="event-text">遊戲已經在另一個分頁開啟,這個分頁先停下來了(兩邊同時跑會互相蓋掉存檔)。要回到這裡玩,請重新整理。</div><div class="event-options"><button class="btn btn-primary" id="tab-lock-reload">重新整理</button></div></div>`;
+    app.setAttribute("inert", ""); // 遮罩擋得住滑鼠、擋不住鍵盤(Tab+Enter 還按得到底下的「出發」):整個 app 關掉互動
+    prepSectionEl.innerHTML = ""; // 整備頁的按鈕直接寫存檔,不歸引擎管:連 DOM 一起收掉
     document.body.appendChild(block);
-    block.querySelector<HTMLButtonElement>("#tab-lock-reload")!.addEventListener("click", () => location.reload());
+    const reloadBtn = block.querySelector<HTMLButtonElement>("#tab-lock-reload")!;
+    reloadBtn.addEventListener("click", () => location.reload());
+    reloadBtn.focus();
   });
 
   (window as unknown as { __village: typeof engine }).__village = engine;

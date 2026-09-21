@@ -734,6 +734,9 @@ export async function runFullSim(opts: SimOptions = {}): Promise<SimStats> {
     if (r === "aborted") r = walkTo(expl, s0.x, s0.y); // 水量網路斷了也只能硬走,聽天由命
     persistExplore(expl);
     if (r === "arrived") {
+      // 模擬器沒有村莊頁的 processDeathCause:倒下旗標自己清,否則回村總閘會把這一趟當成倒下的那包清掉
+      localStorage.removeItem("death-cause");
+      localStorage.removeItem("death-gear-kept");
       returnCarriedToVillage();
       (village as unknown as { loadState: () => void }).loadState();
     } else if (r === "aborted") {

@@ -2142,5 +2142,28 @@ function render() {
 if (!bossDialogActive) engine.start(); // 開場儀式對話框開著:收掉才開鐘
 render();
 
+// 分頁鎖(2026-09 修正):真實存檔的戰鬥頁也算「正在玩的那一頁」——進來就宣告接手(開著的村莊分頁會自己停下);
+// 之後若別的分頁接手(在那邊開了村莊頁、接回了遠征),這一頁記憶體裡的行囊就是舊的:鎖輸入、不再寫任何存檔
+if (!SANDBOX) {
+  const TAB_ID = `${performance.timeOrigin}-${Math.random().toString(36).slice(2)}`;
+  localStorage.setItem("village-owner", TAB_ID);
+  window.addEventListener("storage", (e) => {
+    if (e.key !== "village-owner" || !e.newValue || e.newValue === TAB_ID) return;
+    combatOver = true;
+    (globalThis as unknown as { __sandboxNoSave?: boolean }).__sandboxNoSave = true; // saveCarried/clearCarried/loseCarriedOnDeath 全部變成不動存檔
+    engine.stop();
+    document.querySelector("#app")?.setAttribute("inert", "");
+    const block = document.createElement("div");
+    block.className = "event-overlay";
+    block.style.display = "flex";
+    block.style.zIndex = "1000";
+    block.innerHTML = `<div class="event-box"><div class="event-title">系統</div><div class="event-text">遊戲已經在另一個分頁開啟,這個分頁先停下來了(兩邊同時跑會互相蓋掉存檔)。</div><div class="event-options"><button class="btn btn-primary" id="tab-lock-go">回到村莊頁</button></div></div>`;
+    document.body.appendChild(block);
+    const go = block.querySelector<HTMLButtonElement>("#tab-lock-go")!;
+    go.addEventListener("click", () => (window.location.href = "village.html"));
+    go.focus();
+  });
+}
+
 // 除錯用:因為瀏覽器分頁在背景時 rAF 會被節流甚至暫停,方便手動在 console 推進時間驗證邏輯
 (window as unknown as { __engine: typeof engine }).__engine = engine;

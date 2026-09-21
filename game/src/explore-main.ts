@@ -822,6 +822,7 @@ engine.syncRailFlags(); // 舊存檔補查:鐵軌已經鋪到煤礦坑旁的,進
 }
 
 return () => {
+  returned = true; // 視圖卸掉了:還沒響的倒下計時器作廢(倒下的結算由殼層在卸載當下做,見 village-main syncMountedView)
   window.removeEventListener("keydown", onKeydown);
   window.removeEventListener("resize", onResize);
   clearTimeout(resizeTimer);
