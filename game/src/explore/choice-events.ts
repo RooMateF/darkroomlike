@@ -221,7 +221,7 @@ export const CHOICE_EVENTS: ChoiceEventDef[] = [
         label: "撬開車門",
         result: "",
         outcomes: [
-          { weight: 1, result: "門彈開的瞬間在你手背上割了一道。車裡的座椅都爛了,行李架上倒是有一只沒開過的鐵盒——幾把還沒鏽透的鐵件。", effect: { kind: "gain", gains: { iron: 5 }, hp: -4 } },
+          { weight: 1, result: "門彈開的瞬間在你手背上割了一道。車裡的座椅都爛了,行李架上倒是有一只沒開過的鐵盒——幾把還沒鏽透的鐵件。", effect: { kind: "gain", gains: { iron: 5 }, hp: -5 } },
           { weight: 1, result: "門開了。座椅之間滾出幾顆用油紙包著的子彈,紙都黃了,銅殼還亮。", effect: { kind: "gain", gains: { bullet: 4 } } },
         ],
       },

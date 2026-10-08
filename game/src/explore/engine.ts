@@ -198,7 +198,7 @@ function stateKeyFor(mapId: MapId): string {
 /** 礦車運輸的兩座礦坑(2026-09 用戶定案;煤礦坑=用戶反饋補上):鐵軌距礦坑 ≤1 格(含斜角)即連通,該工種正向產出 ×4 */
 export const RAIL_TARGETS = [
   { id: "mine", flag: "rail-to-mine", mineLabel: "鐵礦坑", job: "鐵礦工", log: "鐵軌接上了礦坑的舊軌道。第一台礦車被推上鐵軌時,整條路都在輕輕震——從今天起,礦石自己會回村了。(鐵礦工產出 ×4)" },
-  { id: "coalmine", flag: "rail-to-coalmine", mineLabel: "煤礦坑", job: "採煤工", log: "鐵軌接上了煤礦坑的舊軌道。礦車推上去時,煤灰從枕木縫裡揚起來——從今天起,煤自己會回村了。(採煤工產出 ×4)" },
+  { id: "coalmine", flag: "rail-to-coalmine", mineLabel: "煤礦坑", job: "採煤工", log: "鐵軌接上了煤礦坑的舊軌道。礦車推上去時,煤灰從枕木縫裡揚起來——(採煤工產出 ×4)" },
 ];
 
 /** 從存檔直接讀中央地圖的鐵軌格(不必掛起遠征視圖);沒存檔回 null */

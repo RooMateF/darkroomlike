@@ -433,7 +433,7 @@ export const EVENTS: VillageEvent[] = [
       {
         label: "回過神來",
         effect: {},
-        resultText: "你甩甩頭站起來。餘火還未熄滅,村莊的日子還得繼續往前走。",
+        resultText: "你甩甩頭站起來。餘火還未熄滅,日子還得繼續往前進。",
       },
     ],
   },

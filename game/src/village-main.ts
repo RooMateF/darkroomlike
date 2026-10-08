@@ -221,7 +221,7 @@ function startVillage() {
   function renderTutorialInvite() {
     const title = overlayEl.querySelector<HTMLDivElement>(".event-title")!;
     title.textContent = "她";
-    overlayTextEl.textContent = "「出去之前,先陪我練一場好嗎?我想親眼看看你站不站得穩。」";
+    overlayTextEl.textContent = "「出去之前要先跟我對練一場嗎?」她拿起地上的木刀英姿颯爽的擺出了架式。「雖然我出不了營地,但我也算是蠻厲害的喔!」";
     overlayOptionsEl.innerHTML = "";
     const yes = document.createElement("button");
     yes.className = "btn ready";
@@ -1739,11 +1739,10 @@ function startVillage() {
     const tips = REVIVAL_TIPS[deathCause] ?? REVIVAL_TIPS.combat;
     const idxKey = `revival-tip-${deathCause}`;
     const idx = Number(localStorage.getItem(idxKey) ?? "0");
-    // 占卜紙人的結果(carried.ts loseCarriedOnDeath):"1"=行囊保住、"0"=裝著但沒替到、沒有=沒裝
+    // 占卜紙人的結果(carried.ts loseCarriedOnDeath):"1"=行囊保住(改口:只是一場夢);其餘照固定句(用戶定案:沒保住時不加字)
     const kept = localStorage.getItem(DEATH_GEAR_KEPT_KEY);
     localStorage.removeItem(DEATH_GEAR_KEPT_KEY);
-    if (kept === "1") appendLog("你在營地的火堆旁醒來。行囊就擱在手邊,一樣也沒少,像是還沒出過門。原本收在衣襟裡的紙人不知什麼時候握在了手裡,腰上多了一道摺痕。");
-    else if (kept === "0") appendLog("你在營地的火堆旁醒來。身上帶出去的東西,一樣也沒能回來。衣襟裡的紙人倒是還在,平平整整的。");
+    if (kept === "1") appendLog("你在營地的火堆旁醒來。行囊仍然在手邊。你冷汗直流,看來這只不過是一場夢,而你也還活著。");
     else appendLog("你在營地的火堆旁醒來。身上帶出去的東西,一樣也沒能回來。");
     appendLog(tips[idx % tips.length]);
     localStorage.setItem(idxKey, String((idx + 1) % tips.length));

@@ -694,7 +694,7 @@ export class CombatEngine {
         this.applyItemField(c);
         for (const t of c.trackers) this.acknowledged.delete(this.key(c.def.id, t.subAction.id));
       }
-      this.cb.onLog({ id: this.logId++, actor: "你", target: `攤開${tracker.subAction.label},低聲念誦起來`, symbol: "~", damage: 0 });
+      this.cb.onLog({ id: this.logId++, actor: "你", target: `攤開${tracker.subAction.label},低聲念誦起來`, symbol: "", damage: 0 });
       this.resume();
       return true;
     }
